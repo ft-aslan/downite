@@ -1,7 +1,7 @@
 package torrent
 
 import (
-	peerclient "downite/download/torrent/peer_client"
+	"downite/download/torrent/peer"
 	"downite/download/torrent/tracker"
 	"fmt"
 	"io"
@@ -15,21 +15,6 @@ import (
 )
 
 const alphanumericCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-type PeerStatus int
-
-const (
-	PeerStatusConnecting   PeerStatus = iota // Peer is in the process of establishing a connection
-	PeerStatusHandshake                      // Handshake initiated, waiting for peer's handshake
-	PeerStatusBitfield                       // Handshake completed, waiting for peer's bitfield
-	PeerStatusChoked                         // Peer has choked the connection, no data exchange
-	PeerStatusInterested                     // Peer is interested in our data, waiting to unchoke
-	PeerStatusUnchoked                       // Peer has been unchoked, data exchange allowed
-	PeerStatusRequesting                     // Requesting pieces from peer
-	PeerStatusDownloading                    // Downloading data from peer
-	PeerStatusSeeding                        // Uploading data to peer
-	PeerStatusDisconnected                   // Connection has been terminated
-)
 
 type TorrentStatus int
 
@@ -48,26 +33,19 @@ type PieceProgress struct {
 	Hash                [20]byte // pub requested: u32,
 }
 
-type Peer struct {
-	Address     tracker.PeerAddress
-	FullAddress string
-	Status      PeerStatus
-	Country     string
-}
-
 type Torrent struct {
 	OurPeerId            string
 	TorrentFile          TorrentFile
 	InfoHash             string   // hash of info field.
 	InfoHashHex          [20]byte //decoded hexadecimal representation of info field hash in bytes
 	Bitfield             []byte
-	PieceProgresses      []*PieceProgress
+	PieceProgresses      []PieceProgress
 	Status               TorrentStatus
 	DownloadedPieceCount uint32
 	TotalPieceCount      uint32
 	Length               uint32
 	PieceLength          uint32
-	Peers                map[string]Peer
+	Peers                map[string]peer.Peer
 }
 
 func New(torrentFilePath string) (*Torrent, error) {
@@ -121,7 +99,7 @@ func New(torrentFilePath string) (*Torrent, error) {
 		Status:               TorrentStatusPaused,
 		DownloadedPieceCount: 0,
 		TotalPieceCount:      uint32(len(pieceHashes)),
-		Peers:                make(map[string]Peer),
+		Peers:                make(map[string]peer.Peer),
 	}
 
 	pieceProgresses := make([]PieceProgress, len(pieceHashes))
@@ -140,6 +118,9 @@ func New(torrentFilePath string) (*Torrent, error) {
 	return &torrent, nil
 }
 
+// buildTrackerUrl builds a tracker URL for the Torrent.
+//
+// It takes a trackerAddress string and ourPort uint16 as parameters and returns a *url.URL and an error.
 func (t *Torrent) buildTrackerUrl(trackerAddress string, ourPort uint16) (*url.URL, error) {
 	trackerUrl, err := url.Parse(trackerAddress)
 	if err != nil {
@@ -181,7 +162,7 @@ func (t *Torrent) createPeers(peerAddresses []tracker.PeerAddress) {
 	for _, peerAddress := range peerAddresses {
 		fullPeerAddress := peerAddress.Ip + ":" + strconv.Itoa(int(peerAddress.Port))
 
-		t.Peers[fullPeerAddress] = Peer{Address: peerAddress, FullAddress: fullPeerAddress, Status: PeerStatusDisconnected, Country: ""}
+		t.Peers[fullPeerAddress] = peer.New(peerAddress, fullPeerAddress, peer.PeerStatusDisconnected, "")
 	}
 }
 
@@ -204,7 +185,7 @@ func (t *Torrent) createPeerWorkers() {
 	results := make(chan *PieceProgress)
 
 	for _, pieceProgress := range t.PieceProgresses {
-		pieceWorkQueue <- pieceProgress
+		pieceWorkQueue <- &pieceProgress
 	}
 
 	for _, peer := range t.Peers {
@@ -244,6 +225,10 @@ func (t *Torrent) createPeerWorkers() {
 	}
 }
 
-func (t *Torrent) startPeerWorker(peer Peer, pieceWorks chan *PieceProgress, results chan *PieceProgress) {
-	peerclient.New()
+func (t *Torrent) startPeerWorker(peer peer.Peer, pieceWorks chan *PieceProgress, results chan *PieceProgress) {
+	peer.NewClient(
+		t.InfoHash,
+		int(t.TotalPieceCount),
+		t.OurPeerId,
+	)
 }

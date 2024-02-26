@@ -27,7 +27,7 @@ func New(infoHash [20]byte, ourPeerId [20]byte) *Handshake {
 	}
 }
 
-func (h *Handshake) serialize() []byte {
+func (h *Handshake) Serialize() []byte {
 	buffer := make([]byte, len(h.pstr)+49)
 	buffer[0] = byte(len(h.pstr))
 	currentIndex := 1
