@@ -2,7 +2,10 @@ package peer
 
 import (
 	"downite/download/torrent/handshake"
+	"downite/download/torrent/message"
 	"downite/download/torrent/tracker"
+	"encoding/binary"
+	"errors"
 	"net"
 	"time"
 )
@@ -10,16 +13,16 @@ import (
 type PeerStatus int
 
 const (
-	PeerStatusConnecting   PeerStatus = iota // Peer is in the process of establishing a connection
-	PeerStatusHandshake                      // Handshake initiated, waiting for peer's handshake
-	PeerStatusBitfield                       // Handshake completed, waiting for peer's bitfield
-	PeerStatusChoked                         // Peer has choked the connection, no data exchange
-	PeerStatusInterested                     // Peer is interested in our data, waiting to unchoke
-	PeerStatusUnchoked                       // Peer has been unchoked, data exchange allowed
-	PeerStatusRequesting                     // Requesting pieces from peer
-	PeerStatusDownloading                    // Downloading data from peer
-	PeerStatusSeeding                        // Uploading data to peer
-	PeerStatusDisconnected                   // Connection has been terminated
+	StatusConnecting   PeerStatus = iota // Peer is in the process of establishing a connection
+	StatusHandshake                      // Handshake initiated, waiting for peer's handshake
+	StatusBitfield                       // Handshake completed, waiting for peer's bitfield
+	StatusChoked                         // Peer has choked the connection, no data exchange
+	StatusInterested                     // Peer is interested in our data, waiting to unchoke
+	StatusUnchoked                       // Peer has been unchoked, data exchange allowed
+	StatusRequesting                     // Requesting pieces from peer
+	StatusDownloading                    // Downloading data from peer
+	StatusSeeding                        // Uploading data to peer
+	StatusDisconnected                   // Connection has been terminated
 )
 
 type Peer struct {
@@ -47,6 +50,7 @@ func (peer *Peer) NewClient(
 	infoHash [20]byte,
 	totalPieceCount int,
 	ourPeerId [20]byte,
+	bitfield []byte,
 ) (*PeerClient, error) {
 
 	tcpConnection, err := net.DialTimeout("tcp", peer.FullAddress, 3*time.Second)
@@ -61,12 +65,33 @@ func (peer *Peer) NewClient(
 		return nil, err
 	}
 
-	return &PeerClient{
+	peerClient := &PeerClient{
 		tcpConnection: tcpConnection,
 		peer:          *peer,
 		choked:        true,
 		bitfield:      make([]byte, 0, totalPieceCount),
-	}, nil
+	}
+
+	message, err := peerClient.ReadMessage()
+	if err != nil {
+		return nil, err
+	}
+
+	bitfieldMessage, err := message.ParseBitfieldMessage()
+	if err != nil {
+		return nil, err
+	}
+	peerClient.bitfield = bitfieldMessage.Bitfield
+
+	// message, err = message.NewBitfieldMessage(bitfield)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// _, err = tcpConnection.Write(message.Serialize())
+	// if err != nil {
+	// 	return nil, err
+	// }
+	return peerClient, nil
 }
 
 func handshakeWithPeer(
@@ -86,4 +111,39 @@ func handshakeWithPeer(
 		return nil, err
 	}
 	return h, nil
+}
+func (peer *PeerClient) ReadMessage() (*message.Message, error) {
+
+	// Read the length
+	lengthBuffer := make([]byte, 4)
+	_, err := peer.tcpConnection.Read(lengthBuffer)
+	length := binary.BigEndian.Uint32(lengthBuffer)
+	if err != nil {
+		return nil, err
+	}
+	if length == 0 {
+		//its keep-alive message
+		return nil, err
+	}
+
+	// Read message ID
+	messageIdBuffer := make([]byte, 1)
+	_, err = peer.tcpConnection.Read(messageIdBuffer)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := make([]byte, length-1)
+	if length > 1 {
+		_, err = peer.tcpConnection.Read(payload)
+		if err != nil {
+			return nil, err
+		}
+		return &message.Message{
+			Id:      message.MessageId(messageIdBuffer[0]),
+			Payload: payload,
+		}, nil
+	}
+
+	return nil, errors.New("unsupported message")
 }

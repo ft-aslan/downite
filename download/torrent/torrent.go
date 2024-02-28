@@ -34,9 +34,9 @@ type PieceProgress struct {
 }
 
 type Torrent struct {
-	OurPeerId            string
+	OurPeerId            [20]byte
 	TorrentFile          TorrentFile
-	InfoHash             string   // hash of info field.
+	InfoHash             [20]byte // hash of info field.
 	InfoHashHex          [20]byte //decoded hexadecimal representation of info field hash in bytes
 	Bitfield             []byte
 	PieceProgresses      []PieceProgress
@@ -155,6 +155,8 @@ func (t *Torrent) DownloadTorrent() error {
 
 	t.createPeers(tracker.Peers)
 
+	t.createPeerWorkers()
+
 	return nil
 }
 
@@ -226,9 +228,13 @@ func (t *Torrent) createPeerWorkers() {
 }
 
 func (t *Torrent) startPeerWorker(peer peer.Peer, pieceWorks chan *PieceProgress, results chan *PieceProgress) {
-	peer.NewClient(
+	peerClient, err := peer.NewClient(
 		t.InfoHash,
 		int(t.TotalPieceCount),
 		t.OurPeerId,
+		t.Bitfield,
 	)
+	if err != nil {
+		return
+	}
 }
