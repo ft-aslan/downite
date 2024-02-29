@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"downite/download/torrent/bitfield"
 	"downite/download/torrent/handshake"
 	"downite/download/torrent/message"
 	"downite/download/torrent/tracker"
@@ -35,7 +36,7 @@ type PeerClient struct {
 	tcpConnection net.Conn
 	choked        bool
 	peer          Peer
-	bitfield      []byte
+	Bitfield      bitfield.Bitfield
 }
 
 func New(address tracker.PeerAddress, fullAddress string, status PeerStatus, country string) Peer {
@@ -69,28 +70,26 @@ func (peer *Peer) NewClient(
 		tcpConnection: tcpConnection,
 		peer:          *peer,
 		choked:        true,
-		bitfield:      make([]byte, 0, totalPieceCount),
+		Bitfield:      make([]byte, 0, totalPieceCount),
 	}
 
-	message, err := peerClient.ReadMessage()
+	msg, err := peerClient.ReadMessage()
 	if err != nil {
 		return nil, err
 	}
 
-	bitfieldMessage, err := message.ParseBitfieldMessage()
+	bitfieldMessage, err := msg.ParseBitfieldMessage()
 	if err != nil {
 		return nil, err
 	}
-	peerClient.bitfield = bitfieldMessage.Bitfield
+	peerClient.Bitfield = bitfieldMessage.Bitfield
 
-	// message, err = message.NewBitfieldMessage(bitfield)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// _, err = tcpConnection.Write(message.Serialize())
-	// if err != nil {
-	// 	return nil, err
-	// }
+	msg = message.NewBitfieldMessage(peerClient.Bitfield)
+	_, err = tcpConnection.Write(msg.Serialize())
+
+	if err != nil {
+		return nil, err
+	}
 	return peerClient, nil
 }
 
@@ -111,6 +110,14 @@ func handshakeWithPeer(
 		return nil, err
 	}
 	return h, nil
+}
+
+func (peer *PeerClient) SendMessage(message *message.Message) error {
+	_, err := peer.tcpConnection.Write(message.Serialize())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 func (peer *PeerClient) ReadMessage() (*message.Message, error) {
 

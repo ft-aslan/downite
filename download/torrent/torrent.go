@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"downite/download/torrent/message"
 	"downite/download/torrent/peer"
 	"downite/download/torrent/tracker"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"time"
 )
 
+const defaultPieceLength = uint32(16384)
 const alphanumericCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type TorrentStatus int
@@ -65,14 +67,17 @@ func New(torrentFilePath string) (*Torrent, error) {
 		return nil, err
 	}
 
-	peerIdHead := "-DN0001-"
+	// Create our peer id
+	peerIdHead := []byte("-DN0001-")
 	// Create a random number generator
 	peerIdRngString := make([]byte, 12)
 	for _, i := range peerIdRngString {
 		peerIdRngString[i] = alphanumericCharset[random.Intn(len(alphanumericCharset))]
 	}
-	//append with head
-	ourPeerId := peerIdHead + string(peerIdRngString)
+
+	ourPeerId := [20]byte{}
+	copy(ourPeerId[:], peerIdHead)
+	copy(ourPeerId[12:], peerIdRngString)
 
 	bitfield := make([]byte, 0, len(torrentFile.Info.Pieces)/8)
 
@@ -92,8 +97,7 @@ func New(torrentFilePath string) (*Torrent, error) {
 	torrent := Torrent{
 		OurPeerId:            ourPeerId,
 		Bitfield:             bitfield,
-		InfoHashHex:          infoHash,
-		InfoHash:             string(infoHash[:]),
+		InfoHash:             infoHash,
 		TorrentFile:          *torrentFile,
 		PieceProgresses:      make([]PieceProgress, len(pieceHashes)),
 		Status:               TorrentStatusPaused,
@@ -102,10 +106,9 @@ func New(torrentFilePath string) (*Torrent, error) {
 		Peers:                make(map[string]peer.Peer),
 	}
 
-	pieceProgresses := make([]PieceProgress, len(pieceHashes))
 	for i, hash := range pieceHashes {
 		length := torrent.calculatePieceSize(uint32(i))
-		pieceProgresses = append(pieceProgresses, PieceProgress{
+		torrent.PieceProgresses = append(torrent.PieceProgresses, PieceProgress{
 			Buffer:              make([]byte, 0, length),
 			Index:               uint32(i),
 			DownloadedByteCount: 0,
@@ -164,7 +167,7 @@ func (t *Torrent) createPeers(peerAddresses []tracker.PeerAddress) {
 	for _, peerAddress := range peerAddresses {
 		fullPeerAddress := peerAddress.Ip + ":" + strconv.Itoa(int(peerAddress.Port))
 
-		t.Peers[fullPeerAddress] = peer.New(peerAddress, fullPeerAddress, peer.PeerStatusDisconnected, "")
+		t.Peers[fullPeerAddress] = peer.New(peerAddress, fullPeerAddress, peer.StatusDisconnected, "")
 	}
 }
 
@@ -236,5 +239,43 @@ func (t *Torrent) startPeerWorker(peer peer.Peer, pieceWorks chan *PieceProgress
 	)
 	if err != nil {
 		return
+	}
+
+	peerClient.SendMessage(message.NewMessage(message.IdUnchoke))
+	peerClient.SendMessage(message.NewMessage(message.IdInterested))
+
+	for work := range pieceWorks {
+		if !peerClient.Bitfield.GetPiece(work.Index) {
+			pieceWorks <- work
+			continue
+		}
+		for work.RequestedByteCount < work.Length {
+			requestLength := defaultPieceLength
+
+			leftByteCount := work.Length - work.RequestedByteCount
+			if leftByteCount < defaultPieceLength {
+				requestLength = leftByteCount
+			}
+
+			peerClient.SendMessage(
+				message.NewRequestMessage(
+					work.Index,
+					work.RequestedByteCount,
+					requestLength,
+				),
+			)
+			work.RequestedByteCount += requestLength
+		}
+		for work.DownloadedByteCount < work.Length {
+			msg, err := peerClient.ReadMessage()
+			pieceMessage, err := msg.ParsePieceMessage()
+			if err != nil {
+				continue
+			}
+			work.DownloadedByteCount += uint32(len(pieceMessage.Block))
+			copy(work.Buffer[pieceMessage.Begin:], pieceMessage.Block)
+			results <- work
+
+		}
 	}
 }

@@ -8,15 +8,15 @@ import (
 type MessageId uint8
 
 const (
-	MessageChoke MessageId = iota
-	MessageUnchoke
-	MessageInterested
-	MessageNotInterested
-	MessageHave
-	MessageBitfield
-	MessageRequest
-	MessagePiece
-	MessageCancel
+	IdChoke MessageId = iota
+	IdUnchoke
+	IdInterested
+	IdNotInterested
+	IdHave
+	IdBitfield
+	IdRequest
+	IdPiece
+	IdCancel
 )
 
 type Message struct {
@@ -47,6 +47,55 @@ type BitfieldMessage struct {
 	Bitfield []byte
 }
 
+func NewMessage(messageId MessageId) *Message {
+	return &Message{
+		Id: messageId,
+	}
+}
+func (m *Message) Serialize() []byte {
+	if m == nil {
+		return make([]byte, 4)
+	}
+	// <length prefix><message ID><payload>
+	buffer := make([]byte, 4+1+len(m.Payload))
+	binary.BigEndian.AppendUint32(buffer[:4], uint32(1+len(m.Payload)))
+	buffer[4] = byte(m.Id)
+	copy(buffer[5:], m.Payload)
+	return buffer
+}
+
+func NewBitfieldMessage(bitfield []byte) *Message {
+	return &Message{
+		Id:      IdBitfield,
+		Payload: bitfield,
+	}
+}
+func NewRequestMessage(index uint32, begin uint32, length uint32) *Message {
+	payload := make([]byte, 12)
+	binary.BigEndian.PutUint32(payload[:4], index)
+	binary.BigEndian.PutUint32(payload[4:8], begin)
+	binary.BigEndian.PutUint32(payload[8:], length)
+
+	return &Message{
+		Id:      IdRequest,
+		Payload: payload,
+	}
+}
+func NewPieceMessage(index uint32, begin uint32, block []byte) *Message {
+	payload := make([]byte, 8+len(block))
+	binary.BigEndian.PutUint32(payload[:4], index)
+	binary.BigEndian.PutUint32(payload[4:8], begin)
+
+	copy(payload[8:], block)
+
+	return &Message{
+		Id:      IdPiece,
+		Payload: payload,
+	}
+}
+func NewCancelMessage(index uint32, begin uint32, length uint32) *Message {
+	return NewRequestMessage(index, begin, length)
+}
 func (m *Message) ParsePortMessage() (PortMessage, error) {
 	if len(m.Payload) < 2 {
 		return PortMessage{}, errors.New("invalid m.Payload length for PortMessage")
