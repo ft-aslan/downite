@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [million.vite({ auto: true }),react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./app"),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
 })
