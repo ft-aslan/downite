@@ -20,6 +20,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
+    "noUncheckedIndexedAccess": true, //this is for openapi-typescript. they recommended it
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"]

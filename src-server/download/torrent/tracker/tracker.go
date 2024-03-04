@@ -23,13 +23,14 @@ type Tracker struct {
 }
 
 func New(trackerUrl *url.URL) (*Tracker, error) {
-	res, err := http.Get(trackerUrl.String())
+	trackerUrlString := trackerUrl.String()
+	res, err := http.Get(trackerUrlString)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	announceRes := AnnounceResponse{}
+	announceRes := &AnnounceResponse{}
 	err = bencode.Unmarshal(res.Body, announceRes)
 	if err != nil {
 		return nil, err

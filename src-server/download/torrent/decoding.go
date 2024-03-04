@@ -23,18 +23,18 @@ type TorrentFile struct {
 
 type TorrentFileInfo struct {
 	PieceLength uint32 `bencode:"piece length"`
-	Pieces      []byte `bencode:"pieces"` //its array of 20 byte sha1 arrays
+	Pieces      string `bencode:"pieces"` //its array of 20 byte sha1 arrays
 	Name        string `bencode:"name"`
 	FileLength  uint64 `bencode:"length"`
 }
 
 func DecodeTorrentFile(torrent_file_reader io.Reader) (*TorrentFile, error) {
-	torrent := TorrentFile{}
+	torrent := &TorrentFile{}
 	err := bencode.Unmarshal(torrent_file_reader, torrent)
 	if err != nil {
 		return nil, err
 	}
-	return &torrent, nil
+	return torrent, nil
 }
 
 // convert info field to sha1 hash

@@ -36,10 +36,10 @@ type PieceProgress struct {
 }
 
 type Torrent struct {
+	id                   string
 	OurPeerId            [20]byte
 	TorrentFile          TorrentFile
 	InfoHash             [20]byte // hash of info field.
-	InfoHashHex          [20]byte //decoded hexadecimal representation of info field hash in bytes
 	Bitfield             []byte
 	PieceProgresses      []PieceProgress
 	Status               TorrentStatus
@@ -51,8 +51,6 @@ type Torrent struct {
 }
 
 func New(torrentFilePath string) (*Torrent, error) {
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	// Open the torrent rawFile
 	raw_file, err := os.Open(torrentFilePath)
 	if err != nil {
@@ -68,16 +66,18 @@ func New(torrentFilePath string) (*Torrent, error) {
 	}
 
 	// Create our peer id
+	//random generator for our peer id
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 	peerIdHead := []byte("-DN0001-")
 	// Create a random number generator
 	peerIdRngString := make([]byte, 12)
-	for _, i := range peerIdRngString {
+	for i := range peerIdRngString {
 		peerIdRngString[i] = alphanumericCharset[random.Intn(len(alphanumericCharset))]
 	}
 
 	ourPeerId := [20]byte{}
-	copy(ourPeerId[:], peerIdHead)
-	copy(ourPeerId[12:], peerIdRngString)
+	copy(ourPeerId[:8], peerIdHead)
+	copy(ourPeerId[8:], peerIdRngString)
 
 	bitfield := make([]byte, 0, len(torrentFile.Info.Pieces)/8)
 
@@ -99,7 +99,7 @@ func New(torrentFilePath string) (*Torrent, error) {
 		Bitfield:             bitfield,
 		InfoHash:             infoHash,
 		TorrentFile:          *torrentFile,
-		PieceProgresses:      make([]PieceProgress, len(pieceHashes)),
+		PieceProgresses:      []PieceProgress{},
 		Status:               TorrentStatusPaused,
 		DownloadedPieceCount: 0,
 		TotalPieceCount:      uint32(len(pieceHashes)),
@@ -136,7 +136,7 @@ func (t *Torrent) buildTrackerUrl(trackerAddress string, ourPort uint16) (*url.U
 		"port":       []string{strconv.Itoa(int(ourPort))},
 		"uploaded":   []string{"0"},
 		"downloaded": []string{"0"},
-		"compact":    []string{"0"},
+		"compact":    []string{"1"},
 		"left":       []string{strconv.Itoa(int(t.Length))},
 	}
 
@@ -268,6 +268,9 @@ func (t *Torrent) startPeerWorker(peer peer.Peer, pieceWorks chan *PieceProgress
 		}
 		for work.DownloadedByteCount < work.Length {
 			msg, err := peerClient.ReadMessage()
+			if err != nil {
+				continue
+			}
 			pieceMessage, err := msg.ParsePieceMessage()
 			if err != nil {
 				continue

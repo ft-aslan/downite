@@ -4,13 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm-run-all --parallel vite openapi-watch",
+    "vite": "vite",
+    "openapi-watch": "nodemon --watch ./src-server/doc --exec \"bun run openapi-gen\"",
+    "test": "vitest",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "openapi-gen": "bun x openapi-typescript ./src-server/doc/openapi.json -o ./src/api/v1.d.ts",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@million/lint": "latest",
+    "@million/lint": "^0.0.64",
     "@radix-ui/react-accordion": "^1.1.2",
     "@radix-ui/react-alert-dialog": "^1.0.5",
     "@radix-ui/react-checkbox": "^1.0.4",
@@ -47,7 +51,6 @@
     "react-resizable-panels": "^2.0.11",
     "react-router-dom": "^6.22.2",
     "sonner": "^1.4.3",
-    "swr": "^2.2.5",
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",
     "vitest": "^1.3.1",
