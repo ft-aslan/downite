@@ -51,7 +51,7 @@ func Read(reader io.Reader) (*Handshake, error) {
 		err := fmt.Errorf("pstrlen cannot be 0")
 		return nil, err
 	}
-	handshakeBuffer := make([]byte, 48+pstrlen)
+	handshakeBuffer := make([]byte, pstrlen+48)
 	_, err = io.ReadFull(reader, handshakeBuffer)
 	if err != nil {
 		return nil, err
@@ -59,8 +59,9 @@ func Read(reader io.Reader) (*Handshake, error) {
 
 	// Verify handshake message
 	// pstr is BitTorrent protocol
-	// pstrlen is length of ptstr. its always 19 bytes
-	pstr := handshakeBuffer[1 : pstrlen+1]
+	// pstrlen is length of ptstr. its always 19 bytes if its bittorrent protocol version 1
+	// we don't include ptsrlen. Because we already read it
+	pstr := handshakeBuffer[0:pstrlen]
 	if string(pstr) != "BitTorrent protocol" {
 		err := fmt.Errorf("peer is not using BitTorrent protocol")
 		return nil, err

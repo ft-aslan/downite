@@ -33,7 +33,7 @@ type Peer struct {
 	Country     string
 }
 type PeerClient struct {
-	tcpConnection net.Conn
+	TcpConnection net.Conn
 	choked        bool
 	peer          Peer
 	Bitfield      bitfield.Bitfield
@@ -67,7 +67,7 @@ func (peer *Peer) NewClient(
 	}
 
 	peerClient := &PeerClient{
-		tcpConnection: tcpConnection,
+		TcpConnection: tcpConnection,
 		peer:          *peer,
 		choked:        true,
 		Bitfield:      make([]byte, 0, totalPieceCount),
@@ -113,7 +113,7 @@ func handshakeWithPeer(
 }
 
 func (peer *PeerClient) SendMessage(message *message.Message) error {
-	_, err := peer.tcpConnection.Write(message.Serialize())
+	_, err := peer.TcpConnection.Write(message.Serialize())
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (peer *PeerClient) ReadMessage() (*message.Message, error) {
 
 	// Read the length
 	lengthBuffer := make([]byte, 4)
-	_, err := peer.tcpConnection.Read(lengthBuffer)
+	_, err := peer.TcpConnection.Read(lengthBuffer)
 	length := binary.BigEndian.Uint32(lengthBuffer)
 	if err != nil {
 		return nil, err
@@ -135,14 +135,14 @@ func (peer *PeerClient) ReadMessage() (*message.Message, error) {
 
 	// Read message ID
 	messageIdBuffer := make([]byte, 1)
-	_, err = peer.tcpConnection.Read(messageIdBuffer)
+	_, err = peer.TcpConnection.Read(messageIdBuffer)
 	if err != nil {
 		return nil, err
 	}
 
 	payload := make([]byte, length-1)
 	if length > 1 {
-		_, err = peer.tcpConnection.Read(payload)
+		_, err = peer.TcpConnection.Read(payload)
 		if err != nil {
 			return nil, err
 		}

@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"downite/download/torrent/bitfield"
 	"downite/download/torrent/message"
 	"downite/download/torrent/peer"
 	"downite/download/torrent/tracker"
@@ -40,7 +41,7 @@ type Torrent struct {
 	OurPeerId            [20]byte
 	TorrentFile          TorrentFile
 	InfoHash             [20]byte // hash of info field.
-	Bitfield             []byte
+	Bitfield             bitfield.Bitfield
 	PieceProgresses      []PieceProgress
 	Status               TorrentStatus
 	DownloadedPieceCount uint32
@@ -87,7 +88,7 @@ func New(torrentFilePath string) (*Torrent, error) {
 		return nil, err
 	}
 
-	//convert info field to sha1 hash
+	//split pieces into 20 byte hashes
 	pieceHashes, err := torrentFile.Info.splitPieceHashes()
 	if err != nil {
 		return nil, err
@@ -104,6 +105,8 @@ func New(torrentFilePath string) (*Torrent, error) {
 		DownloadedPieceCount: 0,
 		TotalPieceCount:      uint32(len(pieceHashes)),
 		Peers:                make(map[string]peer.Peer),
+		PieceLength:          torrentFile.Info.PieceLength,
+		Length:               torrentFile.Info.FileLength,
 	}
 
 	for i, hash := range pieceHashes {
@@ -136,8 +139,8 @@ func (t *Torrent) buildTrackerUrl(trackerAddress string, ourPort uint16) (*url.U
 		"port":       []string{strconv.Itoa(int(ourPort))},
 		"uploaded":   []string{"0"},
 		"downloaded": []string{"0"},
-		"compact":    []string{"1"},
-		"left":       []string{strconv.Itoa(int(t.Length))},
+		// "compact":    []string{"1"},
+		"left": []string{strconv.Itoa(int(t.Length))},
 	}
 
 	trackerUrl.RawQuery = params.Encode()
@@ -171,16 +174,16 @@ func (t *Torrent) createPeers(peerAddresses []tracker.PeerAddress) {
 	}
 }
 
-func (t *Torrent) calculateBoundsForPiece(index uint32) (begin uint32, end uint32) {
-	begin = index * t.PieceLength
-	end = begin + t.PieceLength
+func (t *Torrent) calculateBoundsForPiece(index uint32) (begin uint64, end uint64) {
+	begin = uint64(index * t.PieceLength)
+	end = begin + uint64(t.PieceLength)
 	if end > t.Length {
 		end = t.Length
 	}
 	return begin, end
 }
 
-func (t *Torrent) calculatePieceSize(index uint32) uint32 {
+func (t *Torrent) calculatePieceSize(index uint32) uint64 {
 	begin, end := t.calculateBoundsForPiece(index)
 	return end - begin
 }
@@ -223,6 +226,7 @@ func (t *Torrent) createPeerWorkers() {
 		}
 
 		donePieces++
+		t.Bitfield.SetPiece(result.Index)
 
 		percent := float64(donePieces) / float64(t.TotalPieceCount) * 100
 		numWorkers := runtime.NumGoroutine() - 1 // subtract 1 for main thread
@@ -243,6 +247,9 @@ func (t *Torrent) startPeerWorker(peer peer.Peer, pieceWorks chan *PieceProgress
 
 	peerClient.SendMessage(message.NewMessage(message.IdUnchoke))
 	peerClient.SendMessage(message.NewMessage(message.IdInterested))
+
+	peerClient.TcpConnection.SetDeadline(time.Now().Add(30 * time.Second))
+	defer peerClient.TcpConnection.SetDeadline(time.Time{}) // Disable the deadline
 
 	for work := range pieceWorks {
 		if !peerClient.Bitfield.GetPiece(work.Index) {
