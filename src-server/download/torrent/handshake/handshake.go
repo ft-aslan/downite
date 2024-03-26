@@ -13,28 +13,28 @@ HANDSHAKE IS <pstrlen><pstr><reserved><info_hash><peer_id>
 pstr is string identifier of the protocol and it may not be BitTorrent protocol and it may not be 19 byte. So check for pstrlen. Its the length of pstr
 */
 type Handshake struct {
-	//pstr is string identifier of the protocol
-	pstr     []byte
-	infoHash [20]byte
-	peerId   [20]byte
+	//Pstr is string identifier of the protocol
+	Pstr     []byte
+	InfoHash [20]byte
+	PeerId   [20]byte
 }
 
 func New(infoHash [20]byte, ourPeerId [20]byte) *Handshake {
 	return &Handshake{
-		pstr:     []byte("BitTorrent protocol"),
-		infoHash: infoHash,
-		peerId:   ourPeerId,
+		Pstr:     []byte("BitTorrent protocol"),
+		InfoHash: infoHash,
+		PeerId:   ourPeerId,
 	}
 }
 
 func (h *Handshake) Serialize() []byte {
-	buffer := make([]byte, len(h.pstr)+49)
-	buffer[0] = byte(len(h.pstr))
+	buffer := make([]byte, len(h.Pstr)+49)
+	buffer[0] = byte(len(h.Pstr))
 	currentIndex := 1
-	currentIndex += copy(buffer[currentIndex:], h.pstr)
+	currentIndex += copy(buffer[currentIndex:], h.Pstr)
 	currentIndex += copy(buffer[currentIndex:], make([]byte, 8)) // 8 reserved bytes
-	currentIndex += copy(buffer[currentIndex:], h.infoHash[:])
-	currentIndex += copy(buffer[currentIndex:], h.peerId[:])
+	currentIndex += copy(buffer[currentIndex:], h.InfoHash[:])
+	currentIndex += copy(buffer[currentIndex:], h.PeerId[:])
 	return buffer
 }
 
@@ -72,9 +72,9 @@ func Read(reader io.Reader) (*Handshake, error) {
 	copy(peerID[:], handshakeBuffer[pstrlen+8+20:])
 
 	h := Handshake{
-		pstr:     pstr,
-		infoHash: infoHash,
-		peerId:   peerID,
+		Pstr:     pstr,
+		InfoHash: infoHash,
+		PeerId:   peerID,
 	}
 
 	return &h, nil

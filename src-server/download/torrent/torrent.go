@@ -19,6 +19,9 @@ import (
 )
 
 const defaultPieceLength = 16384
+
+// MaxBacklog is the number of unfulfilled requests a client can have in its pipeline
+const MaxBacklog = 5
 const alphanumericCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type TorrentStatus int
@@ -34,6 +37,7 @@ type PieceProgress struct {
 	Buffer              []byte
 	DownloadedByteCount int
 	RequestedByteCount  int
+	Backlog             int
 	Length              int
 	Hash                [20]byte // pub requested: u32,
 }
@@ -200,7 +204,7 @@ func (t *Torrent) createPeerWorkers() {
 
 	for _, peer := range t.Peers {
 		go t.startPeerWorker(peer, pieceWorkQueue, results)
-		// break
+		break
 	}
 
 	file, err := os.OpenFile(fmt.Sprintf("./%s", t.TorrentFile.Info.Name), os.O_RDWR|os.O_CREATE, 0644)
@@ -255,6 +259,8 @@ func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProg
 		break
 	}
 
+	defer peerClient.TcpConnection.Close()
+
 	peerClient.SendMessage(message.NewMessage(message.IdUnchoke))
 	peerClient.SendMessage(message.NewMessage(message.IdInterested))
 
@@ -266,36 +272,58 @@ func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProg
 			pieceWorks <- work
 			continue
 		}
-		for work.RequestedByteCount < work.Length {
-			requestLength := defaultPieceLength
 
-			leftByteCount := work.Length - work.RequestedByteCount
-			if leftByteCount < defaultPieceLength {
-				requestLength = leftByteCount
+		for work.DownloadedByteCount < work.Length {
+			if !peerClient.Choked {
+				for work.Backlog < MaxBacklog && work.RequestedByteCount < work.Length {
+					requestLength := defaultPieceLength
+
+					leftByteCount := work.Length - work.RequestedByteCount
+					if leftByteCount < defaultPieceLength {
+						requestLength = leftByteCount
+					}
+
+					peerClient.SendMessage(
+						message.NewRequestMessage(
+							uint32(work.Index),
+							uint32(work.RequestedByteCount),
+							uint32(requestLength),
+						),
+					)
+					work.RequestedByteCount += requestLength
+					work.Backlog++
+				}
 			}
 
-			peerClient.SendMessage(
-				message.NewRequestMessage(
-					uint32(work.Index),
-					uint32(work.RequestedByteCount),
-					uint32(requestLength),
-				),
-			)
-			work.RequestedByteCount += requestLength
-		}
-		for work.DownloadedByteCount < work.Length {
+			// Read what ever message is available from client
 			msg, err := peerClient.ReadMessage()
 			if err != nil {
 				fmt.Println("Error reading message:", err)
 				continue
 			}
-			pieceMessage, err := msg.ParsePieceMessage()
-			if err != nil {
-				continue
-			}
-			work.DownloadedByteCount += len(pieceMessage.Block)
-			copy(work.Buffer[pieceMessage.Begin:], pieceMessage.Block)
 
+			switch msg.Id {
+			case message.IdUnchoke:
+				peerClient.Choked = false
+			case message.IdChoke:
+				peerClient.Choked = true
+			case message.IdHave:
+				haveMsg, err := msg.ParseHaveMessage()
+				if err != nil {
+					// return err
+					continue
+				}
+				peerClient.Bitfield.SetPiece(int(haveMsg.Index))
+			case message.IdPiece:
+				pieceMessage, err := msg.ParsePieceMessage()
+				if err != nil {
+					// return err
+					continue
+				}
+				work.DownloadedByteCount += len(pieceMessage.Block)
+				copy(work.Buffer[pieceMessage.Begin:], pieceMessage.Block)
+				work.Backlog--
+			}
 		}
 		err := checkPieceIntegrity(work)
 		if err != nil {

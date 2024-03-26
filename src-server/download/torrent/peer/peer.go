@@ -1,11 +1,13 @@
 package peer
 
 import (
+	"bytes"
 	"downite/download/torrent/bitfield"
 	"downite/download/torrent/handshake"
 	"downite/download/torrent/message"
 	"downite/download/torrent/tracker"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -34,7 +36,7 @@ type Peer struct {
 }
 type PeerClient struct {
 	TcpConnection net.Conn
-	choked        bool
+	Choked        bool
 	peer          Peer
 	Bitfield      bitfield.Bitfield
 }
@@ -58,9 +60,13 @@ func (peer *Peer) NewClient(
 	if err != nil {
 		return nil, err
 	}
-	handshake := handshake.New(infoHash, ourPeerId)
+
+	tcpConnection.SetDeadline(time.Now().Add(5 * time.Second))
+	defer tcpConnection.SetDeadline(time.Time{}) // Disable the deadline
+
+	handshakeMsg := handshake.New(infoHash, ourPeerId)
 	_, err =
-		handshakeWithPeer(tcpConnection.(*net.TCPConn), handshake.Serialize())
+		handshakeWithPeer(tcpConnection.(*net.TCPConn), handshakeMsg)
 
 	if err != nil {
 		return nil, err
@@ -69,7 +75,7 @@ func (peer *Peer) NewClient(
 	peerClient := &PeerClient{
 		TcpConnection: tcpConnection,
 		peer:          *peer,
-		choked:        true,
+		Choked:        true,
 		Bitfield:      make([]byte, 0, totalPieceCount),
 	}
 
@@ -95,11 +101,9 @@ func (peer *Peer) NewClient(
 
 func handshakeWithPeer(
 	conn *net.TCPConn,
-	handshakeString []byte,
+	handshakeMsg *handshake.Handshake,
 ) (*handshake.Handshake, error) {
-	conn.SetDeadline(time.Now().Add(3 * time.Second))
-	defer conn.SetDeadline(time.Time{}) // Disable the deadline
-
+	handshakeString := handshakeMsg.Serialize()
 	_, err := conn.Write(handshakeString)
 	if err != nil {
 		return nil, err
@@ -108,6 +112,9 @@ func handshakeWithPeer(
 	h, err := handshake.Read(conn)
 	if err != nil {
 		return nil, err
+	}
+	if !bytes.Equal(h.InfoHash[:], handshakeMsg.InfoHash[:]) {
+		return nil, fmt.Errorf("expected infohash %x but got %x", h.InfoHash, handshakeMsg.InfoHash)
 	}
 	return h, nil
 }
@@ -123,6 +130,7 @@ func (peer *PeerClient) ReadMessage() (*message.Message, error) {
 
 	// Read the length
 	lengthBuffer := make([]byte, 4)
+	// _, err := peer.TcpConnection.Read(lengthBuffer)
 	_, err := io.ReadFull(peer.TcpConnection, lengthBuffer)
 	length := binary.BigEndian.Uint32(lengthBuffer)
 	if err != nil {
@@ -130,11 +138,12 @@ func (peer *PeerClient) ReadMessage() (*message.Message, error) {
 	}
 	if length == 0 {
 		//its keep-alive message
-		return nil, err
+		return nil, nil
 	}
 
 	// Read message ID
 	messageIdBuffer := make([]byte, 1)
+	// _, err = peer.TcpConnection.Read(messageIdBuffer)
 	_, err = io.ReadFull(peer.TcpConnection, messageIdBuffer)
 	if err != nil {
 		return nil, err
@@ -142,6 +151,7 @@ func (peer *PeerClient) ReadMessage() (*message.Message, error) {
 
 	payload := make([]byte, length-1)
 	if length > 1 {
+		// _, err = peer.TcpConnection.Read(payload)
 		_, err = io.ReadFull(peer.TcpConnection, payload)
 		if err != nil {
 			return nil, err

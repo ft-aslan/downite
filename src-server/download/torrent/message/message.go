@@ -35,6 +35,9 @@ type CancelMessage struct {
 	Begin  uint32
 	Length uint32
 }
+type HaveMessage struct {
+	Index uint32
+}
 
 type PortMessage struct {
 	Port uint16
@@ -127,6 +130,14 @@ func (m *Message) ParseBitfieldMessage() (BitfieldMessage, error) {
 	}
 	return BitfieldMessage{
 		Bitfield: m.Payload[:],
+	}, nil
+}
+func (m *Message) ParseHaveMessage() (HaveMessage, error) {
+	if len(m.Payload) < 4 {
+		return HaveMessage{}, errors.New("invalid m.Payload length for HaveMessage")
+	}
+	return HaveMessage{
+		Index: binary.BigEndian.Uint32(m.Payload),
 	}, nil
 }
 
