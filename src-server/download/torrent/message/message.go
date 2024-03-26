@@ -17,6 +17,7 @@ const (
 	IdRequest
 	IdPiece
 	IdCancel
+	IdPort
 )
 
 type Message struct {
@@ -58,7 +59,7 @@ func (m *Message) Serialize() []byte {
 	}
 	// <length prefix><message ID><payload>
 	buffer := make([]byte, 4+1+len(m.Payload))
-	binary.BigEndian.AppendUint32(buffer[:4], uint32(1+len(m.Payload)))
+	binary.BigEndian.PutUint32(buffer[:4], uint32(1+len(m.Payload)))
 	buffer[4] = byte(m.Id)
 	copy(buffer[5:], m.Payload)
 	return buffer
@@ -95,6 +96,22 @@ func NewPieceMessage(index uint32, begin uint32, block []byte) *Message {
 }
 func NewCancelMessage(index uint32, begin uint32, length uint32) *Message {
 	return NewRequestMessage(index, begin, length)
+}
+func NewHaveMessage(index uint32) *Message {
+	payload := make([]byte, 4)
+	binary.BigEndian.PutUint32(payload, index)
+	return &Message{
+		Id:      IdHave,
+		Payload: payload,
+	}
+}
+func NewPortMessage(port uint16) *Message {
+	payload := make([]byte, 2)
+	binary.BigEndian.PutUint16(payload, port)
+	return &Message{
+		Id:      IdPort,
+		Payload: payload,
+	}
 }
 func (m *Message) ParsePortMessage() (PortMessage, error) {
 	if len(m.Payload) < 2 {

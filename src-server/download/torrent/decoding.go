@@ -14,7 +14,7 @@ type TorrentFile struct {
 	Announce     string          `bencode:"announce"`
 	AnnounceList [][]string      `bencode:"announce-list"`
 	Comment      string          `bencode:"comment"`
-	CreationDate uint64          `bencode:"creation date"` // not official element
+	CreationDate int             `bencode:"creation date"` // not official element
 	CreatedBy    string          `bencode:"created by"`
 	Encoding     string          `bencode:"encoding"`
 	HttpSeeds    []string        `bencode:"httpseeds"` // not official element
@@ -22,10 +22,10 @@ type TorrentFile struct {
 }
 
 type TorrentFileInfo struct {
-	PieceLength uint32 `bencode:"piece length"`
+	PieceLength int    `bencode:"piece length"`
 	Pieces      string `bencode:"pieces"` //its array of 20 byte sha1 arrays
 	Name        string `bencode:"name"`
-	FileLength  uint64 `bencode:"length"`
+	FileLength  int    `bencode:"length"`
 }
 
 func DecodeTorrentFile(torrent_file_reader io.Reader) (*TorrentFile, error) {

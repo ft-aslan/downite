@@ -1,6 +1,8 @@
 package torrent
 
 import (
+	"bytes"
+	"crypto/sha1"
 	"downite/download/torrent/bitfield"
 	"downite/download/torrent/message"
 	"downite/download/torrent/peer"
@@ -16,7 +18,7 @@ import (
 	"time"
 )
 
-const defaultPieceLength = uint32(16384)
+const defaultPieceLength = 16384
 const alphanumericCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type TorrentStatus int
@@ -28,11 +30,11 @@ const (
 )
 
 type PieceProgress struct {
-	Index               uint32
+	Index               int
 	Buffer              []byte
-	DownloadedByteCount uint32
-	RequestedByteCount  uint32
-	Length              uint32
+	DownloadedByteCount int
+	RequestedByteCount  int
+	Length              int
 	Hash                [20]byte // pub requested: u32,
 }
 
@@ -44,10 +46,10 @@ type Torrent struct {
 	Bitfield             bitfield.Bitfield
 	PieceProgresses      []PieceProgress
 	Status               TorrentStatus
-	DownloadedPieceCount uint32
-	TotalPieceCount      uint32
-	Length               uint32
-	PieceLength          uint32
+	DownloadedPieceCount int
+	TotalPieceCount      int
+	Length               int
+	PieceLength          int
 	Peers                map[string]peer.Peer
 }
 
@@ -103,17 +105,17 @@ func New(torrentFilePath string) (*Torrent, error) {
 		PieceProgresses:      []PieceProgress{},
 		Status:               TorrentStatusPaused,
 		DownloadedPieceCount: 0,
-		TotalPieceCount:      uint32(len(pieceHashes)),
+		TotalPieceCount:      len(pieceHashes),
 		Peers:                make(map[string]peer.Peer),
 		PieceLength:          torrentFile.Info.PieceLength,
 		Length:               torrentFile.Info.FileLength,
 	}
 
 	for i, hash := range pieceHashes {
-		length := torrent.calculatePieceSize(uint32(i))
+		length := torrent.calculatePieceSize(i)
 		torrent.PieceProgresses = append(torrent.PieceProgresses, PieceProgress{
-			Buffer:              make([]byte, 0, length),
-			Index:               uint32(i),
+			Buffer:              make([]byte, length),
+			Index:               i,
 			DownloadedByteCount: 0,
 			RequestedByteCount:  0,
 			Length:              length,
@@ -174,16 +176,16 @@ func (t *Torrent) createPeers(peerAddresses []tracker.PeerAddress) {
 	}
 }
 
-func (t *Torrent) calculateBoundsForPiece(index uint32) (begin uint64, end uint64) {
-	begin = uint64(index * t.PieceLength)
-	end = begin + uint64(t.PieceLength)
+func (t *Torrent) calculateBoundsForPiece(index int) (begin int, end int) {
+	begin = index * t.PieceLength
+	end = begin + t.PieceLength
 	if end > t.Length {
 		end = t.Length
 	}
 	return begin, end
 }
 
-func (t *Torrent) calculatePieceSize(index uint32) uint64 {
+func (t *Torrent) calculatePieceSize(index int) int {
 	begin, end := t.calculateBoundsForPiece(index)
 	return end - begin
 }
@@ -198,9 +200,9 @@ func (t *Torrent) createPeerWorkers() {
 
 	for _, peer := range t.Peers {
 		go t.startPeerWorker(peer, pieceWorkQueue, results)
+		// break
 	}
 
-	//open file for writing pieces
 	file, err := os.OpenFile(fmt.Sprintf("./%s", t.TorrentFile.Info.Name), os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatal(err)
@@ -234,15 +236,23 @@ func (t *Torrent) createPeerWorkers() {
 	}
 }
 
-func (t *Torrent) startPeerWorker(peer peer.Peer, pieceWorks chan *PieceProgress, results chan *PieceProgress) {
-	peerClient, err := peer.NewClient(
-		t.InfoHash,
-		int(t.TotalPieceCount),
-		t.OurPeerId,
-		t.Bitfield,
-	)
-	if err != nil {
-		return
+func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProgress, results chan *PieceProgress) {
+	var peerClient *peer.PeerClient
+
+	for len(pieceWorks) > 0 {
+		var err error
+		peerClient, err = peerNode.NewClient(
+			t.InfoHash,
+			t.TotalPieceCount,
+			t.OurPeerId,
+			t.Bitfield,
+		)
+		if err != nil {
+			fmt.Println("Error connecting peer:", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		break
 	}
 
 	peerClient.SendMessage(message.NewMessage(message.IdUnchoke))
@@ -266,9 +276,9 @@ func (t *Torrent) startPeerWorker(peer peer.Peer, pieceWorks chan *PieceProgress
 
 			peerClient.SendMessage(
 				message.NewRequestMessage(
-					work.Index,
-					work.RequestedByteCount,
-					requestLength,
+					uint32(work.Index),
+					uint32(work.RequestedByteCount),
+					uint32(requestLength),
 				),
 			)
 			work.RequestedByteCount += requestLength
@@ -276,16 +286,31 @@ func (t *Torrent) startPeerWorker(peer peer.Peer, pieceWorks chan *PieceProgress
 		for work.DownloadedByteCount < work.Length {
 			msg, err := peerClient.ReadMessage()
 			if err != nil {
+				fmt.Println("Error reading message:", err)
 				continue
 			}
 			pieceMessage, err := msg.ParsePieceMessage()
 			if err != nil {
 				continue
 			}
-			work.DownloadedByteCount += uint32(len(pieceMessage.Block))
+			work.DownloadedByteCount += len(pieceMessage.Block)
 			copy(work.Buffer[pieceMessage.Begin:], pieceMessage.Block)
-			results <- work
 
 		}
+		err := checkPieceIntegrity(work)
+		if err != nil {
+			fmt.Println("Error piece integrity check:", err)
+			continue
+		}
+		results <- work
+		peerClient.SendMessage(message.NewHaveMessage(uint32(work.Index)))
 	}
+}
+
+func checkPieceIntegrity(pieceProgress *PieceProgress) error {
+	hash := sha1.Sum(pieceProgress.Buffer)
+	if !bytes.Equal(hash[:], pieceProgress.Hash[:]) {
+		return fmt.Errorf("index %d failed integrity check", pieceProgress.Index)
+	}
+	return nil
 }

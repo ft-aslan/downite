@@ -6,7 +6,7 @@ import (
 	"downite/download/torrent/message"
 	"downite/download/torrent/tracker"
 	"encoding/binary"
-	"errors"
+	"io"
 	"net"
 	"time"
 )
@@ -54,7 +54,7 @@ func (peer *Peer) NewClient(
 	bitfield []byte,
 ) (*PeerClient, error) {
 
-	tcpConnection, err := net.DialTimeout("tcp", peer.FullAddress, 3*time.Second)
+	tcpConnection, err := net.DialTimeout("tcp", peer.FullAddress, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (peer *PeerClient) ReadMessage() (*message.Message, error) {
 
 	// Read the length
 	lengthBuffer := make([]byte, 4)
-	_, err := peer.TcpConnection.Read(lengthBuffer)
+	_, err := io.ReadFull(peer.TcpConnection, lengthBuffer)
 	length := binary.BigEndian.Uint32(lengthBuffer)
 	if err != nil {
 		return nil, err
@@ -135,22 +135,20 @@ func (peer *PeerClient) ReadMessage() (*message.Message, error) {
 
 	// Read message ID
 	messageIdBuffer := make([]byte, 1)
-	_, err = peer.TcpConnection.Read(messageIdBuffer)
+	_, err = io.ReadFull(peer.TcpConnection, messageIdBuffer)
 	if err != nil {
 		return nil, err
 	}
 
 	payload := make([]byte, length-1)
 	if length > 1 {
-		_, err = peer.TcpConnection.Read(payload)
+		_, err = io.ReadFull(peer.TcpConnection, payload)
 		if err != nil {
 			return nil, err
 		}
-		return &message.Message{
-			Id:      message.MessageId(messageIdBuffer[0]),
-			Payload: payload,
-		}, nil
 	}
-
-	return nil, errors.New("unsupported message")
+	return &message.Message{
+		Id:      message.MessageId(messageIdBuffer[0]),
+		Payload: payload,
+	}, nil
 }
