@@ -8,12 +8,12 @@ import (
 )
 
 type AnnounceResponse struct {
-	Interval uint64
-	Peers    []PeerAddress
+	Interval uint64        `bencode:"interval"`
+	Peers    []PeerAddress `bencode:"peers"`
 }
 type PeerAddress struct {
-	Ip   string
-	Port uint16
+	Ip   string `bencode:"ip"`
+	Port uint16 `bencode:"port"`
 }
 
 type Tracker struct {

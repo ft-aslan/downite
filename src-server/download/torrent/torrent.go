@@ -196,6 +196,7 @@ func (t *Torrent) calculatePieceSize(index int) int {
 
 func (t *Torrent) createPeerWorkers() {
 	pieceWorkQueue := make(chan *PieceProgress, t.TotalPieceCount)
+	peerStatuses := make(chan *peer.Peer)
 	results := make(chan *PieceProgress)
 
 	for _, pieceProgress := range t.PieceProgresses {
@@ -213,9 +214,11 @@ func (t *Torrent) createPeerWorkers() {
 	}
 	defer file.Close()
 
-	donePieces := 0
+	// go t.watchPeers(peerStatuses)
 
-	for donePieces < int(t.TotalPieceCount) {
+	donePieces := 0
+	numWorkers := runtime.NumGoroutine() - 1
+	for donePieces < int(t.TotalPieceCount) && numWorkers > 0 {
 		result := <-results
 		begin, _ := t.calculateBoundsForPiece(result.Index)
 
@@ -235,13 +238,22 @@ func (t *Torrent) createPeerWorkers() {
 		t.Bitfield.SetPiece(result.Index)
 
 		percent := float64(donePieces) / float64(t.TotalPieceCount) * 100
-		numWorkers := runtime.NumGoroutine() - 1 // subtract 1 for main thread
+		numWorkers = runtime.NumGoroutine() - 1 // subtract 1 for main thread
 		log.Printf("(%0.2f%%) Downloaded piece #%d from %d peers\n", percent, result.Index, numWorkers)
+	}
+	close(pieceWorkQueue)
+	close(peerStatuses)
+}
+func (t *Torrent) watchPeers(peerStatues chan *peer.Peer) {
+	for peer := range peerStatues {
+		fmt.Printf("Peer: %s - Status: %s\n", peer.FullAddress, peer.Status)
 	}
 }
 
 func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProgress, results chan *PieceProgress) {
+
 	var peerClient *peer.PeerClient
+	connectionTryCount := 3
 
 	for len(pieceWorks) > 0 {
 		var err error
@@ -252,20 +264,24 @@ func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProg
 			t.Bitfield,
 		)
 		if err != nil {
-			fmt.Println("Error connecting peer:", err)
-			time.Sleep(5 * time.Second)
+			// // fmt.Println("Error connecting peer:", err)
+			connectionTryCount--
+			// if connectionTryCount == 0 {
+			// 	peerNode.Status = peer.StatusDisconnected
+			// 	// peerStatuses <- &peerNode
+			// 	return
+			// }
 			continue
 		}
 		break
 	}
-
 	defer peerClient.TcpConnection.Close()
 
 	peerClient.SendMessage(message.NewMessage(message.IdUnchoke))
 	peerClient.SendMessage(message.NewMessage(message.IdInterested))
 
-	peerClient.TcpConnection.SetDeadline(time.Now().Add(30 * time.Second))
-	defer peerClient.TcpConnection.SetDeadline(time.Time{}) // Disable the deadline
+	// peerClient.TcpConnection.SetDeadline(time.Now().Add(30 * time.Second))
+	// defer peerClient.TcpConnection.SetDeadline(time.Time{}) // Disable the deadline
 
 	for work := range pieceWorks {
 		if !peerClient.Bitfield.GetPiece(work.Index) {
@@ -276,6 +292,10 @@ func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProg
 		for work.DownloadedByteCount < work.Length {
 			if !peerClient.Choked {
 				for work.Backlog < MaxBacklog && work.RequestedByteCount < work.Length {
+
+					peerNode.Status = peer.StatusRequesting
+					// peerStatuses <- &peerNode
+
 					requestLength := defaultPieceLength
 
 					leftByteCount := work.Length - work.RequestedByteCount
@@ -292,21 +312,29 @@ func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProg
 					)
 					work.RequestedByteCount += requestLength
 					work.Backlog++
+
 				}
 			}
 
-			// Read what ever message is available from client
+			// Read whatever message is available from client
 			msg, err := peerClient.ReadMessage()
 			if err != nil {
-				fmt.Println("Error reading message:", err)
+				// fmt.Println("Error reading message:", err)
+				pieceWorks <- work
 				continue
 			}
 
 			switch msg.Id {
 			case message.IdUnchoke:
 				peerClient.Choked = false
+				peerNode.Status = peer.StatusUnchoked
+				// peerStatuses <- &peerNode
+
 			case message.IdChoke:
 				peerClient.Choked = true
+				peerNode.Status = peer.StatusChoked
+				// peerStatuses <- &peerNode
+
 			case message.IdHave:
 				haveMsg, err := msg.ParseHaveMessage()
 				if err != nil {
@@ -323,6 +351,9 @@ func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProg
 				work.DownloadedByteCount += len(pieceMessage.Block)
 				copy(work.Buffer[pieceMessage.Begin:], pieceMessage.Block)
 				work.Backlog--
+
+				peerNode.Status = peer.StatusDownloading
+				// peerStatuses <- &peerNode
 			}
 		}
 		err := checkPieceIntegrity(work)

@@ -56,7 +56,7 @@ func (peer *Peer) NewClient(
 	bitfield []byte,
 ) (*PeerClient, error) {
 
-	tcpConnection, err := net.DialTimeout("tcp", peer.FullAddress, 5*time.Second)
+	tcpConnection, err := net.DialTimeout("tcp", peer.FullAddress, 3*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +127,8 @@ func (peer *PeerClient) SendMessage(message *message.Message) error {
 	return nil
 }
 func (peer *PeerClient) ReadMessage() (*message.Message, error) {
+	peer.TcpConnection.SetDeadline(time.Now().Add(5 * time.Second))
+	defer peer.TcpConnection.SetDeadline(time.Time{}) // Disable the deadline
 
 	// Read the length
 	lengthBuffer := make([]byte, 4)

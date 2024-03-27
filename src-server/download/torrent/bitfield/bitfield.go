@@ -4,8 +4,11 @@ type Bitfield []byte
 
 func (bf Bitfield) GetPiece(index int) bool {
 	byteIndex := index / 8
-	binIndex := index % 8
-	return bf[byteIndex]&(1<<uint(7-binIndex)) != 0
+	offset := index % 8
+	if byteIndex < 0 || byteIndex >= len(bf) {
+		return false
+	}
+	return bf[byteIndex]>>uint(7-offset)&1 != 0
 }
 
 // SetPiece sets a bit in the bitfield
