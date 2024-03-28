@@ -5,7 +5,6 @@ import (
 	"downite/download/torrent/bitfield"
 	"downite/download/torrent/handshake"
 	"downite/download/torrent/message"
-	"downite/download/torrent/tracker"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -29,7 +28,7 @@ const (
 )
 
 type Peer struct {
-	Address     tracker.PeerAddress
+	Address     PeerAddress
 	FullAddress string
 	Status      PeerStatus
 	Country     string
@@ -40,8 +39,12 @@ type PeerClient struct {
 	peer          Peer
 	Bitfield      bitfield.Bitfield
 }
+type PeerAddress struct {
+	Ip   net.IP
+	Port uint16
+}
 
-func New(address tracker.PeerAddress, fullAddress string, status PeerStatus, country string) Peer {
+func New(address PeerAddress, fullAddress string, status PeerStatus, country string) Peer {
 	return Peer{
 		Address:     address,
 		FullAddress: fullAddress,
@@ -55,8 +58,7 @@ func (peer *Peer) NewClient(
 	ourPeerId [20]byte,
 	bitfield []byte,
 ) (*PeerClient, error) {
-
-	tcpConnection, err := net.DialTimeout("tcp", peer.FullAddress, 3*time.Second)
+	tcpConnection, err := net.DialTimeout("tcp", peer.FullAddress, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}

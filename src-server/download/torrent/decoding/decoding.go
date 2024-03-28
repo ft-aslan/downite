@@ -1,10 +1,13 @@
-package torrent
+package decoding
 
 import (
 	"bytes"
 	"crypto/sha1"
+	"downite/download/torrent/peer"
+	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 
 	"github.com/jackpal/bencode-go"
 )
@@ -38,7 +41,7 @@ func DecodeTorrentFile(torrent_file_reader io.Reader) (*TorrentFile, error) {
 }
 
 // convert info field to sha1 hash
-func (i *TorrentFileInfo) hash() ([20]byte, error) {
+func (i *TorrentFileInfo) Hash() ([20]byte, error) {
 	var buf bytes.Buffer
 	err := bencode.Marshal(&buf, *i)
 	if err != nil {
@@ -47,7 +50,7 @@ func (i *TorrentFileInfo) hash() ([20]byte, error) {
 	h := sha1.Sum(buf.Bytes())
 	return h, nil
 }
-func (i *TorrentFileInfo) splitPieceHashes() ([][20]byte, error) {
+func (i *TorrentFileInfo) SplitPieceHashes() ([][20]byte, error) {
 	hashLen := 20 // Length of SHA-1 hash
 	buf := []byte(i.Pieces)
 	if len(buf)%hashLen != 0 {
@@ -61,4 +64,21 @@ func (i *TorrentFileInfo) splitPieceHashes() ([][20]byte, error) {
 		copy(hashes[i][:], buf[i*hashLen:(i+1)*hashLen])
 	}
 	return hashes, nil
+}
+
+// Unmarshal parses peer IP addresses and ports from a buffer
+func UnmarshalPeers(peersBin []byte) ([]peer.PeerAddress, error) {
+	const peerSize = 6 // 4 for IP, 2 for port
+	numPeers := len(peersBin) / peerSize
+	if len(peersBin)%peerSize != 0 {
+		err := fmt.Errorf("Received malformed peers")
+		return nil, err
+	}
+	peers := make([]peer.PeerAddress, numPeers)
+	for i := 0; i < numPeers; i++ {
+		offset := i * peerSize
+		peers[i].Ip = net.IP(peersBin[offset : offset+4])
+		peers[i].Port = binary.BigEndian.Uint16([]byte(peersBin[offset+4 : offset+6]))
+	}
+	return peers, nil
 }

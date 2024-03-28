@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"downite/download/torrent/bitfield"
+	"downite/download/torrent/decoding"
 	"downite/download/torrent/message"
 	"downite/download/torrent/peer"
 	"downite/download/torrent/tracker"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/url"
 	"os"
 	"runtime"
@@ -45,7 +47,7 @@ type PieceProgress struct {
 type Torrent struct {
 	id                   string
 	OurPeerId            [20]byte
-	TorrentFile          TorrentFile
+	TorrentFile          decoding.TorrentFile
 	InfoHash             [20]byte // hash of info field.
 	Bitfield             bitfield.Bitfield
 	PieceProgresses      []PieceProgress
@@ -66,7 +68,7 @@ func New(torrentFilePath string) (*Torrent, error) {
 	defer raw_file.Close()
 
 	var reader io.Reader = raw_file
-	torrentFile, err := DecodeTorrentFile(reader)
+	torrentFile, err := decoding.DecodeTorrentFile(reader)
 
 	if err != nil {
 		return nil, err
@@ -89,13 +91,13 @@ func New(torrentFilePath string) (*Torrent, error) {
 	bitfield := make([]byte, 0, len(torrentFile.Info.Pieces)/8)
 
 	//convert info field to sha1 hash
-	infoHash, err := torrentFile.Info.hash()
+	infoHash, err := torrentFile.Info.Hash()
 	if err != nil {
 		return nil, err
 	}
 
 	//split pieces into 20 byte hashes
-	pieceHashes, err := torrentFile.Info.splitPieceHashes()
+	pieceHashes, err := torrentFile.Info.SplitPieceHashes()
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +147,8 @@ func (t *Torrent) buildTrackerUrl(trackerAddress string, ourPort uint16) (*url.U
 		"port":       []string{strconv.Itoa(int(ourPort))},
 		"uploaded":   []string{"0"},
 		"downloaded": []string{"0"},
-		// "compact":    []string{"1"},
-		"left": []string{strconv.Itoa(int(t.Length))},
+		"compact":    []string{"1"},
+		"left":       []string{strconv.Itoa(int(t.Length))},
 	}
 
 	trackerUrl.RawQuery = params.Encode()
@@ -172,9 +174,9 @@ func (t *Torrent) DownloadTorrent() error {
 	return nil
 }
 
-func (t *Torrent) createPeers(peerAddresses []tracker.PeerAddress) {
+func (t *Torrent) createPeers(peerAddresses []peer.PeerAddress) {
 	for _, peerAddress := range peerAddresses {
-		fullPeerAddress := peerAddress.Ip + ":" + strconv.Itoa(int(peerAddress.Port))
+		fullPeerAddress := net.JoinHostPort(peerAddress.Ip.String(), strconv.Itoa(int(peerAddress.Port)))
 
 		t.Peers[fullPeerAddress] = peer.New(peerAddress, fullPeerAddress, peer.StatusDisconnected, "")
 	}
@@ -205,7 +207,6 @@ func (t *Torrent) createPeerWorkers() {
 
 	for _, peer := range t.Peers {
 		go t.startPeerWorker(peer, pieceWorkQueue, results)
-		break
 	}
 
 	file, err := os.OpenFile(fmt.Sprintf("./%s", t.TorrentFile.Info.Name), os.O_RDWR|os.O_CREATE, 0644)
@@ -217,8 +218,8 @@ func (t *Torrent) createPeerWorkers() {
 	// go t.watchPeers(peerStatuses)
 
 	donePieces := 0
-	numWorkers := runtime.NumGoroutine() - 1
-	for donePieces < int(t.TotalPieceCount) && numWorkers > 0 {
+	// numWorkers := runtime.NumGoroutine() - 1
+	for donePieces < int(t.TotalPieceCount) {
 		result := <-results
 		begin, _ := t.calculateBoundsForPiece(result.Index)
 
@@ -238,7 +239,7 @@ func (t *Torrent) createPeerWorkers() {
 		t.Bitfield.SetPiece(result.Index)
 
 		percent := float64(donePieces) / float64(t.TotalPieceCount) * 100
-		numWorkers = runtime.NumGoroutine() - 1 // subtract 1 for main thread
+		numWorkers := runtime.NumGoroutine() - 1 // subtract 1 for main thread
 		log.Printf("(%0.2f%%) Downloaded piece #%d from %d peers\n", percent, result.Index, numWorkers)
 	}
 	close(pieceWorkQueue)
@@ -264,13 +265,13 @@ func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProg
 			t.Bitfield,
 		)
 		if err != nil {
-			// // fmt.Println("Error connecting peer:", err)
+			fmt.Println("Error connecting peer:", err)
 			connectionTryCount--
-			// if connectionTryCount == 0 {
-			// 	peerNode.Status = peer.StatusDisconnected
-			// 	// peerStatuses <- &peerNode
-			// 	return
-			// }
+			if connectionTryCount == 0 {
+				peerNode.Status = peer.StatusDisconnected
+				// peerStatuses <- &peerNode
+				return
+			}
 			continue
 		}
 		break
@@ -280,8 +281,8 @@ func (t *Torrent) startPeerWorker(peerNode peer.Peer, pieceWorks chan *PieceProg
 	peerClient.SendMessage(message.NewMessage(message.IdUnchoke))
 	peerClient.SendMessage(message.NewMessage(message.IdInterested))
 
-	// peerClient.TcpConnection.SetDeadline(time.Now().Add(30 * time.Second))
-	// defer peerClient.TcpConnection.SetDeadline(time.Time{}) // Disable the deadline
+	peerClient.TcpConnection.SetDeadline(time.Now().Add(30 * time.Second))
+	defer peerClient.TcpConnection.SetDeadline(time.Time{}) // Disable the deadline
 
 	for work := range pieceWorks {
 		if !peerClient.Bitfield.GetPiece(work.Index) {

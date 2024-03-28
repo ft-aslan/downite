@@ -1,6 +1,8 @@
 package tracker
 
 import (
+	"downite/download/torrent/decoding"
+	"downite/download/torrent/peer"
 	"net/http"
 	"net/url"
 
@@ -8,18 +10,14 @@ import (
 )
 
 type AnnounceResponse struct {
-	Interval uint64        `bencode:"interval"`
-	Peers    []PeerAddress `bencode:"peers"`
-}
-type PeerAddress struct {
-	Ip   string `bencode:"ip"`
-	Port uint16 `bencode:"port"`
+	Interval uint64 `bencode:"interval"`
+	Peers    string `bencode:"peers"`
 }
 
 type Tracker struct {
 	Interval uint64
 	Url      *url.URL
-	Peers    []PeerAddress
+	Peers    []peer.PeerAddress
 }
 
 func New(trackerUrl *url.URL) (*Tracker, error) {
@@ -36,10 +34,15 @@ func New(trackerUrl *url.URL) (*Tracker, error) {
 		return nil, err
 	}
 
+	peers, err := decoding.UnmarshalPeers([]byte(announceRes.Peers))
+	if err != nil {
+		return nil, err
+	}
+
 	tracker := Tracker{
 		Interval: announceRes.Interval,
 		Url:      trackerUrl,
-		Peers:    announceRes.Peers,
+		Peers:    peers,
 	}
 	return &tracker, nil
 }
