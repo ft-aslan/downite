@@ -3,7 +3,7 @@ package decoding
 import (
 	"bytes"
 	"crypto/sha1"
-	"downite/download/torrent/peer"
+	"downite/download/custom_torrent/peer"
 	"encoding/binary"
 	"fmt"
 	"io"

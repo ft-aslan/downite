@@ -2,9 +2,9 @@ package peer
 
 import (
 	"bytes"
-	"downite/download/torrent/bitfield"
-	"downite/download/torrent/handshake"
-	"downite/download/torrent/message"
+	"downite/download/custom_torrent/bitfield"
+	"downite/download/custom_torrent/handshake"
+	"downite/download/custom_torrent/message"
 	"encoding/binary"
 	"fmt"
 	"io"

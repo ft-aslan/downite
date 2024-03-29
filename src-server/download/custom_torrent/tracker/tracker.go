@@ -1,8 +1,8 @@
 package tracker
 
 import (
-	"downite/download/torrent/decoding"
-	"downite/download/torrent/peer"
+	"downite/download/custom_torrent/decoding"
+	"downite/download/custom_torrent/peer"
 	"net/http"
 	"net/url"
 
