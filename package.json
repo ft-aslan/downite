@@ -2,8 +2,12 @@
   "name": "@downite/root",
   "private": true,
   "version": "0.0.0",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev:web": "pnpm --filter @downite/web dev:web"
+    "dev:web": "pnpm --filter @downite/web dev:web",
+    "dev:server": "cd apps/server && air"
   },
   "dependencies": {},
   "devDependencies": {}

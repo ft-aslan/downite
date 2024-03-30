@@ -45,3 +45,6 @@ dist-ssr
 
 # Go workspace file
 go.work
+
+# Go Air temp folder
+tmp
