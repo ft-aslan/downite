@@ -142,6 +142,9 @@ importers:
       tailwindcss-animate:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@3.4.3)
+      use-resize-observer:
+        specifier: ^9.1.0
+        version: 9.1.0(react-dom@19.0.0-canary-a73c3450e-20240329)(react@19.0.0-canary-a73c3450e-20240329)
       vaul:
         specifier: ^0.9.0
         version: 0.9.0(@types/react-dom@18.2.23)(@types/react@18.2.73)(react-dom@19.0.0-canary-a73c3450e-20240329)(react@19.0.0-canary-a73c3450e-20240329)
@@ -887,6 +890,10 @@ packages:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.4.15
+
+  /@juggle/resize-observer@3.4.0:
+    resolution: {integrity: sha512-dfLbk+PwWvFzSxwk3n5ySL0hfBog779o8h68wK/7/APo/7cgyWp5jcXockbxdk5kFRkbeXWm4Fbi9FrdN381sA==}
+    dev: false
 
   /@million/lint@0.0.64(@types/react-dom@18.2.23)(@types/react@18.2.73)(typescript@5.4.3):
     resolution: {integrity: sha512-2CKrUWAxAl4n/rwe+9hjAfF7IvvqccvrWC0GNVAkrbd3a07ldekCsNARgDJ4fa1Zw0cMwO2wLgbVFO8/mxHm6w==}
@@ -6101,6 +6108,17 @@ packages:
       '@types/react': 18.2.73
       react: 19.0.0-canary-a73c3450e-20240329
       tslib: 2.6.2
+    dev: false
+
+  /use-resize-observer@9.1.0(react-dom@19.0.0-canary-a73c3450e-20240329)(react@19.0.0-canary-a73c3450e-20240329):
+    resolution: {integrity: sha512-R25VqO9Wb3asSD4eqtcxk8sJalvIOYBqS8MNZlpDSQ4l4xMQxC/J7Id9HoTqPq8FwULIn0PVW+OAqF2dyYbjow==}
+    peerDependencies:
+      react: 16.8.0 - 18
+      react-dom: 16.8.0 - 18
+    dependencies:
+      '@juggle/resize-observer': 3.4.0
+      react: 19.0.0-canary-a73c3450e-20240329
+      react-dom: 19.0.0-canary-a73c3450e-20240329(react@19.0.0-canary-a73c3450e-20240329)
     dev: false
 
   /use-sidecar@1.1.2(@types/react@18.2.73)(react@18.2.0):

@@ -71,7 +71,7 @@ export function AddTorrentRename() {
             defaultValue="get-torrent-meta"
           >
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="get-torrent-meta">Send Meta</TabsTrigger>
+              <TabsTrigger value="get-torrent-meta">Get Metadata</TabsTrigger>
               <TabsTrigger
                 value="download"
                 disabled={torrentMeta ? false : true}
@@ -97,7 +97,7 @@ export function AddTorrentRename() {
                   <CardDescription>Configure torrent download</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <DownloadTorrentForm onTorrentMetaChange={setTorrentMeta} />
+                  <DownloadTorrentForm torrentMeta={torrentMeta} />
                 </CardContent>
               </Card>
             </TabsContent>

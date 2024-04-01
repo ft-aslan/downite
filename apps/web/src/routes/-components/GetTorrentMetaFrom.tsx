@@ -85,7 +85,7 @@ export default function GetTorrentMetaForm({
           name="torrent"
           render={({ field }) => (
             <FormItem className="grid gap-2">
-              <FormLabel>Torrent</FormLabel>
+              <FormLabel>Torrent File</FormLabel>
               <FormControl>
                 <Input
                   type="file"
