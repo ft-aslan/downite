@@ -5,12 +5,16 @@ import (
 	"fmt"
 
 	"github.com/go-fuego/fuego"
+	"github.com/rs/cors"
 )
 
 func ApiInit() error {
 	fmt.Println("Starting Downite server...")
 
-	s := fuego.NewServer()
+	s := fuego.NewServer(fuego.WithCorsMiddleware(cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+	}).Handler))
 
 	// TODO(fatih): add scalar documentation
 	// fuego.Get(s, "/docs", func(c *fuego.ContextNoBody) (fuego.HTML, error) {
