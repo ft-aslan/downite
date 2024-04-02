@@ -20,8 +20,8 @@ type PieceProgress struct {
 	Length              int
 }
 type FileMeta struct {
-	Length int64
-	Path   []string
+	Length int64    `json:"length"`
+	Path   []string `json:"path"`
 }
 type Torrent struct {
 	Name          string                      `json:"name"`

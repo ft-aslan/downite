@@ -25,9 +25,7 @@ const formSchema = z.object({
 })
 interface GetTorrentMetaFormProps {
   className?: string
-  onTorrentMetaChange: (
-    data: components["schemas"]["GetTorrentMetaRes"]
-  ) => void
+  onTorrentMetaChange: (data: components["schemas"]["TorrentMeta"]) => void
 }
 export default function GetTorrentMetaForm({
   className,
@@ -90,8 +88,8 @@ export default function GetTorrentMetaForm({
                 <Input
                   type="file"
                   placeholder="Torrent File"
-                  {...field}
                   accept=".torrent"
+                  onChange={field.onChange}
                 />
               </FormControl>
               <FormDescription>Upload Torrent File</FormDescription>

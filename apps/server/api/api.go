@@ -24,6 +24,8 @@ func ApiInit() error {
 	apiRoutes := fuego.Group(s, "/api/v1")
 
 	fuego.Get(apiRoutes, "/torrent", handlers.GetTorrents)
+	fuego.Post(apiRoutes, "/torrent", handlers.DownloadTorrent)
+	fuego.Get(apiRoutes, "/torrent/:hash", handlers.GetTorrent)
 	fuego.Post(apiRoutes, "/torrent-meta", handlers.GetTorrentMeta)
 
 	err := s.Run()

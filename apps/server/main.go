@@ -17,7 +17,7 @@ func main() {
 
 	api.ApiInit()
 	// Load the torrent file
-	// torrentInfo, err := metainfo.LoadFromFile("./mock/debian-12.5.0-amd64-netinst.iso.torrent")
+	// torrentInfo, err := metainfo.LoadFromFile("./mocks/debian-12.5.0-amd64-netinst.iso.torrent")
 	// if err != nil {
 	// 	fmt.Printf("Error reading torrent file: %v\n", err)
 	// 	return
