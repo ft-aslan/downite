@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"downite/download/torr"
 	"downite/types"
 	"fmt"
@@ -10,36 +11,41 @@ import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/types/infohash"
-
-	"github.com/go-fuego/fuego"
 )
 
-func GetTorrents(c *fuego.ContextNoBody) ([]types.Torrent, error) {
+type GetTorrentsRes struct {
+	Body struct {
+		Torrents []types.Torrent `json:"torrents"`
+	}
+}
+
+func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) {
+	res := &GetTorrentsRes{}
 	torrents := torr.Client.Torrents()
 
-	var res []types.Torrent
+	var torrentsRes []types.Torrent
 	for _, torrent := range torrents {
 
-		res = append(res, types.Torrent{
+		torrentsRes = append(torrentsRes, types.Torrent{
 			InfoHash: torrent.InfoHash().String(),
 			Name:     torrent.Name(),
 			AddedOn:  time.Now().Unix(),
 			Files:    torrent.Info().FileTree,
 		})
 	}
+	res.Body.Torrents = torrentsRes
 	return res, nil
 }
-func GetTorrent(c *fuego.ContextNoBody) (types.Torrent, error) {
-	hash := c.PathParam("hash")
-	if len(hash) < 20 {
-		return types.Torrent{}, fmt.Errorf("invalid hash: %s", c.PathParam("hash"))
-	}
-	torrent, ok := torr.Client.Torrent(infohash.FromHexString(hash))
+func GetTorrent(ctx context.Context, input *struct {
+	Hash string `path:"hash" maxLength:"30" example:"2b66980093bc11806fab50cb3cb41835b95a0362" doc:"Hash of the torrent"`
+}) (*types.Torrent, error) {
+
+	torrent, ok := torr.Client.Torrent(infohash.FromHexString(input.Hash))
 	if !ok {
-		return types.Torrent{}, fmt.Errorf("torrent with hash %s not found", c.PathParam("hash"))
+		return nil, fmt.Errorf("torrent with hash %s not found", input.Hash)
 	}
 
-	return types.Torrent{
+	return &types.Torrent{
 		InfoHash: torrent.InfoHash().String(),
 		Name:     torrent.Name(),
 		AddedOn:  time.Now().Unix(),
@@ -48,8 +54,8 @@ func GetTorrent(c *fuego.ContextNoBody) (types.Torrent, error) {
 }
 
 type DownloadTorrentReq struct {
-	Magnet                      string           `json:"magnet" validate:"required_without=File, startswith=magnet:?"`
-	File                        []byte           `json:"file" validate:"required_without=Magnet"`
+	Magnet                      string           `json:"magnet"`
+	File                        []byte           `json:"file"`
 	SavePath                    string           `json:"savePath" validate:"required, dir"`
 	IsIncompleteSavePathEnabled bool             `json:"isIncompleteSavePathEnabled"`
 	IncompleteSavePath          string           `json:"incompleteSavePath" validate:"dir"`
@@ -63,39 +69,34 @@ type DownloadTorrentReq struct {
 	Files                       []types.FileMeta `json:"files"`
 }
 
-func DownloadTorrent(c *fuego.ContextWithBody[DownloadTorrentReq]) (types.Torrent, error) {
-	var err error
-	body, err := c.Body()
-	if err != nil {
-		return types.Torrent{}, err
-	}
+func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*types.Torrent, error) {
 	var torrent *torrent.Torrent
-	if body.Magnet != "" {
+	if input.Magnet != "" {
 		// Load from a magnet link
-		torrent, err = torr.Client.AddMagnet(body.Magnet)
+		torrent, err := torr.Client.AddMagnet(input.Magnet)
 		if err != nil {
-			return types.Torrent{}, err
+			return nil, err
 		}
 
 		<-torrent.GotInfo()
 
 	} else {
 		// Load the torrent file
-		fileReader := bytes.NewReader(body.File)
+		fileReader := bytes.NewReader(input.File)
 		torrentMeta, err := metainfo.Load(fileReader)
 		if err != nil {
-			return types.Torrent{}, err
+			return nil, err
 		}
 		torrent, err = torr.Client.AddTorrent(torrentMeta)
 		if err != nil {
-			return types.Torrent{}, err
+			return nil, err
 		}
 	}
-	if !body.SkipHashCheck {
+	if !input.SkipHashCheck {
 		torrent.VerifyData()
 	}
 
-	return types.Torrent{
+	return &types.Torrent{
 		InfoHash: torrent.InfoHash().String(),
 		Name:     torrent.Name(),
 		AddedOn:  time.Now().Unix(),
@@ -113,18 +114,13 @@ type TorrentMeta struct {
 	Name      string           `json:"name"`
 }
 
-func GetTorrentMeta(c *fuego.ContextWithBody[GetTorrentMetaReq]) (TorrentMeta, error) {
-	body, err := c.Body()
-	if err != nil {
-		return TorrentMeta{}, err
-	}
-
+func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*TorrentMeta, error) {
 	var info metainfo.Info
-	if body.Magnet != "" {
+	if input.Magnet != "" {
 		// Load from a magnet link
-		torrent, err := torr.Client.AddMagnet(body.Magnet)
+		torrent, err := torr.Client.AddMagnet(input.Magnet)
 		if err != nil {
-			return TorrentMeta{}, err
+			return nil, err
 		}
 
 		<-torrent.GotInfo()
@@ -133,14 +129,14 @@ func GetTorrentMeta(c *fuego.ContextWithBody[GetTorrentMetaReq]) (TorrentMeta, e
 		torrent.Drop()
 	} else {
 		// Load the torrent file
-		fileReader := bytes.NewReader(body.File)
+		fileReader := bytes.NewReader(input.File)
 		torrentMeta, err := metainfo.Load(fileReader)
 		if err != nil {
-			return TorrentMeta{}, err
+			return nil, err
 		}
 		info, err = torrentMeta.UnmarshalInfo()
 		if err != nil {
-			return TorrentMeta{}, err
+			return nil, err
 		}
 
 	}
@@ -151,7 +147,7 @@ func GetTorrentMeta(c *fuego.ContextWithBody[GetTorrentMetaReq]) (TorrentMeta, e
 			Path:   file.Path,
 		})
 	}
-	return TorrentMeta{
+	return &TorrentMeta{
 		TotalSize: info.TotalLength(),
 		Files:     files,
 		Name:      info.Name,
