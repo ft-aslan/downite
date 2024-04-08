@@ -3,291 +3,227 @@
  * Do not make direct changes to the file.
  */
 
+
 export interface paths {
-    "/api/v1/torrent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetTorrents
-         * @description controller: downite/handlers.GetTorrents
-         */
-        get: operations["GET /api/v1/torrent:GetTorrents"];
-        put?: never;
-        /**
-         * DownloadTorrent
-         * @description controller: downite/handlers.DownloadTorrent
-         */
-        post: operations["POST /api/v1/torrent:DownloadTorrent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/torrent-meta": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * GetTorrentMeta
-         * @description controller: downite/handlers.GetTorrentMeta
-         */
-        post: operations["POST /api/v1/torrent-meta:GetTorrentMeta"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/torrent/:hash": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetTorrent
-         * @description controller: downite/handlers.GetTorrent
-         */
-        get: operations["GET /api/v1/torrent/:hash:GetTorrent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  "/api/v1/torrent": {
+    /**
+     * GetTorrents
+     * @description controller: downite/handlers.GetTorrents
+     */
+    get: operations["GET /api/v1/torrent:GetTorrents"];
+    /**
+     * DownloadTorrent
+     * @description controller: downite/handlers.DownloadTorrent
+     */
+    post: operations["POST /api/v1/torrent:DownloadTorrent"];
+  };
+  "/api/v1/torrent-meta": {
+    /**
+     * GetTorrentMeta
+     * @description controller: downite/handlers.GetTorrentMeta
+     */
+    post: operations["POST /api/v1/torrent-meta:GetTorrentMeta"];
+  };
+  "/api/v1/torrent/:hash": {
+    /**
+     * GetTorrent
+     * @description controller: downite/handlers.GetTorrent
+     */
+    get: operations["GET /api/v1/torrent/:hash:GetTorrent"];
+  };
 }
+
 export type webhooks = Record<string, never>;
+
 export interface components {
-    schemas: {
-        DownloadTorrentReq: {
-            addTopOfQueue?: boolean;
-            category?: string;
-            contentLayout?: string;
-            downloadSequentially?: boolean;
-            /** Format: byte */
-            file?: string;
-            files?: {
-                /** Format: int64 */
-                length?: number;
-                path?: string[];
-            }[];
-            incompleteSavePath?: string;
-            isIncompleteSavePathEnabled?: boolean;
-            magnet?: string;
-            savePath?: string;
-            skipHashCheck?: boolean;
-            startTorrent?: boolean;
-            tags?: string[];
-        };
-        FileTree: {
-            Dir?: {
-                [key: string]: components["schemas"]["FileTree"] | undefined;
-            };
-            File?: {
-                /** Format: int64 */
-                Length?: number;
-                PiecesRoot?: string;
-            };
-        };
-        GetTorrentMetaReq: {
-            /** Format: byte */
-            file?: string;
-            magnet?: string;
-        };
-        Torrent: {
-            /** Format: int64 */
-            addedOn?: number;
-            /** Format: float */
-            availability?: number;
-            category?: string;
-            downloadDir?: string;
-            downloadPath?: string;
-            downloadSpeed?: number;
-            eta?: number;
-            files?: {
-                Dir?: {
-                    [key: string]: components["schemas"]["FileTree"] | undefined;
-                };
-                File?: {
-                    /** Format: int64 */
-                    Length?: number;
-                    PiecesRoot?: string;
-                };
-            };
-            infoHash?: string;
-            name?: string;
-            peers?: {
-                [key: string]: {
-                    Addr?: unknown;
-                    Id?: unknown;
-                    Source?: string;
-                    SupportsEncryption?: boolean;
-                    Trusted?: boolean;
-                } | undefined;
-            };
-            peersCount?: number;
-            pieceProgress?: {
-                DownloadedByteCount?: number;
-                Index?: number;
-                Length?: number;
-            }[];
-            /** Format: float */
-            progress?: number;
-            /** Format: float */
-            ratio?: number;
-            seeds?: number;
-            status?: number;
-            tags?: string[];
-            totalSize?: number;
-            uploadSpeed?: number;
+  schemas: {
+    DownloadTorrentReq: {
+      addTopOfQueue?: boolean;
+      category?: string;
+      contentLayout?: string;
+      downloadSequentially?: boolean;
+      /** Format: byte */
+      file?: string;
+      files?: {
+          /** Format: int64 */
+          length?: number;
+          path?: string[];
         }[];
-        TorrentMeta: {
-            files?: {
-                /** Format: int64 */
-                length?: number;
-                path?: string[];
-            }[];
-            name?: string;
+      incompleteSavePath?: string;
+      isIncompleteSavePathEnabled?: boolean;
+      magnet?: string;
+      savePath?: string;
+      skipHashCheck?: boolean;
+      startTorrent?: boolean;
+      tags?: string[];
+    };
+    FileTree: {
+      Dir?: {
+        [key: string]: components["schemas"]["FileTree"];
+      };
+      File?: {
+        /** Format: int64 */
+        Length?: number;
+        PiecesRoot?: string;
+      };
+    };
+    GetTorrentMetaReq: {
+      /** Format: byte */
+      file?: string;
+      magnet?: string;
+    };
+    Torrent: {
+        /** Format: int64 */
+        addedOn?: number;
+        /** Format: float */
+        availability?: number;
+        category?: string;
+        downloadDir?: string;
+        downloadPath?: string;
+        downloadSpeed?: number;
+        eta?: number;
+        files?: {
+          Dir?: {
+            [key: string]: components["schemas"]["FileTree"];
+          };
+          File?: {
             /** Format: int64 */
-            totalSize?: number;
+            Length?: number;
+            PiecesRoot?: string;
+          };
         };
+        infoHash?: string;
+        name?: string;
+        peers?: {
+          [key: string]: {
+            Addr?: unknown;
+            Id?: unknown;
+            Source?: string;
+            SupportsEncryption?: boolean;
+            Trusted?: boolean;
+          };
+        };
+        peersCount?: number;
+        pieceProgress?: {
+            DownloadedByteCount?: number;
+            Index?: number;
+            Length?: number;
+          }[];
+        /** Format: float */
+        progress?: number;
+        /** Format: float */
+        ratio?: number;
+        seeds?: number;
+        status?: number;
+        tags?: string[];
+        totalSize?: number;
+        uploadSpeed?: number;
+      }[];
+    TorrentMeta: {
+      files?: {
+          /** Format: int64 */
+          length?: number;
+          path?: string[];
+        }[];
+      name?: string;
+      /** Format: int64 */
+      totalSize?: number;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: {
-        /** @description Request body for handlers.DownloadTorrentReq */
-        DownloadTorrentReq: {
-            content: {
-                "application/json": components["schemas"]["DownloadTorrentReq"];
-            };
-        };
-        /** @description Request body for handlers.GetTorrentMetaReq */
-        GetTorrentMetaReq: {
-            content: {
-                "application/json": components["schemas"]["GetTorrentMetaReq"];
-            };
-        };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: {
+    /** @description Request body for handlers.DownloadTorrentReq */
+    DownloadTorrentReq: {
+      content: {
+        "application/json": components["schemas"]["DownloadTorrentReq"];
+      };
     };
-    headers: never;
-    pathItems: never;
+    /** @description Request body for handlers.GetTorrentMetaReq */
+    GetTorrentMetaReq: {
+      content: {
+        "application/json": components["schemas"]["GetTorrentMetaReq"];
+      };
+    };
+  };
+  headers: never;
+  pathItems: never;
 }
+
 export type $defs = Record<string, never>;
+
+export type external = Record<string, never>;
+
 export interface operations {
-    "GET /api/v1/torrent:GetTorrents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+
+  /**
+   * GetTorrents
+   * @description controller: downite/handlers.GetTorrents
+   */
+  "GET /api/v1/torrent:GetTorrents": {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Torrent"];
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Torrent"];
-                };
-            };
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
+      };
+      default: {
+        content: never;
+      };
     };
-    "POST /api/v1/torrent:DownloadTorrent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+  };
+  /**
+   * DownloadTorrent
+   * @description controller: downite/handlers.DownloadTorrent
+   */
+  "POST /api/v1/torrent:DownloadTorrent": {
+    requestBody: components["requestBodies"]["DownloadTorrentReq"];
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Torrent"];
         };
-        requestBody: components["requestBodies"]["DownloadTorrentReq"];
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Torrent"];
-                };
-            };
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
+      };
+      default: {
+        content: never;
+      };
     };
-    "POST /api/v1/torrent-meta:GetTorrentMeta": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+  };
+  /**
+   * GetTorrentMeta
+   * @description controller: downite/handlers.GetTorrentMeta
+   */
+  "POST /api/v1/torrent-meta:GetTorrentMeta": {
+    requestBody: components["requestBodies"]["GetTorrentMetaReq"];
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["TorrentMeta"];
         };
-        requestBody: components["requestBodies"]["GetTorrentMetaReq"];
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TorrentMeta"];
-                };
-            };
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
+      };
+      default: {
+        content: never;
+      };
     };
-    "GET /api/v1/torrent/:hash:GetTorrent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+  };
+  /**
+   * GetTorrent
+   * @description controller: downite/handlers.GetTorrent
+   */
+  "GET /api/v1/torrent/:hash:GetTorrent": {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Torrent"];
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Torrent"];
-                };
-            };
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
+      };
+      default: {
+        content: never;
+      };
     };
+  };
 }

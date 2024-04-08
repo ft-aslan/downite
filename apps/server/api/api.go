@@ -11,12 +11,10 @@ import (
 
 func ApiInit() error {
 	fmt.Println("Starting Downite server...")
-	config := huma.DefaultConfig("Downite API", "0.0.1")
-	config.OpenAPIPath = "/doc/openapi"
-	config.DocsPath = ""
 	s := http.NewServeMux()
 
-	s.HandleFunc("/api/docs", func(w http.ResponseWriter, r *http.Request) {
+	//initilize docs
+	s.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(`<!doctype html>
 	<html>
@@ -30,23 +28,31 @@ func ApiInit() error {
 	  <body>
 	    <script
 	      id="api-reference"
-	      data-url="/openapi.json"></script>
+	      data-url="/api/openapi.json"></script>
 	    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 	  </body>
 	</html>`))
 	})
 
+	//initilize huma
+	config := huma.DefaultConfig("Downite API", "0.0.1")
+	config.Servers = []*huma.Server{{URL: "http://localhost:9999/api"}}
+
+	config.OpenAPIPath = "/openapi"
+	config.DocsPath = ""
+
 	api := humago.NewWithPrefix(s, "/api", config)
 
+	//register api routes
 	huma.Register(api, huma.Operation{
 		OperationID: "get-all-torrents",
 		Method:      http.MethodGet,
 		Path:        "/torrent",
 		Summary:     "Get all torrents",
 	}, handlers.GetTorrents)
-	// huma.Post(api, "/torrent", handlers.DownloadTorrent)
-	// huma.Get(api, "/torrent/:hash", handlers.GetTorrent)
-	// huma.Post(api, "/torrent-meta", handlers.GetTorrentMeta)
+	huma.Post(api, "/torrent", handlers.DownloadTorrent)
+	huma.Get(api, "/torrent/:hash", handlers.GetTorrent)
+	huma.Post(api, "/torrent-meta", handlers.GetTorrentMeta)
 
 	// s := fuego.NewServer(fuego.WithCorsMiddleware(cors.New(cors.Options{
 	// 	AllowedOrigins: []string{"*"},
