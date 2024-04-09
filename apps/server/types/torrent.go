@@ -23,6 +23,11 @@ type FileMeta struct {
 	Length int64    `json:"length"`
 	Path   []string `json:"path"`
 }
+type TorrentMeta struct {
+	TotalSize int64      `json:"totalSize"`
+	Files     []FileMeta `json:"files"`
+	Name      string     `json:"name"`
+}
 type Torrent struct {
 	Name          string                      `json:"name"`
 	InfoHash      string                      `json:"infoHash"`

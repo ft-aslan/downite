@@ -78,7 +78,7 @@ export default function DownloadTorrentForm({
   )
   const torrentDownloadFormMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      const res = await client.POST("/api/v1/torrent", {
+      const res = await client.POST("/torrent", {
         body: data,
       })
       return res

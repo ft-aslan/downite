@@ -18,6 +18,9 @@ type GetTorrentsRes struct {
 		Torrents []types.Torrent `json:"torrents"`
 	}
 }
+type Response[T any] struct {
+	Body T
+}
 
 func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) {
 	res := &GetTorrentsRes{}
@@ -36,44 +39,58 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 	res.Body.Torrents = torrentsRes
 	return res, nil
 }
-func GetTorrent(ctx context.Context, input *struct {
-	Hash string `path:"hash" maxLength:"30" example:"2b66980093bc11806fab50cb3cb41835b95a0362" doc:"Hash of the torrent"`
-}) (*types.Torrent, error) {
 
+type GetTorrentReq struct {
+	Hash string `path:"hash" maxLength:"30" example:"2b66980093bc11806fab50cb3cb41835b95a0362" doc:"Hash of the torrent"`
+}
+type GetTorrentRes struct {
+	Body types.Torrent
+}
+
+func GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, error) {
+	res := &GetTorrentRes{}
 	torrent, ok := torr.Client.Torrent(infohash.FromHexString(input.Hash))
 	if !ok {
 		return nil, fmt.Errorf("torrent with hash %s not found", input.Hash)
 	}
 
-	return &types.Torrent{
+	res.Body = types.Torrent{
 		InfoHash: torrent.InfoHash().String(),
 		Name:     torrent.Name(),
 		AddedOn:  time.Now().Unix(),
 		Files:    torrent.Info().FileTree,
-	}, nil
+	}
+
+	return res, nil
 }
 
 type DownloadTorrentReq struct {
-	Magnet                      string           `json:"magnet"`
-	File                        []byte           `json:"file"`
-	SavePath                    string           `json:"savePath" validate:"required, dir"`
-	IsIncompleteSavePathEnabled bool             `json:"isIncompleteSavePathEnabled"`
-	IncompleteSavePath          string           `json:"incompleteSavePath" validate:"dir"`
-	Category                    string           `json:"category"`
-	Tags                        []string         `json:"tags"`
-	StartTorrent                bool             `json:"startTorrent"`
-	AddTopOfQueue               bool             `json:"addTopOfQueue"`
-	DownloadSequentially        bool             `json:"downloadSequentially"`
-	SkipHashCheck               bool             `json:"skipHashCheck"`
-	ContentLayout               string           `json:"contentLayout" validate:"oneof='Original' 'Create subfolder' 'Don't create subfolder'"`
-	Files                       []types.FileMeta `json:"files"`
+	Body struct {
+		Magnet                      string           `json:"magnet"`
+		File                        []byte           `json:"file"`
+		SavePath                    string           `json:"savePath" validate:"required, dir"`
+		IsIncompleteSavePathEnabled bool             `json:"isIncompleteSavePathEnabled"`
+		IncompleteSavePath          string           `json:"incompleteSavePath" validate:"dir"`
+		Category                    string           `json:"category"`
+		Tags                        []string         `json:"tags"`
+		StartTorrent                bool             `json:"startTorrent"`
+		AddTopOfQueue               bool             `json:"addTopOfQueue"`
+		DownloadSequentially        bool             `json:"downloadSequentially"`
+		SkipHashCheck               bool             `json:"skipHashCheck"`
+		ContentLayout               string           `json:"contentLayout" validate:"oneof='Original' 'Create subfolder' 'Don't create subfolder'"`
+		Files                       []types.FileMeta `json:"files"`
+	}
+}
+type DownloadTorrentRes struct {
+	Body types.Torrent
 }
 
-func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*types.Torrent, error) {
+func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadTorrentRes, error) {
+	res := &DownloadTorrentRes{}
 	var torrent *torrent.Torrent
-	if input.Magnet != "" {
+	if input.Body.Magnet != "" {
 		// Load from a magnet link
-		torrent, err := torr.Client.AddMagnet(input.Magnet)
+		torrent, err := torr.Client.AddMagnet(input.Body.Magnet)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +99,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*types.Tor
 
 	} else {
 		// Load the torrent file
-		fileReader := bytes.NewReader(input.File)
+		fileReader := bytes.NewReader(input.Body.File)
 		torrentMeta, err := metainfo.Load(fileReader)
 		if err != nil {
 			return nil, err
@@ -92,33 +109,36 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*types.Tor
 			return nil, err
 		}
 	}
-	if !input.SkipHashCheck {
+	if !input.Body.SkipHashCheck {
 		torrent.VerifyData()
 	}
 
-	return &types.Torrent{
+	res.Body = types.Torrent{
 		InfoHash: torrent.InfoHash().String(),
 		Name:     torrent.Name(),
 		AddedOn:  time.Now().Unix(),
 		Files:    torrent.Info().FileTree,
-	}, nil
+	}
+	return res, nil
 }
 
 type GetTorrentMetaReq struct {
-	File   []byte `json:"file"`
-	Magnet string `json:"magnet"`
-}
-type TorrentMeta struct {
-	TotalSize int64            `json:"totalSize"`
-	Files     []types.FileMeta `json:"files"`
-	Name      string           `json:"name"`
+	Body struct {
+		Magnet  string `json:"magnet"`
+		Torrent []byte `json:"file"`
+	}
 }
 
-func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*TorrentMeta, error) {
+type GetTorrentMetaRes struct {
+	Body types.TorrentMeta
+}
+
+func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentMetaRes, error) {
+	res := &GetTorrentMetaRes{}
 	var info metainfo.Info
-	if input.Magnet != "" {
+	if input.Body.Magnet != "" {
 		// Load from a magnet link
-		torrent, err := torr.Client.AddMagnet(input.Magnet)
+		torrent, err := torr.Client.AddMagnet(input.Body.Magnet)
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +149,7 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*TorrentMeta
 		torrent.Drop()
 	} else {
 		// Load the torrent file
-		fileReader := bytes.NewReader(input.File)
+		fileReader := bytes.NewReader(input.Body.File)
 		torrentMeta, err := metainfo.Load(fileReader)
 		if err != nil {
 			return nil, err
@@ -147,9 +167,10 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*TorrentMeta
 			Path:   file.Path,
 		})
 	}
-	return &TorrentMeta{
+	res.Body = types.TorrentMeta{
 		TotalSize: info.TotalLength(),
 		Files:     files,
 		Name:      info.Name,
-	}, nil
+	}
+	return res, nil
 }

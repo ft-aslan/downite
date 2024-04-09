@@ -40,7 +40,7 @@ export default function GetTorrentMetaForm({
   })
   const torrentMetaFormMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      const res = await client.POST("/api/v1/torrent-meta", {
+      const res = await client.POST("/torrent-meta", {
         body: data,
       })
       return res
