@@ -48,3 +48,6 @@ go.work
 
 # Go Air temp folder
 tmp
+
+#.torrent from go-torrent
+.torrent*

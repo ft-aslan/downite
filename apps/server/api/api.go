@@ -51,6 +51,7 @@ func ApiInit() {
 		config.DocsPath = ""
 
 		api := humago.NewWithPrefix(s, "/api", config)
+		api.UseMiddleware(CorsMiddleware)
 
 		//register api routes
 		huma.Register(api, huma.Operation{
@@ -81,4 +82,15 @@ func ApiInit() {
 	})
 	// Run the CLI. When passed no commands, it starts the server.
 	cli.Run()
+}
+
+// Create a custom middleware handler to disable CORS
+func CorsMiddleware(ctx huma.Context, next func(huma.Context)) {
+	ctx.SetHeader("Access-Control-Allow-Origin", "*")
+	ctx.SetHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	ctx.SetHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// Call the next middleware in the chain. This eventually calls the
+	// operation handler as well.
+	next(ctx)
 }

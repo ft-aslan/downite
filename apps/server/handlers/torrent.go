@@ -124,8 +124,8 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 type GetTorrentMetaReq struct {
 	Body struct {
-		Magnet  string `json:"magnet"`
-		Torrent []byte `json:"file"`
+		Magnet string `json:"magnet"`
+		File   []byte `json:"file"`
 	}
 }
 
@@ -172,5 +172,6 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 		Files:     files,
 		Name:      info.Name,
 	}
+	fmt.Printf("%s", ctx)
 	return res, nil
 }
