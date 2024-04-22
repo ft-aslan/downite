@@ -51,12 +51,14 @@ const formSchema = z.object({
   downloadSequentially: z.boolean().default(false),
   skipHashCheck: z.boolean().default(false),
   contentLayout: z.string().default("Original"),
-  files: z.object({
-    path: z.string(),
-    name: z.string(),
-    wanted: z.boolean().default(true),
-    downloadPriority: z.string().default("Normal"),
-  }),
+  files: z
+    .object({
+      path: z.string(),
+      name: z.string(),
+      wanted: z.boolean().default(true),
+      downloadPriority: z.string().default("Normal"),
+    })
+    .array(),
 })
 interface GetTorrentMetaFormProps {
   className?: string

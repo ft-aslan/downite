@@ -70,7 +70,7 @@ export interface components {
             category?: string;
             contentLayout: string;
             downloadSequentially: boolean;
-            files: components["schemas"]["FileMeta"][];
+            files: components["schemas"]["TorrentFileOptions"][];
             incompleteSavePath: string;
             isIncompleteSavePathEnabled: boolean;
             magnet: string;
@@ -204,6 +204,13 @@ export interface components {
             totalSize: number;
             /** Format: int64 */
             uploadSpeed: number;
+        };
+        TorrentFileOptions: {
+            Children: components["schemas"]["TorrentFileOptions"][];
+            DownloadPriority: string;
+            Name: string;
+            Path: string;
+            Wanted: boolean;
         };
         TorrentMeta: {
             /**

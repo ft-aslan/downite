@@ -50,3 +50,10 @@ type Torrent struct {
 	DownloadSpeed int                         `json:"downloadSpeed"`
 	UploadSpeed   int                         `json:"uploadSpeed"`
 }
+
+type TorrentFileOptions struct {
+	Path             string
+	Name             string
+	Wanted           bool
+	DownloadPriority string
+}

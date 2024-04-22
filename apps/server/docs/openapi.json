@@ -18,7 +18,7 @@
           "contentLayout": { "type": "string" },
           "downloadSequentially": { "type": "boolean" },
           "files": {
-            "items": { "$ref": "#/components/schemas/FileMeta" },
+            "items": { "$ref": "#/components/schemas/TorrentFileOptions" },
             "type": "array"
           },
           "incompleteSavePath": { "type": "string" },
@@ -252,6 +252,17 @@
           "downloadSpeed",
           "uploadSpeed"
         ],
+        "type": "object"
+      },
+      "TorrentFileOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "DownloadPriority": { "type": "string" },
+          "Name": { "type": "string" },
+          "Path": { "type": "string" },
+          "Wanted": { "type": "boolean" }
+        },
+        "required": ["Path", "Name", "Wanted", "DownloadPriority"],
         "type": "object"
       },
       "TorrentMeta": {

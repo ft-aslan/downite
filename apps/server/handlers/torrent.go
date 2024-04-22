@@ -66,19 +66,19 @@ func GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, erro
 
 type DownloadTorrentReq struct {
 	Body struct {
-		Magnet                      string           `json:"magnet"`
-		TorrentFile                 []byte           `json:"torrentFile"`
-		SavePath                    string           `json:"savePath" validate:"required, dir"`
-		IsIncompleteSavePathEnabled bool             `json:"isIncompleteSavePathEnabled"`
-		IncompleteSavePath          string           `json:"incompleteSavePath" validate:"dir"`
-		Category                    string           `json:"category,omitempty"`
-		Tags                        []string         `json:"tags,omitempty"`
-		StartTorrent                bool             `json:"startTorrent"`
-		AddTopOfQueue               bool             `json:"addTopOfQueue"`
-		DownloadSequentially        bool             `json:"downloadSequentially"`
-		SkipHashCheck               bool             `json:"skipHashCheck"`
-		ContentLayout               string           `json:"contentLayout" validate:"oneof='Original' 'Create subfolder' 'Don't create subfolder'"`
-		Files                       []types.FileMeta `json:"files"`
+		Magnet                      string                     `json:"magnet"`
+		TorrentFile                 []byte                     `json:"torrentFile"`
+		SavePath                    string                     `json:"savePath" validate:"required, dir"`
+		IsIncompleteSavePathEnabled bool                       `json:"isIncompleteSavePathEnabled"`
+		IncompleteSavePath          string                     `json:"incompleteSavePath" validate:"dir"`
+		Category                    string                     `json:"category,omitempty"`
+		Tags                        []string                   `json:"tags,omitempty"`
+		StartTorrent                bool                       `json:"startTorrent"`
+		AddTopOfQueue               bool                       `json:"addTopOfQueue"`
+		DownloadSequentially        bool                       `json:"downloadSequentially"`
+		SkipHashCheck               bool                       `json:"skipHashCheck"`
+		ContentLayout               string                     `json:"contentLayout" validate:"oneof='Original' 'Create subfolder' 'Don't create subfolder'"`
+		Files                       []types.TorrentFileOptions `json:"files"`
 	}
 }
 type DownloadTorrentRes struct {
