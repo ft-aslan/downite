@@ -40,7 +40,7 @@ import {
 
 const formSchema = z.object({
   magnet: z.string().startsWith("magnet:?").optional(),
-  torrent: z.instanceof(File).optional(),
+  torrentFile: z.instanceof(File).optional(),
   savePath: z.string(),
   isIncompleteSavePathEnabled: z.boolean().default(false),
   incompleteSavePath: z.string().optional(),

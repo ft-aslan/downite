@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/danielgtaylor/huma/v2/humacli"
+	"github.com/rs/cors"
 )
 
 // Options for the CLI.
@@ -51,7 +53,7 @@ func ApiInit() {
 		config.DocsPath = ""
 
 		api := humago.NewWithPrefix(s, "/api", config)
-		api.UseMiddleware(CorsMiddleware)
+		// api.UseMiddleware(CorsMiddleware)
 
 		//register api routes
 		huma.Register(api, huma.Operation{
@@ -74,9 +76,24 @@ func ApiInit() {
 			fmt.Println("Error writing openapi to file:", err)
 			return
 		}
+
+		//run prettier for openapi.json
+		err = exec.Command("prettier", "docs/openapi.json", "--write", "--parser", "json").Run()
+		if err != nil {
+			fmt.Println("Error running prettier for openapi.json:", err)
+			return
+		}
+
 		// Tell the CLI how to start your server.
 		hooks.OnStart(func() {
 			fmt.Printf("Starting server on port %d...\n", options.Port)
+
+			//disabled cors
+			s := cors.New(cors.Options{
+				AllowedOrigins: []string{"*"},
+				AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			}).Handler(s)
+
 			http.ListenAndServe(fmt.Sprintf(":%d", options.Port), s)
 		})
 	})
@@ -85,12 +102,12 @@ func ApiInit() {
 }
 
 // Create a custom middleware handler to disable CORS
-func CorsMiddleware(ctx huma.Context, next func(huma.Context)) {
-	ctx.SetHeader("Access-Control-Allow-Origin", "*")
-	ctx.SetHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	ctx.SetHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
+// func CorsMiddleware(ctx huma.Context, next func(huma.Context)) {
+// 	ctx.SetHeader("Access-Control-Allow-Origin", "*")
+// 	ctx.SetHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+// 	ctx.SetHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-	// Call the next middleware in the chain. This eventually calls the
-	// operation handler as well.
-	next(ctx)
-}
+// 	// Call the next middleware in the chain. This eventually calls the
+// 	// operation handler as well.
+// 	next(ctx)
+// }

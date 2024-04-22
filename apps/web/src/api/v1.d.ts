@@ -70,7 +70,6 @@ export interface components {
             category: string;
             contentLayout: string;
             downloadSequentially: boolean;
-            file: string;
             files: components["schemas"]["FileMeta"][];
             incompleteSavePath: string;
             isIncompleteSavePathEnabled: boolean;
@@ -79,6 +78,7 @@ export interface components {
             skipHashCheck: boolean;
             startTorrent: boolean;
             tags: string[];
+            torrentFile: string;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -139,8 +139,8 @@ export interface components {
              * @description A URL to the JSON Schema for this object.
              */
             readonly $schema?: string;
-            file: string;
-            magnet: string;
+            magnet?: string;
+            torrentFile?: string;
         };
         GetTorrentsResBody: {
             /**

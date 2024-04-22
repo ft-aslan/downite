@@ -67,11 +67,11 @@ func GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, erro
 type DownloadTorrentReq struct {
 	Body struct {
 		Magnet                      string           `json:"magnet"`
-		File                        []byte           `json:"file"`
+		TorrentFile                 []byte           `json:"torrentFile"`
 		SavePath                    string           `json:"savePath" validate:"required, dir"`
 		IsIncompleteSavePathEnabled bool             `json:"isIncompleteSavePathEnabled"`
 		IncompleteSavePath          string           `json:"incompleteSavePath" validate:"dir"`
-		Category                    string           `json:"category"`
+		Category                    string           `json:"category,omitempty"`
 		Tags                        []string         `json:"tags"`
 		StartTorrent                bool             `json:"startTorrent"`
 		AddTopOfQueue               bool             `json:"addTopOfQueue"`
@@ -99,7 +99,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 	} else {
 		// Load the torrent file
-		fileReader := bytes.NewReader(input.Body.File)
+		fileReader := bytes.NewReader(input.Body.TorrentFile)
 		torrentMeta, err := metainfo.Load(fileReader)
 		if err != nil {
 			return nil, err
@@ -124,8 +124,8 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 type GetTorrentMetaReq struct {
 	Body struct {
-		Magnet string `json:"magnet"`
-		File   []byte `json:"file"`
+		Magnet      string `json:"magnet,omitempty"`
+		TorrentFile []byte `json:"torrentFile,omitempty"`
 	}
 }
 
@@ -149,7 +149,7 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 		torrent.Drop()
 	} else {
 		// Load the torrent file
-		fileReader := bytes.NewReader(input.Body.File)
+		fileReader := bytes.NewReader(input.Body.TorrentFile)
 		torrentMeta, err := metainfo.Load(fileReader)
 		if err != nil {
 			return nil, err
