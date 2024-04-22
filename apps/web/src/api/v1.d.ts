@@ -67,7 +67,7 @@ export interface components {
              */
             readonly $schema?: string;
             addTopOfQueue: boolean;
-            category: string;
+            category?: string;
             contentLayout: string;
             downloadSequentially: boolean;
             files: components["schemas"]["FileMeta"][];
@@ -77,7 +77,7 @@ export interface components {
             savePath: string;
             skipHashCheck: boolean;
             startTorrent: boolean;
-            tags: string[];
+            tags?: string[];
             torrentFile: string;
         };
         ErrorDetail: {

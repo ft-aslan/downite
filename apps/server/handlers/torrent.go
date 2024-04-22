@@ -72,7 +72,7 @@ type DownloadTorrentReq struct {
 		IsIncompleteSavePathEnabled bool             `json:"isIncompleteSavePathEnabled"`
 		IncompleteSavePath          string           `json:"incompleteSavePath" validate:"dir"`
 		Category                    string           `json:"category,omitempty"`
-		Tags                        []string         `json:"tags"`
+		Tags                        []string         `json:"tags,omitempty"`
 		StartTorrent                bool             `json:"startTorrent"`
 		AddTopOfQueue               bool             `json:"addTopOfQueue"`
 		DownloadSequentially        bool             `json:"downloadSequentially"`

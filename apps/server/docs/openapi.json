@@ -36,7 +36,6 @@
           "savePath",
           "isIncompleteSavePathEnabled",
           "incompleteSavePath",
-          "tags",
           "startTorrent",
           "addTopOfQueue",
           "downloadSequentially",

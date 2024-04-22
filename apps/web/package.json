@@ -6,7 +6,7 @@
   "scripts": {
     "dev:web": "npm-run-all --parallel vite openapi-watch",
     "vite": "vite",
-    "openapi-watch": "nodemon --watch ../server/doc --exec \"bun run openapi-gen\"",
+    "openapi-watch": "nodemon --watch ../server/docs --exec \"bun run openapi-gen\"",
     "test": "vitest",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
