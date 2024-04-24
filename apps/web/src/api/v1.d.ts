@@ -206,7 +206,6 @@ export interface components {
             uploadSpeed: number;
         };
         TorrentFileOptions: {
-            Children: components["schemas"]["TorrentFileOptions"][];
             DownloadPriority: string;
             Name: string;
             Path: string;

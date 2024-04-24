@@ -138,6 +138,8 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 	var info metainfo.Info
 	if input.Body.Magnet != "" {
 		// Load from a magnet link
+
+		//torrent, err := metainfo.ParseMagnetUri(input.Body.Magnet)
 		torrent, err := torr.Client.AddMagnet(input.Body.Magnet)
 		if err != nil {
 			return nil, err
