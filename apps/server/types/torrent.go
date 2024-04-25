@@ -20,8 +20,10 @@ type PieceProgress struct {
 	Length              int
 }
 type FileMeta struct {
-	Length int64    `json:"length"`
-	Path   []string `json:"path"`
+	Length   int64      `json:"length"`
+	Name     string     `json:"name"`
+	Path     []string   `json:"path"`
+	Children []FileMeta `json:"children"`
 }
 type TorrentMeta struct {
 	TotalSize int64      `json:"totalSize"`
@@ -52,8 +54,7 @@ type Torrent struct {
 }
 
 type TorrentFileOptions struct {
-	Path             string
-	Name             string
-	Wanted           bool
-	DownloadPriority string
+	Path             string `json:"path"`
+	Name             string `json:"name"`
+	DownloadPriority string `json:"downloadPriority"`
 }

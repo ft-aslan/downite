@@ -139,7 +139,8 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 	if input.Body.Magnet != "" {
 		// Load from a magnet link
 
-		//torrent, err := metainfo.ParseMagnetUri(input.Body.Magnet)
+		// magnetMetaInfo, err := metainfo.ParseMagnetUri(input.Body.Magnet)
+		// err = bencode.Unmarshal(magnetMetaInfo.InfoHash[:], &info)
 		torrent, err := torr.Client.AddMagnet(input.Body.Magnet)
 		if err != nil {
 			return nil, err
@@ -164,11 +165,15 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 	}
 	var files []types.FileMeta
 	for _, file := range info.Files {
+		fmt.Printf("%+v", file)
 		files = append(files, types.FileMeta{
-			Length: file.Length,
-			Path:   file.Path,
+			Length:   file.Length,
+			Name:     file.Path[len(file.Path)-1],
+			Path:     file.Path,
+			Children: []types.FileMeta{},
 		})
 	}
+
 	res.Body = types.TorrentMeta{
 		TotalSize: info.TotalLength(),
 		Files:     files,

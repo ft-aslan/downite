@@ -107,10 +107,15 @@
       "FileMeta": {
         "additionalProperties": false,
         "properties": {
+          "children": {
+            "items": { "$ref": "#/components/schemas/FileMeta" },
+            "type": "array"
+          },
           "length": { "format": "int64", "type": "integer" },
+          "name": { "type": "string" },
           "path": { "items": { "type": "string" }, "type": "array" }
         },
-        "required": ["length", "path"],
+        "required": ["length", "name", "path", "children"],
         "type": "object"
       },
       "FileTree": {
@@ -257,12 +262,11 @@
       "TorrentFileOptions": {
         "additionalProperties": false,
         "properties": {
-          "DownloadPriority": { "type": "string" },
-          "Name": { "type": "string" },
-          "Path": { "type": "string" },
-          "Wanted": { "type": "boolean" }
+          "downloadPriority": { "type": "string" },
+          "name": { "type": "string" },
+          "path": { "type": "string" }
         },
-        "required": ["Path", "Name", "Wanted", "DownloadPriority"],
+        "required": ["path", "name", "downloadPriority"],
         "type": "object"
       },
       "TorrentMeta": {

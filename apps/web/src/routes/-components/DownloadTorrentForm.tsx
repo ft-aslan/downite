@@ -37,6 +37,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
+
+// const baseTreeNodeSchema = z.object({
+//   name: z.string(),
+//   path: z.string(),
+//   downloadPriority: z.string().default("Normal"),
+// })
+
+// type TreeNode = z.infer<typeof baseTreeNodeSchema> & {
+//   children: TreeNode[]
+// }
+
+// const treeNodeSchema: z.ZodType<TreeNode> = baseTreeNodeSchema.extend({
+//   children: z.lazy(() => treeNodeSchema.array()),
+// })
 
 const formSchema = z.object({
   magnet: z.string().startsWith("magnet:?").optional(),
@@ -53,16 +77,15 @@ const formSchema = z.object({
   contentLayout: z.string().default("Original"),
   files: z
     .object({
-      path: z.string(),
       name: z.string(),
-      wanted: z.boolean().default(true),
+      path: z.string(),
       downloadPriority: z.string().default("Normal"),
     })
     .array(),
 })
 interface GetTorrentMetaFormProps {
   className?: string
-  torrentMeta?: components["schemas"]["TorrentMeta"]
+  torrentMeta: components["schemas"]["TorrentMeta"]
 }
 export default function DownloadTorrentForm({
   className,
@@ -95,27 +118,44 @@ export default function DownloadTorrentForm({
   async function onSubmit(data: z.infer<typeof formSchema>) {
     torrentDownloadFormMutation.mutate(data)
   }
-  const data = [
-    { id: "1", name: "Unread" },
-    { id: "2", name: "Threads" },
-    {
-      id: "6",
-      name: "Direct Messages",
-      children: [
-        {
-          id: "f1",
-          name: "Alice",
-          children: [
-            { id: "f11", name: "Alice2" },
-            { id: "f12", name: "Bob2" },
-            { id: "f13", name: "Charlie2" },
-          ],
-        },
-        { id: "f2", name: "Bob" },
-        { id: "f3", name: "Charlie" },
-      ],
-    },
-  ]
+  interface FileTreeNode {
+    id: string
+    name: string
+    size: string
+    path: string[]
+    downloadPriority: string
+    children: FileTreeNode[]
+  }
+  const createFileTree = (
+    file: components["schemas"]["FileMeta"]
+  ): FileTreeNode => ({
+    id: file.path.join("/"),
+    name: file.name,
+    size: (file.length / 1024 / 1024).toFixed(2) + " MB",
+    path: file.path,
+    downloadPriority: "Normal",
+    children: file.children.map(createFileTree),
+  })
+  const [fileTree, setFileTree] = React.useState(
+    torrentMeta.files.map(createFileTree)
+  )
+  const updateItemById = (
+    id: string,
+    updateFn: (item: FileTreeNode) => FileTreeNode
+  ): void => {
+    const updateRecursive = (obj: FileTreeNode): FileTreeNode => {
+      if (obj.id === id) {
+        return updateFn(obj)
+      }
+      if (obj.children) {
+        return { ...obj, children: obj.children.map(updateRecursive) }
+      }
+      return obj
+    }
+
+    setFileTree((prevData) => prevData.map(updateRecursive))
+  }
+
   const [tab, setTab] = React.useState("config")
   const onTabChange = (value: string) => {
     setTab(value)
@@ -301,13 +341,48 @@ export default function DownloadTorrentForm({
                 <CardDescription>Torrent file tree editor</CardDescription>
               </CardHeader>
               <CardContent>
-                <Tree
+                {/* <Tree
                   className="h-64 w-full"
-                  data={data}
+                  data={fileTree}
                   onSelectChange={(item) => console.log(item)}
                   folderIcon={Folder}
                   itemIcon={FileIcon}
-                />
+                /> */}
+                <Table>
+                  <TableCaption>Torrent file tree</TableCaption>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Size</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fileTree.map((item) => (
+                      <TableRow key={item.name}>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={item.downloadPriority != "None"}
+                              onCheckedChange={(checked) => {
+                                updateItemById(item.id, (item) => ({
+                                  ...item,
+                                  downloadPriority: checked ? "Normal" : "None",
+                                }))
+                              }}
+                            />
+                            {item.children.length ? (
+                              <Folder className="h-4 w-4" />
+                            ) : (
+                              <FileIcon className="h-4 w-4" />
+                            )}
+                            <span>{item.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{item.size}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
