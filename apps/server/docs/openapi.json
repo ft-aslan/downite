@@ -104,20 +104,6 @@
         },
         "type": "object"
       },
-      "FileMeta": {
-        "additionalProperties": false,
-        "properties": {
-          "children": {
-            "items": { "$ref": "#/components/schemas/FileMeta" },
-            "type": "array"
-          },
-          "length": { "format": "int64", "type": "integer" },
-          "name": { "type": "string" },
-          "path": { "items": { "type": "string" }, "type": "array" }
-        },
-        "required": ["length", "name", "path", "children"],
-        "type": "object"
-      },
       "FileTree": {
         "additionalProperties": false,
         "properties": {
@@ -262,7 +248,10 @@
       "TorrentFileOptions": {
         "additionalProperties": false,
         "properties": {
-          "downloadPriority": { "type": "string" },
+          "downloadPriority": {
+            "enum": ["None", "Low", "Normal", "High", "Maximum"],
+            "type": "string"
+          },
           "name": { "type": "string" },
           "path": { "type": "string" }
         },
@@ -280,13 +269,27 @@
             "type": "string"
           },
           "files": {
-            "items": { "$ref": "#/components/schemas/FileMeta" },
+            "items": { "$ref": "#/components/schemas/TreeNodeMeta" },
             "type": "array"
           },
           "name": { "type": "string" },
           "totalSize": { "format": "int64", "type": "integer" }
         },
         "required": ["totalSize", "files", "name"],
+        "type": "object"
+      },
+      "TreeNodeMeta": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "items": { "$ref": "#/components/schemas/TreeNodeMeta" },
+            "type": "array"
+          },
+          "length": { "format": "int64", "type": "integer" },
+          "name": { "type": "string" },
+          "path": { "items": { "type": "string" }, "type": "array" }
+        },
+        "required": ["length", "name", "path", "children"],
         "type": "object"
       }
     }

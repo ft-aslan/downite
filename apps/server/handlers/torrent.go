@@ -163,22 +163,61 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 		}
 
 	}
-	var files []types.FileMeta
+	var fileTree []types.TreeNodeMeta
 	for _, file := range info.Files {
-		fmt.Printf("%+v", file)
-		files = append(files, types.FileMeta{
+		targetNode := fileTree
+		if len(file.Path) > 1 {
+			targetNode = createFolder(targetNode, file.Path[:len(file.Path)-1])
+		}
+		targetNode = append(targetNode, types.TreeNodeMeta{
 			Length:   file.Length,
 			Name:     file.Path[len(file.Path)-1],
 			Path:     file.Path,
-			Children: []types.FileMeta{},
+			Children: []types.TreeNodeMeta{},
 		})
 	}
 
 	res.Body = types.TorrentMeta{
 		TotalSize: info.TotalLength(),
-		Files:     files,
+		Files:     fileTree,
 		Name:      info.Name,
 	}
 	fmt.Printf("%s", ctx)
 	return res, nil
 }
+func createFolder(fileTree []types.TreeNodeMeta, path []string) []types.TreeNodeMeta {
+	if len(fileTree) > 0 {
+		for _, node := range fileTree {
+			if node.Name == path[0] {
+				if len(path) == 1 {
+					return fileTree
+				}
+				return createFolder(node.Children, path[1:])
+			}
+		}
+
+	}
+	fileTree = append(fileTree, types.TreeNodeMeta{
+		Length:   0,
+		Name:     path[0],
+		Path:     path,
+		Children: []types.TreeNodeMeta{},
+	})
+
+	if len(path) > 1 {
+		return createFolder(fileTree, path[1:])
+	}
+	return fileTree
+}
+
+// func findFolder(fileTree []types.TreeNodeMeta, path []string) *types.TreeNodeMeta {
+// 	for _, node := range fileTree {
+// 		if node.Name == path[0] {
+// 			if len(path) == 1 {
+// 				return &node
+// 			}
+// 			return findFolder(node.Children, path[1:])
+// 		}
+// 	}
+// 	return nil
+// }

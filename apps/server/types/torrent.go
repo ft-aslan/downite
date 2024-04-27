@@ -19,16 +19,16 @@ type PieceProgress struct {
 	DownloadedByteCount int
 	Length              int
 }
-type FileMeta struct {
-	Length   int64      `json:"length"`
-	Name     string     `json:"name"`
-	Path     []string   `json:"path"`
-	Children []FileMeta `json:"children"`
+type TreeNodeMeta struct {
+	Length   int64          `json:"length"`
+	Name     string         `json:"name"`
+	Path     []string       `json:"path"`
+	Children []TreeNodeMeta `json:"children"`
 }
 type TorrentMeta struct {
-	TotalSize int64      `json:"totalSize"`
-	Files     []FileMeta `json:"files"`
-	Name      string     `json:"name"`
+	TotalSize int64          `json:"totalSize"`
+	Files     []TreeNodeMeta `json:"files"`
+	Name      string         `json:"name"`
 }
 type Torrent struct {
 	Name          string                      `json:"name"`
@@ -56,5 +56,15 @@ type Torrent struct {
 type TorrentFileOptions struct {
 	Path             string `json:"path"`
 	Name             string `json:"name"`
-	DownloadPriority string `json:"downloadPriority"`
+	DownloadPriority string `json:"downloadPriority" enum:"None,Low,Normal,High,Maximum"`
 }
+
+type DownloadPriority int
+
+const (
+	DownloadPriorityNone DownloadPriority = iota
+	DownloadPriorityLow
+	DownloadPriorityNormal
+	DownloadPriorityHigh
+	DownloadPriorityMaximum
+)
