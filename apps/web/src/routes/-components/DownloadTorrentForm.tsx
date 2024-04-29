@@ -18,8 +18,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Tree } from "@/components/ui/tree-view"
-import { ChevronRight, File as FileIcon, Folder, Layout } from "lucide-react"
+import { ChevronRight, File as FileIcon, Folder } from "lucide-react"
 import React from "react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -68,6 +67,7 @@ const formSchema = z.object({
   magnet: z.string().startsWith("magnet:?").optional(),
   torrentFile: z.instanceof(File).optional(),
   savePath: z.string(),
+  torrent: z.instanceof(File).optional(),
   isIncompleteSavePathEnabled: z.boolean().default(false),
   incompleteSavePath: z.string().optional(),
   category: z.string().optional(),
@@ -96,6 +96,7 @@ export default function DownloadTorrentForm({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      savePath: "",
       startTorrent: true,
     },
   })
@@ -139,18 +140,18 @@ export default function DownloadTorrentForm({
     size: string
     path: string[]
     downloadPriority: DownloadPriority
-    opened: boolean
+    expanded: boolean
     children: FileTreeNode[]
   }
   const createFileTree = (
-    file: components["schemas"]["FileMeta"]
+    file: components["schemas"]["TreeNodeMeta"]
   ): FileTreeNode => ({
     id: file.path.join("/"),
     name: file.name,
     size: (file.length / 1024 / 1024).toFixed(2) + " MB",
     path: file.path,
     downloadPriority: DownloadPriority.Normal,
-    opened: false,
+    expanded: false,
     children: file.children.map(createFileTree),
   })
   const [fileTree, setFileTree] = React.useState(
@@ -376,78 +377,7 @@ export default function DownloadTorrentForm({
                     </TableHeader>
                     <TableBody>
                       {fileTree.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              {item.children.length > 0 && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-9 p-0"
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <Checkbox
-                                checked={
-                                  item.downloadPriority != DownloadPriority.None
-                                }
-                                onCheckedChange={(checked) => {
-                                  updateItemById(item.id, (item) => ({
-                                    ...item,
-                                    downloadPriority: checked
-                                      ? DownloadPriority.Normal
-                                      : DownloadPriority.None,
-                                  }))
-                                }}
-                              />
-                              {item.children.length ? (
-                                <Folder className="h-4 w-4" />
-                              ) : (
-                                <FileIcon className="h-4 w-4" />
-                              )}
-                              <span>{item.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="whitespace-nowrap">
-                              {item.size}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={item.downloadPriority}
-                              onValueChange={(downloadPriority) => {
-                                updateItemById(item.id, (item) => ({
-                                  ...item,
-                                  downloadPriority:
-                                    DownloadPriority[downloadPriority],
-                                }))
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select download priority" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={DownloadPriority.None}>
-                                  None
-                                </SelectItem>
-                                <SelectItem value={DownloadPriority.Low}>
-                                  Low
-                                </SelectItem>
-                                <SelectItem value={DownloadPriority.Normal}>
-                                  Normal
-                                </SelectItem>
-                                <SelectItem value={DownloadPriority.High}>
-                                  High
-                                </SelectItem>
-                                <SelectItem value={DownloadPriority.Maximum}>
-                                  Maximum
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                        </TableRow>
+                        <RenderFileTree key={item.id} item={item} level={0} />
                       ))}
                     </TableBody>
                   </Table>
@@ -466,4 +396,94 @@ export default function DownloadTorrentForm({
       </form>
     </Form>
   )
+  function RenderFileTree({
+    item,
+    level,
+  }: {
+    item: FileTreeNode
+    level: number
+  }) {
+    return [
+      <TableRow key={item.id}>
+        <TableCell>
+          <div className="flex items-center space-x-2">
+            <div className="h-2" style={{ width: `${level * 45}px` }}></div>
+            {item.children.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-9"
+                style={{ transform: `rotate(${item.expanded ? 90 : 0}deg)` }}
+                onClick={() => {
+                  updateItemById(item.id, (item) => ({
+                    ...item,
+                    expanded: !item.expanded,
+                  }))
+                }}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+            <Checkbox
+              checked={item.downloadPriority != DownloadPriority.None}
+              onCheckedChange={(checked) => {
+                updateItemById(item.id, (item) => {
+                  // if changed to folder checkbox, set download priority for all children recursively
+                  if (item.children.length) {
+                    item.children.forEach((child) => {
+                      child.downloadPriority = checked
+                        ? DownloadPriority.Normal
+                        : DownloadPriority.None
+                    })
+                  }
+                  return {
+                    ...item,
+                    downloadPriority: checked
+                      ? DownloadPriority.Normal
+                      : DownloadPriority.None,
+                  }
+                })
+              }}
+            />
+            {item.children.length ? (
+              <Folder className="h-4 w-4" />
+            ) : (
+              <FileIcon className="h-4 w-4" />
+            )}
+            <span className="min-w-8">{item.name}</span>
+          </div>
+        </TableCell>
+        <TableCell>
+          <span className="whitespace-nowrap">{item.size}</span>
+        </TableCell>
+        <TableCell>
+          <Select
+            value={item.downloadPriority}
+            onValueChange={(downloadPriority) => {
+              updateItemById(item.id, (item) => ({
+                ...item,
+                downloadPriority: DownloadPriority[downloadPriority],
+              }))
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select download priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={DownloadPriority.None}>None</SelectItem>
+              <SelectItem value={DownloadPriority.Low}>Low</SelectItem>
+              <SelectItem value={DownloadPriority.Normal}>Normal</SelectItem>
+              <SelectItem value={DownloadPriority.High}>High</SelectItem>
+              <SelectItem value={DownloadPriority.Maximum}>Maximum</SelectItem>
+            </SelectContent>
+          </Select>
+        </TableCell>
+      </TableRow>,
+      ...(item.expanded
+        ? item.children.map((child) => (
+            <RenderFileTree key={child.id} item={child} level={level + 1} />
+          ))
+        : []),
+    ]
+  }
 }

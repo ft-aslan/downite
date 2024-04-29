@@ -10,6 +10,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	torrenttypes "github.com/anacrolix/torrent/types"
 	"github.com/anacrolix/torrent/types/infohash"
 )
 
@@ -109,6 +110,11 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 			return nil, err
 		}
 	}
+
+	for _, file := range torrent.Files() {
+		file.SetPriority(torrenttypes.PiecePriorityNone)
+	}
+
 	if !input.Body.SkipHashCheck {
 		torrent.VerifyData()
 	}
@@ -163,18 +169,22 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 		}
 
 	}
-	var fileTree []types.TreeNodeMeta
+	var fileTree []*types.TreeNodeMeta
 	for _, file := range info.Files {
-		targetNode := fileTree
+		targetNodeTree := &fileTree
+		var parentNode *types.TreeNodeMeta
 		if len(file.Path) > 1 {
-			targetNode = createFolder(targetNode, file.Path[:len(file.Path)-1])
+			targetNodeTree, parentNode = createFolder(targetNodeTree, file.Path[:len(file.Path)-1])
 		}
-		targetNode = append(targetNode, types.TreeNodeMeta{
+		*targetNodeTree = append(*targetNodeTree, &types.TreeNodeMeta{
 			Length:   file.Length,
 			Name:     file.Path[len(file.Path)-1],
 			Path:     file.Path,
-			Children: []types.TreeNodeMeta{},
+			Children: &[]*types.TreeNodeMeta{},
 		})
+		if parentNode != nil {
+			parentNode.Length += file.Length
+		}
 	}
 
 	res.Body = types.TorrentMeta{
@@ -182,42 +192,36 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 		Files:     fileTree,
 		Name:      info.Name,
 	}
-	fmt.Printf("%s", ctx)
 	return res, nil
 }
-func createFolder(fileTree []types.TreeNodeMeta, path []string) []types.TreeNodeMeta {
-	if len(fileTree) > 0 {
-		for _, node := range fileTree {
-			if node.Name == path[0] {
-				if len(path) == 1 {
-					return fileTree
+func createFolder(fileTree *[]*types.TreeNodeMeta, path []string) (*[]*types.TreeNodeMeta, *types.TreeNodeMeta) {
+	currentFileTree := fileTree
+	var parentNode *types.TreeNodeMeta
+	for pathIndex, segment := range path {
+		currentPath := path[:pathIndex+1]
+		found := false
+		if len(*currentFileTree) > 0 {
+			for _, node := range *currentFileTree {
+				if node.Name == segment {
+					parentNode = node
+					currentFileTree = node.Children
+					found = true
+					break
 				}
-				return createFolder(node.Children, path[1:])
+			}
+			if found {
+				continue
 			}
 		}
-
+		parentNode = &types.TreeNodeMeta{
+			Length:   0,
+			Name:     segment,
+			Path:     currentPath,
+			Children: &[]*types.TreeNodeMeta{},
+		}
+		*currentFileTree = append(*currentFileTree, parentNode)
+		currentFileTree = parentNode.Children
 	}
-	fileTree = append(fileTree, types.TreeNodeMeta{
-		Length:   0,
-		Name:     path[0],
-		Path:     path,
-		Children: []types.TreeNodeMeta{},
-	})
 
-	if len(path) > 1 {
-		return createFolder(fileTree, path[1:])
-	}
-	return fileTree
+	return currentFileTree, parentNode
 }
-
-// func findFolder(fileTree []types.TreeNodeMeta, path []string) *types.TreeNodeMeta {
-// 	for _, node := range fileTree {
-// 		if node.Name == path[0] {
-// 			if len(path) == 1 {
-// 				return &node
-// 			}
-// 			return findFolder(node.Children, path[1:])
-// 		}
-// 	}
-// 	return nil
-// }
