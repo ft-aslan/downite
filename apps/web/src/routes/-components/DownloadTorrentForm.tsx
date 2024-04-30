@@ -67,7 +67,6 @@ const formSchema = z.object({
   magnet: z.string().startsWith("magnet:?").optional(),
   torrentFile: z.instanceof(File).optional(),
   savePath: z.string(),
-  torrent: z.instanceof(File).optional(),
   isIncompleteSavePathEnabled: z.boolean().default(false),
   incompleteSavePath: z.string().optional(),
   category: z.string().optional(),
@@ -88,16 +87,19 @@ const formSchema = z.object({
 interface GetTorrentMetaFormProps {
   className?: string
   torrentMeta: components["schemas"]["TorrentMeta"]
+  torrentFile?: File
 }
 export default function DownloadTorrentForm({
   className,
   torrentMeta,
+  torrentFile,
 }: GetTorrentMetaFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       savePath: "",
       startTorrent: true,
+      files: [],
     },
   })
   const watchIncompleteSavePath = form.watch(
@@ -113,7 +115,9 @@ export default function DownloadTorrentForm({
     },
     onSuccess(data) {
       if (data.data) {
-        toast("Form Submitted", { description: JSON.stringify(data.data) })
+        toast("Torrent Download Started", {
+          description: data.data.name,
+        })
         form.reset()
       }
     },
@@ -124,6 +128,19 @@ export default function DownloadTorrentForm({
       path: file.path.join("/"),
       downloadPriority: file.downloadPriority,
     }))
+    if (!torrentMeta.torrentMagnet && torrentFile) {
+      // TODO(fatih): Show error to user. There is no torrent file or magnet
+      return
+    }
+    if (torrentMeta.torrentMagnet && torrentFile) {
+      // TODO(fatih): Show error to user. There is both torrent file and magnet
+      return
+    }
+    if (torrentMeta.torrentMagnet) {
+      data.magnet = torrentMeta.torrentMagnet
+    } else {
+      data.torrentFile = torrentFile
+    }
 
     torrentDownloadFormMutation.mutate(data)
   }
@@ -177,12 +194,45 @@ export default function DownloadTorrentForm({
   const onTabChange = (value: string) => {
     setTab(value)
   }
+  if (!torrentMeta.torrentMagnet && !torrentFile) {
+    return (
+      <div>
+        <p>There is no torrent file or magnet</p>
+      </div>
+    )
+  }
+  if (torrentMeta.torrentMagnet && torrentFile) {
+    return (
+      <div>
+        <p>There is both torrent file and magnet</p>
+      </div>
+    )
+  }
+
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         className={cn("grid items-start gap-4", className)}
       >
+        <div className="flex flex-col space-y-2 rounded-md border p-4">
+          <div className="flex-1 space-y-1">
+            <p className="text-sm font-medium leading-none">Name:</p>
+            <p className="text-muted-foreground text-sm">{torrentMeta.name}</p>
+          </div>
+          <div className="flex-1 space-y-1">
+            <p className="text-sm font-medium leading-none">Info Hash: </p>
+            <p className="text-muted-foreground text-sm">
+              {torrentMeta.infoHash}
+            </p>
+          </div>
+          <div className="flex-1 space-y-1">
+            <p className="text-sm font-medium leading-none">Size: </p>
+            <p className="text-muted-foreground text-sm">
+              {(torrentMeta.totalSize / 1024 / 1024).toFixed(2) + " MB"}
+            </p>
+          </div>
+        </div>
         <Tabs
           value={tab}
           onValueChange={onTabChange}

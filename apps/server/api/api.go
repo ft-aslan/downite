@@ -94,7 +94,7 @@ func ApiInit() {
 				AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			}).Handler(s)
 
-			http.ListenAndServe(fmt.Sprintf(":%d", options.Port), s)
+			http.ListenAndServe(fmt.Sprintf("localhost:%d", options.Port), s)
 		})
 	})
 	// Run the CLI. When passed no commands, it starts the server.

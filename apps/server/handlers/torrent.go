@@ -67,11 +67,11 @@ func GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, erro
 
 type DownloadTorrentReq struct {
 	Body struct {
-		Magnet                      string                     `json:"magnet"`
-		TorrentFile                 []byte                     `json:"torrentFile"`
+		Magnet                      string                     `json:"magnet,omitempty"`
+		TorrentFile                 []byte                     `json:"torrentFile,omitempty"`
 		SavePath                    string                     `json:"savePath" validate:"required, dir"`
 		IsIncompleteSavePathEnabled bool                       `json:"isIncompleteSavePathEnabled"`
-		IncompleteSavePath          string                     `json:"incompleteSavePath" validate:"dir"`
+		IncompleteSavePath          string                     `json:"incompleteSavePath,omitempty" validate:"dir"`
 		Category                    string                     `json:"category,omitempty"`
 		Tags                        []string                   `json:"tags,omitempty"`
 		StartTorrent                bool                       `json:"startTorrent"`
@@ -130,8 +130,8 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 type GetTorrentMetaReq struct {
 	Body struct {
-		Magnet      string `json:"magnet,omitempty"`
-		TorrentFile []byte `json:"torrentFile,omitempty"`
+		Magnet      string  `json:"magnet,omitempty"`
+		TorrentFile []uint8 `json:"torrentFile,omitempty"`
 	}
 }
 
@@ -142,6 +142,7 @@ type GetTorrentMetaRes struct {
 func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentMetaRes, error) {
 	res := &GetTorrentMetaRes{}
 	var info metainfo.Info
+	var infoHash string
 	if input.Body.Magnet != "" {
 		// Load from a magnet link
 
@@ -155,6 +156,7 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 		<-torrent.GotInfo()
 
 		info = *torrent.Info()
+		infoHash = torrent.InfoHash().String()
 		torrent.Drop()
 	} else {
 		// Load the torrent file
@@ -164,6 +166,7 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 			return nil, err
 		}
 		info, err = torrentMeta.UnmarshalInfo()
+		infoHash = torrentMeta.HashInfoBytes().String()
 		if err != nil {
 			return nil, err
 		}
@@ -188,9 +191,11 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 	}
 
 	res.Body = types.TorrentMeta{
-		TotalSize: info.TotalLength(),
-		Files:     fileTree,
-		Name:      info.Name,
+		TotalSize:     info.TotalLength(),
+		Files:         fileTree,
+		Name:          info.Name,
+		InfoHash:      infoHash,
+		TorrentMagnet: input.Body.Magnet,
 	}
 	return res, nil
 }

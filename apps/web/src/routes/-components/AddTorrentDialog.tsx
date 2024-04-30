@@ -29,7 +29,7 @@ export function AddTorrentRename() {
   const [open, setOpen] = useState(false)
   const [torrentMeta, setTorrentMeta] =
     useState<components["schemas"]["TorrentMeta"]>()
-
+  const [torrentFile, setTorrentFile] = useState<File>()
   const isDesktop = useMedia("(min-width: 768px)")
 
   const onOpenChange = (open: boolean) => {
@@ -52,7 +52,10 @@ export function AddTorrentRename() {
               <DialogDescription></DialogDescription>
             </DialogHeader>
 
-            <DownloadTorrentForm torrentMeta={torrentMeta} />
+            <DownloadTorrentForm
+              torrentMeta={torrentMeta}
+              torrentFile={torrentFile}
+            />
           </DialogContent>
         ) : (
           <DialogContent>
@@ -63,7 +66,12 @@ export function AddTorrentRename() {
               </DialogDescription>
             </DialogHeader>
 
-            <GetTorrentMetaForm onTorrentMetaChange={setTorrentMeta} />
+            <GetTorrentMetaForm
+              onTorrentMetaChange={(meta, torrentFile) => {
+                setTorrentMeta(meta)
+                setTorrentFile(torrentFile)
+              }}
+            />
           </DialogContent>
         )}
       </Dialog>

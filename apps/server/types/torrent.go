@@ -26,9 +26,11 @@ type TreeNodeMeta struct {
 	Children *[]*TreeNodeMeta `json:"children"`
 }
 type TorrentMeta struct {
-	TotalSize int64           `json:"totalSize"`
-	Files     []*TreeNodeMeta `json:"files"`
-	Name      string          `json:"name"`
+	TotalSize     int64           `json:"totalSize"`
+	Files         []*TreeNodeMeta `json:"files"`
+	Name          string          `json:"name"`
+	InfoHash      string          `json:"infoHash"`
+	TorrentMagnet string          `json:"torrentMagnet"`
 }
 type Torrent struct {
 	Name          string                      `json:"name"`

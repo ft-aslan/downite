@@ -31,11 +31,8 @@
           "torrentFile": { "contentEncoding": "base64", "type": "string" }
         },
         "required": [
-          "magnet",
-          "torrentFile",
           "savePath",
           "isIncompleteSavePathEnabled",
-          "incompleteSavePath",
           "startTorrent",
           "addTopOfQueue",
           "downloadSequentially",
@@ -272,10 +269,12 @@
             "items": { "$ref": "#/components/schemas/TreeNodeMeta" },
             "type": "array"
           },
+          "infoHash": { "type": "string" },
           "name": { "type": "string" },
+          "torrentMagnet": { "type": "string" },
           "totalSize": { "format": "int64", "type": "integer" }
         },
-        "required": ["totalSize", "files", "name"],
+        "required": ["totalSize", "files", "name", "infoHash", "torrentMagnet"],
         "type": "object"
       },
       "TreeNodeMeta": {

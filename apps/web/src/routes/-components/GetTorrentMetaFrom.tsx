@@ -20,12 +20,21 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 
 const formSchema = z.object({
-  magnet: z.string().startsWith("magnet:?").optional(),
-  torrent: z.instanceof(File).optional(),
+  magnet: z.string().optional(),
+  torrentFile: z
+    .instanceof(File)
+    .refine(
+      (file) => file.size > 0,
+      "File size was 0, please upload a proper file!"
+    )
+    .optional(),
 })
 interface GetTorrentMetaFormProps {
   className?: string
-  onTorrentMetaChange: (data: components["schemas"]["TorrentMeta"]) => void
+  onTorrentMetaChange: (
+    meta: components["schemas"]["TorrentMeta"],
+    torrentFile?: File
+  ) => void
 }
 export default function GetTorrentMetaForm({
   className,
@@ -35,25 +44,41 @@ export default function GetTorrentMetaForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       magnet: "",
-      torrent: undefined,
+      torrentFile: undefined,
     },
   })
   const torrentMetaFormMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
+      const byteArray = await data.torrentFile?.arrayBuffer()
+      const array = byteArray && Array.from(new Uint8Array(byteArray))
+
       const res = await client.POST("/torrent-meta", {
-        body: data,
+        body: {
+          ...data,
+          torrentFile: array,
+        },
       })
       return res
     },
     onSuccess(data) {
       if (data.data) {
         toast("Form Submitted", { description: JSON.stringify(data.data) })
+        const { torrentFile: torrent } = form.getValues()
         form.reset()
-        onTorrentMetaChange(data.data)
+        onTorrentMetaChange(data.data, torrent)
       }
     },
   })
   async function onSubmit(data: z.infer<typeof formSchema>) {
+    if (data.torrentFile && data.magnet) {
+      form.setError("magnet", {
+        message: "There is both torrent file and magnet",
+      })
+      form.setError("torrentFile", {
+        message: "There is both torrent file and magnet",
+      })
+      return
+    }
     torrentMetaFormMutation.mutate(data)
   }
   return (
@@ -80,7 +105,7 @@ export default function GetTorrentMetaForm({
         />
         <FormField
           control={form.control}
-          name="torrent"
+          name="torrentFile"
           render={({ field }) => (
             <FormItem className="grid gap-2">
               <FormLabel>Torrent File</FormLabel>
@@ -89,7 +114,12 @@ export default function GetTorrentMetaForm({
                   type="file"
                   placeholder="Torrent File"
                   accept=".torrent"
-                  onChange={field.onChange}
+                  onChange={(e) => {
+                    // only one file can be uploaded for now
+                    if (e.target.files) {
+                      field.onChange(e.target.files[0])
+                    }
+                  }}
                 />
               </FormControl>
               <FormDescription>Upload Torrent File</FormDescription>
