@@ -5,7 +5,9 @@ import (
 	"context"
 	"downite/download/torr"
 	"downite/types"
+	"errors"
 	"fmt"
+	"mime/multipart"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -129,10 +131,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 }
 
 type GetTorrentMetaReq struct {
-	Body struct {
-		Magnet      string  `json:"magnet,omitempty"`
-		TorrentFile []uint8 `json:"torrentFile,omitempty"`
-	}
+	RawBody multipart.Form
 }
 
 type GetTorrentMetaRes struct {
@@ -141,14 +140,48 @@ type GetTorrentMetaRes struct {
 
 func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentMetaRes, error) {
 	res := &GetTorrentMetaRes{}
+	magnets := input.RawBody.Value["magnet"]
+	torrentFiles := input.RawBody.File["torrentFile"]
+
+	if len(magnets) == 0 && len(torrentFiles) == 0 {
+		return nil, errors.New("either magnet or torrent file must be provided")
+	}
+
+	if len(magnets) > 0 && len(torrentFiles) > 0 {
+		haveMagnet := false
+		for _, magnet := range magnets {
+			if magnet != "" {
+				haveMagnet = true
+				break
+			}
+		}
+		if haveMagnet {
+			return nil, errors.New("either magnet or torrent file must be provided")
+		}
+	}
+	//for now only one magnet is supported
+	if len(magnets) > 1 {
+		return nil, errors.New("only one magnet can be provided")
+	}
+	//for now only one torrent file is supported
+	if len(torrentFiles) > 1 {
+		return nil, errors.New("only one torrent file can be provided")
+	}
+
 	var info metainfo.Info
 	var infoHash string
-	if input.Body.Magnet != "" {
+	var magnet string
+
+	if len(magnets) == 0 {
+		magnet = magnets[0]
+		if _, err := metainfo.ParseMagnetUri(magnet); err != nil {
+			return nil, errors.New("invalid magnet")
+		}
 		// Load from a magnet link
 
 		// magnetMetaInfo, err := metainfo.ParseMagnetUri(input.Body.Magnet)
 		// err = bencode.Unmarshal(magnetMetaInfo.InfoHash[:], &info)
-		torrent, err := torr.Client.AddMagnet(input.Body.Magnet)
+		torrent, err := torr.Client.AddMagnet(magnet)
 		if err != nil {
 			return nil, err
 		}
@@ -160,13 +193,20 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 		torrent.Drop()
 	} else {
 		// Load the torrent file
-		fileReader := bytes.NewReader(input.Body.TorrentFile)
-		torrentMeta, err := metainfo.Load(fileReader)
+		torrentFile, err := torrentFiles[0].Open()
+		if err != nil {
+			return nil, err
+		}
+		defer torrentFile.Close()
+
+		torrentMeta, err := metainfo.Load(torrentFile)
 		if err != nil {
 			return nil, err
 		}
 		info, err = torrentMeta.UnmarshalInfo()
 		infoHash = torrentMeta.HashInfoBytes().String()
+		magnetInfo := torrentMeta.Magnet(nil, &info)
+		magnet = magnetInfo.String()
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +235,7 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 		Files:         fileTree,
 		Name:          info.Name,
 		InfoHash:      infoHash,
-		TorrentMagnet: input.Body.Magnet,
+		TorrentMagnet: magnet,
 	}
 	return res, nil
 }

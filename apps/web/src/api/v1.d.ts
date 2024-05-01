@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post meta */
+        post: operations["post-meta"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/torrent": {
         parameters: {
             query?: never;
@@ -16,23 +33,6 @@ export interface paths {
         put?: never;
         /** Post torrent */
         post: operations["post-torrent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/torrent-meta": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Post torrent meta */
-        post: operations["post-torrent-meta"];
         delete?: never;
         options?: never;
         head?: never;
@@ -127,15 +127,6 @@ export interface components {
             /** Format: int64 */
             Length: number;
             PiecesRoot: string;
-        };
-        GetTorrentMetaReqBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             */
-            readonly $schema?: string;
-            magnet?: string;
-            torrentFile?: string;
         };
         GetTorrentsResBody: {
             /**
@@ -235,6 +226,47 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "post-meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description filename of the file being uploaded
+                     */
+                    filename?: string;
+                    /** @description general purpose name for multipart form value */
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TorrentMeta"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-all-torrents": {
         parameters: {
             query?: never;
@@ -284,39 +316,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Torrent"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "post-torrent-meta": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GetTorrentMetaReqBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TorrentMeta"];
                 };
             };
             /** @description Error */

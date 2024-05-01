@@ -64,7 +64,7 @@ func ApiInit() {
 		}, handlers.GetTorrents)
 		huma.Post(api, "/torrent", handlers.DownloadTorrent)
 		huma.Get(api, "/torrent/:hash", handlers.GetTorrent)
-		huma.Post(api, "/torrent-meta", handlers.GetTorrentMeta)
+		huma.Post(api, "/meta", handlers.GetTorrentMeta)
 
 		//write api json to file
 		apiJson, err := json.Marshal(api.OpenAPI())

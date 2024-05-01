@@ -122,23 +122,6 @@
         "required": ["Length", "PiecesRoot"],
         "type": "object"
       },
-      "GetTorrentMetaReqBody": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "http://localhost:9999/api/schemas/GetTorrentMetaReqBody.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "magnet": { "type": "string" },
-          "torrentFile": { "contentEncoding": "base64", "type": "string" }
-        },
-        "type": "object"
-      },
       "GetTorrentsResBody": {
         "additionalProperties": false,
         "properties": {
@@ -296,6 +279,51 @@
   "info": { "title": "Downite API", "version": "0.0.1" },
   "openapi": "3.1.0",
   "paths": {
+    "/meta": {
+      "post": {
+        "operationId": "post-meta",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "filename": {
+                    "description": "filename of the file being uploaded",
+                    "format": "binary",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "general purpose name for multipart form value",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TorrentMeta" }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Post meta"
+      }
+    },
     "/torrent": {
       "get": {
         "operationId": "get-all-torrents",
@@ -350,38 +378,6 @@
           }
         },
         "summary": "Post torrent"
-      }
-    },
-    "/torrent-meta": {
-      "post": {
-        "operationId": "post-torrent-meta",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/GetTorrentMetaReqBody" }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/TorrentMeta" }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ErrorModel" }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Post torrent meta"
       }
     },
     "/torrent/:hash": {
