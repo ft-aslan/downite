@@ -28,7 +28,7 @@
           "skipHashCheck": { "type": "boolean" },
           "startTorrent": { "type": "boolean" },
           "tags": { "items": { "type": "string" }, "type": "array" },
-          "torrentFile": { "contentEncoding": "base64", "type": "string" }
+          "torrentFile": { "type": "string" }
         },
         "required": [
           "savePath",
@@ -120,6 +120,23 @@
           "PiecesRoot": { "type": "string" }
         },
         "required": ["Length", "PiecesRoot"],
+        "type": "object"
+      },
+      "GetMetaWithMagnetReqBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/GetMetaWithMagnetReqBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "magnet": { "minLength": 1, "type": "string" }
+        },
+        "required": ["magnet"],
         "type": "object"
       },
       "GetTorrentsResBody": {
@@ -279,9 +296,9 @@
   "info": { "title": "Downite API", "version": "0.0.1" },
   "openapi": "3.1.0",
   "paths": {
-    "/meta": {
+    "/meta/file": {
       "post": {
-        "operationId": "post-meta",
+        "operationId": "post-meta-file",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -321,7 +338,41 @@
             "description": "Error"
           }
         },
-        "summary": "Post meta"
+        "summary": "Post meta file"
+      }
+    },
+    "/meta/magnet": {
+      "post": {
+        "operationId": "post-meta-magnet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetMetaWithMagnetReqBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TorrentMeta" }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Post meta magnet"
       }
     },
     "/torrent": {

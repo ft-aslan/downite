@@ -22,10 +22,16 @@ import { useMedia } from "react-use"
 import { PlusCircle } from "lucide-react"
 
 import { components } from "@/api/v1"
-import GetTorrentMetaForm from "./GetTorrentMetaFrom"
+import GetTorrentMetaForm from "./GetTorrentMetaForm"
 import DownloadTorrentForm from "./DownloadTorrentForm"
 
-export function AddTorrentRename() {
+export function AddTorrentDialog({
+  type,
+  children,
+}: {
+  type: "magnet" | "file"
+  children: React.ReactNode
+}) {
   const [open, setOpen] = useState(false)
   const [torrentMeta, setTorrentMeta] =
     useState<components["schemas"]["TorrentMeta"]>()
@@ -39,12 +45,7 @@ export function AddTorrentRename() {
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogTrigger asChild>
-          <Button variant="default" className="gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sm:whitespace-nowrap">Add Torrent</span>
-          </Button>
-        </DialogTrigger>
+        <DialogTrigger asChild>{children}</DialogTrigger>
         {torrentMeta ? (
           <DialogContent>
             <DialogHeader>
@@ -62,11 +63,12 @@ export function AddTorrentRename() {
             <DialogHeader>
               <DialogTitle>Add Torrent</DialogTitle>
               <DialogDescription>
-                You can add torrents with magnet or torrent file.
+                {`You can add torrents with ${type === "magnet" ? "magnet link" : "torrent file"}.`}
               </DialogDescription>
             </DialogHeader>
 
             <GetTorrentMetaForm
+              type={type}
               onTorrentMetaChange={(meta, torrentFile) => {
                 setTorrentMeta(meta)
                 setTorrentFile(torrentFile)
@@ -93,10 +95,7 @@ export function AddTorrentRename() {
             You can add torrents with magnet or torrent file.
           </DrawerDescription>
         </DrawerHeader>
-        <GetTorrentMetaForm
-          className="px-4"
-          onTorrentMetaChange={setTorrentMeta}
-        />
+        <GetTorrentMetaForm type={type} onTorrentMetaChange={setTorrentMeta} />
         <DrawerFooter className="pt-2">
           <DrawerClose asChild>
             <Button variant="outline">Cancel</Button>

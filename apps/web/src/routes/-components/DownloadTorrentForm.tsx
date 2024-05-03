@@ -63,27 +63,27 @@ import { Button } from "@/components/ui/button"
 //   children: z.lazy(() => treeNodeSchema.array()),
 // })
 
-const formSchema = z.object({
-  magnet: z.string().startsWith("magnet:?").optional(),
-  torrentFile: z.instanceof(File).optional(),
-  savePath: z.string(),
-  isIncompleteSavePathEnabled: z.boolean().default(false),
-  incompleteSavePath: z.string().optional(),
-  category: z.string().optional(),
-  tags: z.string().array().optional(),
-  startTorrent: z.boolean().default(true),
-  addTopOfQueue: z.boolean().default(false),
-  downloadSequentially: z.boolean().default(false),
-  skipHashCheck: z.boolean().default(false),
-  contentLayout: z.string().default("Original"),
-  files: z
-    .object({
-      name: z.string(),
-      path: z.string(),
-      downloadPriority: z.string().default("Normal"),
-    })
-    .array(),
-})
+// const formSchema = z.object({
+//   magnet: z.string().startsWith("magnet:?").optional(),
+//   torrentFile: z.instanceof(File).optional(),
+//   savePath: z.string(),
+//   isIncompleteSavePathEnabled: z.boolean().default(false),
+//   incompleteSavePath: z.string().optional(),
+//   category: z.string().optional(),
+//   tags: z.string().array().optional(),
+//   startTorrent: z.boolean().default(true),
+//   addTopOfQueue: z.boolean().default(false),
+//   downloadSequentially: z.boolean().default(false),
+//   skipHashCheck: z.boolean().default(false),
+//   contentLayout: z.string().default("Original"),
+//   files: z
+//     .object({
+//       name: z.string(),
+//       path: z.string(),
+//       downloadPriority: z.string().default("Normal"),
+//     })
+//     .array(),
+// })
 interface GetTorrentMetaFormProps {
   className?: string
   torrentMeta: components["schemas"]["TorrentMeta"]
@@ -94,12 +94,18 @@ export default function DownloadTorrentForm({
   torrentMeta,
   torrentFile,
 }: GetTorrentMetaFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<components["schemas"]["DownloadTorrentReqBody"]>({
     defaultValues: {
       savePath: "",
       startTorrent: true,
       files: [],
+      isIncompleteSavePathEnabled: false,
+      contentLayout: "Original",
+      addTopOfQueue: false,
+      downloadSequentially: false,
+      skipHashCheck: false,
+      category: "",
+      tags: [],
     },
   })
   const watchIncompleteSavePath = form.watch(
@@ -107,7 +113,9 @@ export default function DownloadTorrentForm({
     false
   )
   const torrentDownloadFormMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof formSchema>) => {
+    mutationFn: async (
+      data: components["schemas"]["DownloadTorrentReqBody"]
+    ) => {
       const res = await client.POST("/torrent", {
         body: data,
       })
@@ -122,24 +130,23 @@ export default function DownloadTorrentForm({
       }
     },
   })
-  async function onSubmit(data: z.infer<typeof formSchema>) {
+  async function onSubmit(
+    data: components["schemas"]["DownloadTorrentReqBody"]
+  ) {
     data.files = fileTree.map((file) => ({
       name: file.name,
       path: file.path.join("/"),
       downloadPriority: file.downloadPriority,
     }))
-    if (!torrentMeta.torrentMagnet && torrentFile) {
+    if (!torrentMeta.torrentMagnet && !torrentFile) {
       // TODO(fatih): Show error to user. There is no torrent file or magnet
       return
     }
-    if (torrentMeta.torrentMagnet && torrentFile) {
-      // TODO(fatih): Show error to user. There is both torrent file and magnet
-      return
-    }
-    if (torrentMeta.torrentMagnet) {
-      data.magnet = torrentMeta.torrentMagnet
+
+    if (torrentFile) {
+      data.torrentFile = await torrentFile.text()
     } else {
-      data.torrentFile = torrentFile
+      data.magnet = torrentMeta.torrentMagnet
     }
 
     torrentDownloadFormMutation.mutate(data)
@@ -198,13 +205,6 @@ export default function DownloadTorrentForm({
     return (
       <div>
         <p>There is no torrent file or magnet</p>
-      </div>
-    )
-  }
-  if (torrentMeta.torrentMagnet && torrentFile) {
-    return (
-      <div>
-        <p>There is both torrent file and magnet</p>
       </div>
     )
   }

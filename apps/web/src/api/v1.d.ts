@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/meta": {
+    "/meta/file": {
         parameters: {
             query?: never;
             header?: never;
@@ -13,8 +13,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post meta */
-        post: operations["post-meta"];
+        /** Post meta file */
+        post: operations["post-meta-file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/meta/magnet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post meta magnet */
+        post: operations["post-meta-magnet"];
         delete?: never;
         options?: never;
         head?: never;
@@ -128,6 +145,14 @@ export interface components {
             Length: number;
             PiecesRoot: string;
         };
+        GetMetaWithMagnetReqBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            magnet: string;
+        };
         GetTorrentsResBody: {
             /**
              * Format: uri
@@ -226,7 +251,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    "post-meta": {
+    "post-meta-file": {
         parameters: {
             query?: never;
             header?: never;
@@ -244,6 +269,39 @@ export interface operations {
                     /** @description general purpose name for multipart form value */
                     name?: string;
                 };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TorrentMeta"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "post-meta-magnet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GetMetaWithMagnetReqBody"];
             };
         };
         responses: {

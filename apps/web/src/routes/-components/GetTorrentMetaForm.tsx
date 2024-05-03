@@ -19,37 +19,36 @@ import { z } from "zod"
 
 import { zodResolver } from "@hookform/resolvers/zod"
 
-const formSchema = z.object({
-  magnet: z.string().optional(),
-  torrentFile: z
-    .instanceof(File)
-    .refine(
-      (file) => file.size > 0,
-      "File size was 0, please upload a proper file!"
-    )
-    .optional(),
-})
 interface GetTorrentMetaFormProps {
-  className?: string
+  type: "magnet" | "file"
   onTorrentMetaChange: (
     meta: components["schemas"]["TorrentMeta"],
     torrentFile?: File
   ) => void
 }
 export default function GetTorrentMetaForm({
-  className,
+  type,
   onTorrentMetaChange,
 }: GetTorrentMetaFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      magnet: "",
-      torrentFile: undefined,
-    },
-  })
+  if (type === "magnet") {
+    return <WithMagnet onTorrentMetaChange={onTorrentMetaChange} />
+  } else {
+    return <WithFile onTorrentMetaChange={onTorrentMetaChange} />
+  }
+}
+interface WithFileProps {
+  onTorrentMetaChange: (
+    meta: components["schemas"]["TorrentMeta"],
+    torrentFile?: File
+  ) => void
+}
+function WithFile({ onTorrentMetaChange }: WithFileProps) {
+  const form = useForm({})
   const torrentMetaFormMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof formSchema>) => {
-      const res = await client.POST("/meta", {
+    mutationFn: async (
+      data: components["schemas"]["GetMetaWithMagnetReqBody"]
+    ) => {
+      const res = await client.POST("/meta/file", {
         body: data,
         bodySerializer(body) {
           //turn it into multipart/form-data by bypassing json serialization
@@ -71,40 +70,15 @@ export default function GetTorrentMetaForm({
       }
     },
   })
-  async function onSubmit(data: z.infer<typeof formSchema>) {
-    if (data.torrentFile && data.magnet) {
-      form.setError("magnet", {
-        message: "There is both torrent file and magnet",
-      })
-      form.setError("torrentFile", {
-        message: "There is both torrent file and magnet",
-      })
-      return
-    }
+  async function onSubmit(data) {
     torrentMetaFormMutation.mutate(data)
   }
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className={cn("grid items-start gap-4", className)}
+        className={cn("grid items-start gap-4")}
       >
-        <FormField
-          control={form.control}
-          name="magnet"
-          render={({ field }) => (
-            <FormItem className="grid gap-2">
-              <FormLabel>Magnet</FormLabel>
-              <FormControl>
-                <Input type="text" placeholder="magnet:?..." {...field} />
-              </FormControl>
-              <FormDescription>
-                Enter Magnet Link to add Torrent
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
         <FormField
           control={form.control}
           name="torrentFile"
@@ -118,13 +92,80 @@ export default function GetTorrentMetaForm({
                   accept=".torrent"
                   onChange={(e) => {
                     // only one file can be uploaded for now
-                    if (e.target.files) {
+                    if (e.target.files?.length === 1) {
                       field.onChange(e.target.files[0])
                     }
                   }}
                 />
               </FormControl>
               <FormDescription>Upload Torrent File</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <LoadingButton
+          type="submit"
+          isLoading={torrentMetaFormMutation.isPending}
+        >
+          Get Metadata
+        </LoadingButton>
+      </form>
+    </Form>
+  )
+}
+interface WithMagnetProps {
+  onTorrentMetaChange: (
+    meta: components["schemas"]["TorrentMeta"],
+    torrentFile?: File
+  ) => void
+}
+function WithMagnet({ onTorrentMetaChange }: WithMagnetProps) {
+  const form = useForm<components["schemas"]["GetMetaWithMagnetReqBody"]>({
+    defaultValues: {
+      magnet: "",
+    },
+  })
+  const torrentMetaFormMutation = useMutation({
+    mutationFn: async (
+      data: components["schemas"]["GetMetaWithMagnetReqBody"]
+    ) => {
+      const res = await client.POST("/meta/magnet", {
+        body: data,
+      })
+      return res
+    },
+    onSuccess(data) {
+      if (data.data) {
+        toast("Form Submitted", { description: JSON.stringify(data.data) })
+        form.reset()
+        onTorrentMetaChange(data.data, undefined)
+      }
+    },
+  })
+  async function onSubmit(
+    data: components["schemas"]["GetMetaWithMagnetReqBody"]
+  ) {
+    torrentMetaFormMutation.mutate(data)
+  }
+  return (
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className={cn("grid items-start gap-4")}
+      >
+        <FormField
+          control={form.control}
+          name="magnet"
+          render={({ field }) => (
+            <FormItem className="grid gap-2">
+              <FormLabel>Magnet</FormLabel>
+              <FormControl>
+                <Input type="text" placeholder="magnet:?..." {...field} />
+              </FormControl>
+              <FormDescription>
+                Enter Magnet Link to add Torrent
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

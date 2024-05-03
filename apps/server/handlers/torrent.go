@@ -12,7 +12,6 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
-	torrenttypes "github.com/anacrolix/torrent/types"
 	"github.com/anacrolix/torrent/types/infohash"
 )
 
@@ -70,7 +69,7 @@ func GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, erro
 type DownloadTorrentReq struct {
 	Body struct {
 		Magnet                      string                     `json:"magnet,omitempty"`
-		TorrentFile                 []byte                     `json:"torrentFile,omitempty"`
+		TorrentFile                 string                     `json:"torrentFile,omitempty"`
 		SavePath                    string                     `json:"savePath" validate:"required, dir"`
 		IsIncompleteSavePathEnabled bool                       `json:"isIncompleteSavePathEnabled"`
 		IncompleteSavePath          string                     `json:"incompleteSavePath,omitempty" validate:"dir"`
@@ -97,12 +96,11 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		if err != nil {
 			return nil, err
 		}
-
 		<-torrent.GotInfo()
 
 	} else {
 		// Load the torrent file
-		fileReader := bytes.NewReader(input.Body.TorrentFile)
+		fileReader := bytes.NewReader([]byte(input.Body.TorrentFile))
 		torrentMeta, err := metainfo.Load(fileReader)
 		if err != nil {
 			return nil, err
@@ -113,9 +111,9 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		}
 	}
 
-	for _, file := range torrent.Files() {
-		file.SetPriority(torrenttypes.PiecePriorityNone)
-	}
+	// for _, file := range torrent.Files() {
+	// 	file.SetPriority(torrenttypes.PiecePriorityNone)
+	// }
 
 	if !input.Body.SkipHashCheck {
 		torrent.VerifyData()
@@ -130,40 +128,23 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	return res, nil
 }
 
-type GetTorrentMetaReq struct {
+type GetMetaWithFileReq struct {
 	RawBody multipart.Form
 }
 
-type GetTorrentMetaRes struct {
+type GetMetaWithFileRes struct {
 	Body types.TorrentMeta
 }
 
-func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentMetaRes, error) {
-	res := &GetTorrentMetaRes{}
-	magnets := input.RawBody.Value["magnet"]
+func GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWithFileRes, error) {
+	// TODO(fatih): In the future, we should support multiple torrents
+	res := &GetMetaWithFileRes{}
 	torrentFiles := input.RawBody.File["torrentFile"]
 
-	if len(magnets) == 0 && len(torrentFiles) == 0 {
-		return nil, errors.New("either magnet or torrent file must be provided")
+	// Form validation
+	if len(torrentFiles) == 0 {
+		return nil, errors.New("no torrent file provided")
 	}
-
-	if len(magnets) > 0 && len(torrentFiles) > 0 {
-		haveMagnet := false
-		for _, magnet := range magnets {
-			if magnet != "" {
-				haveMagnet = true
-				break
-			}
-		}
-		if haveMagnet {
-			return nil, errors.New("either magnet or torrent file must be provided")
-		}
-	}
-	//for now only one magnet is supported
-	if len(magnets) > 1 {
-		return nil, errors.New("only one magnet can be provided")
-	}
-	//for now only one torrent file is supported
 	if len(torrentFiles) > 1 {
 		return nil, errors.New("only one torrent file can be provided")
 	}
@@ -172,63 +153,72 @@ func GetTorrentMeta(ctx context.Context, input *GetTorrentMetaReq) (*GetTorrentM
 	var infoHash string
 	var magnet string
 
-	if len(magnets) == 0 {
-		magnet = magnets[0]
-		if _, err := metainfo.ParseMagnetUri(magnet); err != nil {
-			return nil, errors.New("invalid magnet")
-		}
-		// Load from a magnet link
-
-		// magnetMetaInfo, err := metainfo.ParseMagnetUri(input.Body.Magnet)
-		// err = bencode.Unmarshal(magnetMetaInfo.InfoHash[:], &info)
-		torrent, err := torr.Client.AddMagnet(magnet)
-		if err != nil {
-			return nil, err
-		}
-
-		<-torrent.GotInfo()
-
-		info = *torrent.Info()
-		infoHash = torrent.InfoHash().String()
-		torrent.Drop()
-	} else {
-		// Load the torrent file
-		torrentFile, err := torrentFiles[0].Open()
-		if err != nil {
-			return nil, err
-		}
-		defer torrentFile.Close()
-
-		torrentMeta, err := metainfo.Load(torrentFile)
-		if err != nil {
-			return nil, err
-		}
-		info, err = torrentMeta.UnmarshalInfo()
-		infoHash = torrentMeta.HashInfoBytes().String()
-		magnetInfo := torrentMeta.Magnet(nil, &info)
-		magnet = magnetInfo.String()
-		if err != nil {
-			return nil, err
-		}
-
+	// Load the torrent file
+	torrentFile, err := torrentFiles[0].Open()
+	if err != nil {
+		return nil, err
 	}
-	var fileTree []*types.TreeNodeMeta
-	for _, file := range info.Files {
-		targetNodeTree := &fileTree
-		var parentNode *types.TreeNodeMeta
-		if len(file.Path) > 1 {
-			targetNodeTree, parentNode = createFolder(targetNodeTree, file.Path[:len(file.Path)-1])
-		}
-		*targetNodeTree = append(*targetNodeTree, &types.TreeNodeMeta{
-			Length:   file.Length,
-			Name:     file.Path[len(file.Path)-1],
-			Path:     file.Path,
-			Children: &[]*types.TreeNodeMeta{},
-		})
-		if parentNode != nil {
-			parentNode.Length += file.Length
-		}
+	defer torrentFile.Close()
+
+	torrentMeta, err := metainfo.Load(torrentFile)
+	if err != nil {
+		return nil, err
 	}
+	info, err = torrentMeta.UnmarshalInfo()
+	infoHash = torrentMeta.HashInfoBytes().String()
+	magnetInfo := torrentMeta.Magnet(nil, &info)
+	magnet = magnetInfo.String()
+	if err != nil {
+		return nil, err
+	}
+
+	fileTree := createFileTreeFromMeta(info)
+
+	res.Body = types.TorrentMeta{
+		TotalSize:     info.TotalLength(),
+		Files:         fileTree,
+		Name:          info.Name,
+		InfoHash:      infoHash,
+		TorrentMagnet: magnet,
+	}
+	return res, nil
+}
+
+type GetMetaWithMagnetReq struct {
+	Body struct {
+		Magnet string `json:"magnet" minLength:"1"`
+	}
+}
+
+type GetMetaWithMagnetRes struct {
+	Body types.TorrentMeta
+}
+
+func GetMetaWithMagnet(ctx context.Context, input *GetMetaWithMagnetReq) (*GetMetaWithMagnetRes, error) {
+	// TODO(fatih): In the future, we should support multiple torrents
+	res := &GetMetaWithMagnetRes{}
+
+	var info metainfo.Info
+	var infoHash string
+
+	magnet := input.Body.Magnet
+	if _, err := metainfo.ParseMagnetUri(magnet); err != nil {
+		return nil, errors.New("invalid magnet")
+	}
+	// Load from a magnet link
+
+	torrent, err := torr.Client.AddMagnet(magnet)
+	if err != nil {
+		return nil, err
+	}
+
+	<-torrent.GotInfo()
+
+	info = *torrent.Info()
+	infoHash = torrent.InfoHash().String()
+	torrent.Drop()
+
+	fileTree := createFileTreeFromMeta(info)
 
 	res.Body = types.TorrentMeta{
 		TotalSize:     info.TotalLength(),
@@ -269,4 +259,36 @@ func createFolder(fileTree *[]*types.TreeNodeMeta, path []string) (*[]*types.Tre
 	}
 
 	return currentFileTree, parentNode
+}
+func createFileTreeFromMeta(meta metainfo.Info) []*types.TreeNodeMeta {
+	var fileTree []*types.TreeNodeMeta
+	//there is no file tree in torrent
+	if len(meta.Files) == 0 {
+		fileTree = []*types.TreeNodeMeta{
+			{
+				Length:   meta.TotalLength(),
+				Name:     meta.Name,
+				Path:     []string{meta.Name},
+				Children: &[]*types.TreeNodeMeta{},
+			},
+		}
+	}
+	//there is a file tree in torrent
+	for _, file := range meta.Files {
+		targetNodeTree := &fileTree
+		var parentNode *types.TreeNodeMeta
+		if len(file.Path) > 1 {
+			targetNodeTree, parentNode = createFolder(targetNodeTree, file.Path[:len(file.Path)-1])
+		}
+		*targetNodeTree = append(*targetNodeTree, &types.TreeNodeMeta{
+			Length:   file.Length,
+			Name:     file.Path[len(file.Path)-1],
+			Path:     file.Path,
+			Children: &[]*types.TreeNodeMeta{},
+		})
+		if parentNode != nil {
+			parentNode.Length += file.Length
+		}
+	}
+	return fileTree
 }
