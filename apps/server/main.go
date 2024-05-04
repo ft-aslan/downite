@@ -13,6 +13,7 @@ func main() {
 	// Create a new torrent client
 	torrentClientConfig := torrent.NewDefaultClientConfig()
 	torrentClientConfig.DataDir = "./downloads"
+
 	torr.CreateTorrentClient(torrentClientConfig)
 
 	api.ApiInit()

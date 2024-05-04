@@ -36,7 +36,11 @@ type Torrent struct {
 	Name          string                      `json:"name"`
 	InfoHash      string                      `json:"infoHash"`
 	Files         metainfo.FileTree           `json:"files"`
-	TotalSize     int                         `json:"totalSize"`
+	TotalSize     int64                       `json:"totalSize"`
+	AmountLeft    int64                       `json:"amountLeft"`
+	Uploaded      int64                       `json:"uploaded"`
+	Downloaded    int64                       `json:"downloaded"`
+	Magnet        string                      `json:"magnet"`
 	Status        TorrentStatus               `json:"status"`
 	PieceProgress []PieceProgress             `json:"pieceProgress"`
 	Peers         map[string]torrent.PeerInfo `json:"peers"`

@@ -40,6 +40,7 @@ export function AddTorrentDialog({
 
   const onOpenChange = (open: boolean) => {
     setTorrentMeta(undefined)
+    setTorrentFile(undefined)
     setOpen(open)
   }
   if (isDesktop) {
@@ -56,6 +57,7 @@ export function AddTorrentDialog({
             <DownloadTorrentForm
               torrentMeta={torrentMeta}
               torrentFile={torrentFile}
+              setOpen={setOpen}
             />
           </DialogContent>
         ) : (

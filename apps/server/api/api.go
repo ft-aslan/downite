@@ -64,6 +64,7 @@ func ApiInit() {
 		}, handlers.GetTorrents)
 		huma.Post(api, "/torrent", handlers.DownloadTorrent)
 		huma.Get(api, "/torrent/:hash", handlers.GetTorrent)
+		huma.Post(api, "/torrent/pause", handlers.PauseTorrent)
 		huma.Post(api, "/meta/magnet", handlers.GetMetaWithMagnet)
 		huma.Post(api, "/meta/file", handlers.GetMetaWithFile)
 

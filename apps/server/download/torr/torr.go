@@ -11,7 +11,7 @@ var Client *torrent.Client
 func CreateTorrentClient(config *torrent.ClientConfig) {
 	// Initialize the torrent client
 	var err error
-	Client, err = torrent.NewClient(torrent.NewDefaultClientConfig())
+	Client, err = torrent.NewClient(config)
 	if err != nil {
 		fmt.Println("Error creating torrent client:", err)
 		return

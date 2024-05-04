@@ -20,22 +20,22 @@ type GetTorrentsRes struct {
 		Torrents []types.Torrent `json:"torrents"`
 	}
 }
-type Response[T any] struct {
-	Body T
-}
 
 func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) {
 	res := &GetTorrentsRes{}
 	torrents := torr.Client.Torrents()
 
-	var torrentsRes []types.Torrent
+	torrentsRes := []types.Torrent{}
 	for _, torrent := range torrents {
 
 		torrentsRes = append(torrentsRes, types.Torrent{
-			InfoHash: torrent.InfoHash().String(),
-			Name:     torrent.Name(),
-			AddedOn:  time.Now().Unix(),
-			Files:    torrent.Info().FileTree,
+			InfoHash:   torrent.InfoHash().String(),
+			Name:       torrent.Name(),
+			AddedOn:    time.Now().Unix(),
+			Files:      torrent.Info().FileTree,
+			TotalSize:  torrent.Info().TotalLength(),
+			AmountLeft: torrent.BytesMissing(),
+			Downloaded: torrent.BytesCompleted(),
 		})
 	}
 	res.Body.Torrents = torrentsRes
@@ -66,6 +66,37 @@ func GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, erro
 	return res, nil
 }
 
+type PauseTorrentReq struct {
+	Body struct {
+		Hashes []string `json:"hashes" maxLength:"30" example:"2b66980093bc11806fab50cb3cb41835b95a0362" doc:"Hash of the torrent"`
+	}
+}
+type PauseTorrentRes struct {
+	Body struct {
+		Success bool `json:"result"`
+	}
+}
+
+func PauseTorrent(ctx context.Context, input *PauseTorrentReq) (*PauseTorrentRes, error) {
+	res := &PauseTorrentRes{}
+	for _, hash := range input.Body.Hashes {
+		torrent, ok := torr.Client.Torrent(infohash.FromHexString(hash))
+		if !ok {
+			return nil, fmt.Errorf("torrent with hash %s not found", hash)
+		}
+		if torrent.Info() != nil {
+			torrent.CancelPieces(0, torrent.NumPieces())
+		} else {
+			return nil, fmt.Errorf("torrent can't be stopped because metainfo is not yet received")
+		}
+
+	}
+
+	res.Body.Success = true
+
+	return res, nil
+}
+
 type DownloadTorrentReq struct {
 	Body struct {
 		Magnet                      string                     `json:"magnet,omitempty"`
@@ -90,9 +121,10 @@ type DownloadTorrentRes struct {
 func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadTorrentRes, error) {
 	res := &DownloadTorrentRes{}
 	var torrent *torrent.Torrent
+	var err error
 	if input.Body.Magnet != "" {
 		// Load from a magnet link
-		torrent, err := torr.Client.AddMagnet(input.Body.Magnet)
+		torrent, err = torr.Client.AddMagnet(input.Body.Magnet)
 		if err != nil {
 			return nil, err
 		}
@@ -117,6 +149,9 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 	if !input.Body.SkipHashCheck {
 		torrent.VerifyData()
+	}
+	if input.Body.StartTorrent {
+		torrent.DownloadAll()
 	}
 
 	res.Body = types.Torrent{

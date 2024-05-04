@@ -11,15 +11,27 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as TorrentsImport } from './routes/torrents'
 import { Route as IndexImport } from './routes/index'
+import { Route as TorrentsIndexImport } from './routes/torrents/index'
 import { Route as TorrentIndexImport } from './routes/torrent/index'
 import { Route as TorrentTorrentIdImport } from './routes/torrent/$torrentId'
 
 // Create/Update Routes
 
+const TorrentsRoute = TorrentsImport.update({
+  path: '/torrents',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const IndexRoute = IndexImport.update({
   path: '/',
   getParentRoute: () => rootRoute,
+} as any)
+
+const TorrentsIndexRoute = TorrentsIndexImport.update({
+  path: '/',
+  getParentRoute: () => TorrentsRoute,
 } as any)
 
 const TorrentIndexRoute = TorrentIndexImport.update({
@@ -40,6 +52,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
+    '/torrents': {
+      preLoaderRoute: typeof TorrentsImport
+      parentRoute: typeof rootRoute
+    }
     '/torrent/$torrentId': {
       preLoaderRoute: typeof TorrentTorrentIdImport
       parentRoute: typeof rootRoute
@@ -48,6 +64,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorrentIndexImport
       parentRoute: typeof rootRoute
     }
+    '/torrents/': {
+      preLoaderRoute: typeof TorrentsIndexImport
+      parentRoute: typeof TorrentsImport
+    }
   }
 }
 
@@ -55,6 +75,7 @@ declare module '@tanstack/react-router' {
 
 export const routeTree = rootRoute.addChildren([
   IndexRoute,
+  TorrentsRoute.addChildren([TorrentsIndexRoute]),
   TorrentTorrentIdRoute,
   TorrentIndexRoute,
 ])

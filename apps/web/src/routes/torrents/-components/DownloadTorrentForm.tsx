@@ -49,20 +49,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 
-// const baseTreeNodeSchema = z.object({
-//   name: z.string(),
-//   path: z.string(),
-//   downloadPriority: z.string().default("Normal"),
-// })
-
-// type TreeNode = z.infer<typeof baseTreeNodeSchema> & {
-//   children: TreeNode[]
-// }
-
-// const treeNodeSchema: z.ZodType<TreeNode> = baseTreeNodeSchema.extend({
-//   children: z.lazy(() => treeNodeSchema.array()),
-// })
-
 // const formSchema = z.object({
 //   magnet: z.string().startsWith("magnet:?").optional(),
 //   torrentFile: z.instanceof(File).optional(),
@@ -88,11 +74,13 @@ interface GetTorrentMetaFormProps {
   className?: string
   torrentMeta: components["schemas"]["TorrentMeta"]
   torrentFile?: File
+  setOpen: (open: boolean) => void
 }
 export default function DownloadTorrentForm({
   className,
   torrentMeta,
   torrentFile,
+  setOpen,
 }: GetTorrentMetaFormProps) {
   const form = useForm<components["schemas"]["DownloadTorrentReqBody"]>({
     defaultValues: {
@@ -121,12 +109,13 @@ export default function DownloadTorrentForm({
       })
       return res
     },
-    onSuccess(data) {
-      if (data.data) {
+    onSuccess(result) {
+      if (result.data) {
         toast("Torrent Download Started", {
-          description: data.data.name,
+          description: result.data.name,
         })
         form.reset()
+        setOpen(false)
       }
     },
   })
@@ -181,7 +170,7 @@ export default function DownloadTorrentForm({
   const [fileTree, setFileTree] = React.useState(
     torrentMeta.files.map(createFileTree)
   )
-  const updateItemById = (
+  const updateTreeNodeById = (
     id: string,
     updateFn: (item: FileTreeNode) => FileTreeNode
   ): void => {
@@ -465,7 +454,7 @@ export default function DownloadTorrentForm({
                 className="w-9"
                 style={{ transform: `rotate(${item.expanded ? 90 : 0}deg)` }}
                 onClick={() => {
-                  updateItemById(item.id, (item) => ({
+                  updateTreeNodeById(item.id, (item) => ({
                     ...item,
                     expanded: !item.expanded,
                   }))
@@ -477,7 +466,7 @@ export default function DownloadTorrentForm({
             <Checkbox
               checked={item.downloadPriority != DownloadPriority.None}
               onCheckedChange={(checked) => {
-                updateItemById(item.id, (item) => {
+                updateTreeNodeById(item.id, (item) => {
                   // if changed to folder checkbox, set download priority for all children recursively
                   if (item.children.length) {
                     item.children.forEach((child) => {
@@ -510,7 +499,7 @@ export default function DownloadTorrentForm({
           <Select
             value={item.downloadPriority}
             onValueChange={(downloadPriority) => {
-              updateItemById(item.id, (item) => ({
+              updateTreeNodeById(item.id, (item) => ({
                 ...item,
                 downloadPriority: DownloadPriority[downloadPriority],
               }))

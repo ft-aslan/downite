@@ -61,12 +61,12 @@ function WithFile({ onTorrentMetaChange }: WithFileProps) {
       })
       return res
     },
-    onSuccess(data) {
-      if (data.data) {
-        toast("Form Submitted", { description: JSON.stringify(data.data) })
+    onSuccess(result) {
+      if (result.data) {
+        toast("Form Submitted", { description: JSON.stringify(result.data) })
         const { torrentFile: torrent } = form.getValues()
         form.reset()
-        onTorrentMetaChange(data.data, torrent)
+        onTorrentMetaChange(result.data, torrent)
       }
     },
   })
@@ -135,11 +135,11 @@ function WithMagnet({ onTorrentMetaChange }: WithMagnetProps) {
       })
       return res
     },
-    onSuccess(data) {
-      if (data.data) {
-        toast("Form Submitted", { description: JSON.stringify(data.data) })
+    onSuccess(result) {
+      if (result.data) {
+        toast("Form Submitted", { description: JSON.stringify(result.data) })
         form.reset()
-        onTorrentMetaChange(data.data, undefined)
+        onTorrentMetaChange(result.data, undefined)
       }
     },
   })
