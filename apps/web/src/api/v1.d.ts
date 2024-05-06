@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/torrent/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post torrent pause */
+        post: operations["post-torrent-pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -161,6 +178,23 @@ export interface components {
             readonly $schema?: string;
             torrents: components["schemas"]["Torrent"][];
         };
+        PauseTorrentReqBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            /** @description Hash of the torrent */
+            hashes: string[];
+        };
+        PauseTorrentResBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            result: boolean;
+        };
         PeerInfo: {
             Addr: unknown;
             Id: string;
@@ -184,6 +218,8 @@ export interface components {
             readonly $schema?: string;
             /** Format: int64 */
             addedOn: number;
+            /** Format: int64 */
+            amountLeft: number;
             /** Format: float */
             availability: number;
             category: string;
@@ -192,9 +228,12 @@ export interface components {
             /** Format: int64 */
             downloadSpeed: number;
             /** Format: int64 */
+            downloaded: number;
+            /** Format: int64 */
             eta: number;
             files: components["schemas"]["FileTree"];
             infoHash: string;
+            magnet: string;
             name: string;
             peers: {
                 [key: string]: components["schemas"]["PeerInfo"] | undefined;
@@ -215,6 +254,8 @@ export interface components {
             totalSize: number;
             /** Format: int64 */
             uploadSpeed: number;
+            /** Format: int64 */
+            uploaded: number;
         };
         TorrentFileOptions: {
             /** @enum {string} */
@@ -406,6 +447,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Torrent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "post-torrent-pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PauseTorrentReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PauseTorrentResBody"];
                 };
             };
             /** @description Error */

@@ -159,6 +159,46 @@
         "required": ["torrents"],
         "type": "object"
       },
+      "PauseTorrentReqBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/PauseTorrentReqBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "hashes": {
+            "description": "Hash of the torrent",
+            "examples": [["2b66980093bc11806fab50cb3cb41835b95a0362"]],
+            "items": { "type": "string" },
+            "maxLength": 30,
+            "type": "array"
+          }
+        },
+        "required": ["hashes"],
+        "type": "object"
+      },
+      "PauseTorrentResBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/PauseTorrentResBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "result": { "type": "boolean" }
+        },
+        "required": ["result"],
+        "type": "object"
+      },
       "PeerInfo": {
         "additionalProperties": false,
         "properties": {
@@ -192,14 +232,17 @@
             "type": "string"
           },
           "addedOn": { "format": "int64", "type": "integer" },
+          "amountLeft": { "format": "int64", "type": "integer" },
           "availability": { "format": "float", "type": "number" },
           "category": { "type": "string" },
           "downloadDir": { "type": "string" },
           "downloadPath": { "type": "string" },
           "downloadSpeed": { "format": "int64", "type": "integer" },
+          "downloaded": { "format": "int64", "type": "integer" },
           "eta": { "format": "int64", "type": "integer" },
           "files": { "$ref": "#/components/schemas/FileTree" },
           "infoHash": { "type": "string" },
+          "magnet": { "type": "string" },
           "name": { "type": "string" },
           "peers": {
             "additionalProperties": { "$ref": "#/components/schemas/PeerInfo" },
@@ -216,13 +259,18 @@
           "status": { "format": "int64", "type": "integer" },
           "tags": { "items": { "type": "string" }, "type": "array" },
           "totalSize": { "format": "int64", "type": "integer" },
-          "uploadSpeed": { "format": "int64", "type": "integer" }
+          "uploadSpeed": { "format": "int64", "type": "integer" },
+          "uploaded": { "format": "int64", "type": "integer" }
         },
         "required": [
           "name",
           "infoHash",
           "files",
           "totalSize",
+          "amountLeft",
+          "uploaded",
+          "downloaded",
+          "magnet",
           "status",
           "pieceProgress",
           "peers",
@@ -467,6 +515,38 @@
           }
         },
         "summary": "Get torrent hash"
+      }
+    },
+    "/torrent/pause": {
+      "post": {
+        "operationId": "post-torrent-pause",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PauseTorrentReqBody" }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PauseTorrentResBody" }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Post torrent pause"
       }
     }
   },
