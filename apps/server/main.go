@@ -5,6 +5,7 @@ import (
 	"downite/download/torr"
 
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/storage"
 )
 
 func main() {
@@ -13,7 +14,8 @@ func main() {
 	// Create a new torrent client
 	torrentClientConfig := torrent.NewDefaultClientConfig()
 	torrentClientConfig.DataDir = "./downloads"
-
+	storage := storage.NewFile("./downloads")
+	torrentClientConfig.DefaultStorage = storage
 	torr.CreateTorrentClient(torrentClientConfig)
 
 	api.ApiInit()

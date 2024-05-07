@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/torrent/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post torrent resume */
+        post: operations["post-torrent-resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -178,23 +195,6 @@ export interface components {
             readonly $schema?: string;
             torrents: components["schemas"]["Torrent"][];
         };
-        PauseTorrentReqBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             */
-            readonly $schema?: string;
-            /** @description Hash of the torrent */
-            hashes: string[];
-        };
-        PauseTorrentResBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             */
-            readonly $schema?: string;
-            result: boolean;
-        };
         PeerInfo: {
             Addr: unknown;
             Id: string;
@@ -256,6 +256,23 @@ export interface components {
             uploadSpeed: number;
             /** Format: int64 */
             uploaded: number;
+        };
+        TorrentActionReqBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            /** @description Hashes of torrents */
+            infoHashes: string[];
+        };
+        TorrentActionResBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            result: boolean;
         };
         TorrentFileOptions: {
             /** @enum {string} */
@@ -469,7 +486,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PauseTorrentReqBody"];
+                "application/json": components["schemas"]["TorrentActionReqBody"];
             };
         };
         responses: {
@@ -479,7 +496,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PauseTorrentResBody"];
+                    "application/json": components["schemas"]["TorrentActionResBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "post-torrent-resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TorrentActionReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TorrentActionResBody"];
                 };
             };
             /** @description Error */

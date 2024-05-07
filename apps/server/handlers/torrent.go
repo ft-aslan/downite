@@ -12,6 +12,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	torrenttypes "github.com/anacrolix/torrent/types"
 	"github.com/anacrolix/torrent/types/infohash"
 )
 
@@ -27,7 +28,11 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 
 	torrentsRes := []types.Torrent{}
 	for _, torrent := range torrents {
-
+		var status string
+		status = "downloading"
+		if torrent == nil || torrent.Info() == nil {
+			status = "loading"
+		}
 		torrentsRes = append(torrentsRes, types.Torrent{
 			InfoHash:   torrent.InfoHash().String(),
 			Name:       torrent.Name(),
@@ -36,6 +41,8 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 			TotalSize:  torrent.Info().TotalLength(),
 			AmountLeft: torrent.BytesMissing(),
 			Downloaded: torrent.BytesCompleted(),
+			Progress:   float32(torrent.BytesCompleted()) / float32(torrent.Info().TotalLength()) * 100,
+			Status:     status,
 		})
 	}
 	res.Body.Torrents = torrentsRes
@@ -66,32 +73,48 @@ func GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, erro
 	return res, nil
 }
 
-type PauseTorrentReq struct {
+type TorrentActionReq struct {
 	Body struct {
-		Hashes []string `json:"hashes" maxLength:"30" example:"2b66980093bc11806fab50cb3cb41835b95a0362" doc:"Hash of the torrent"`
+		InfoHashes []string `json:"infoHashes" maxLength:"30" example:"2b66980093bc11806fab50cb3cb41835b95a0362" doc:"Hashes of torrents"`
 	}
 }
-type PauseTorrentRes struct {
+type TorrentActionRes struct {
 	Body struct {
 		Success bool `json:"result"`
 	}
 }
 
-func PauseTorrent(ctx context.Context, input *PauseTorrentReq) (*PauseTorrentRes, error) {
-	res := &PauseTorrentRes{}
-	for _, hash := range input.Body.Hashes {
-		torrent, ok := torr.Client.Torrent(infohash.FromHexString(hash))
-		if !ok {
-			return nil, fmt.Errorf("torrent with hash %s not found", hash)
-		}
+func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
+	res := &TorrentActionRes{}
+	foundTorrents, err := torr.FindTorrents(input.Body.InfoHashes)
+	if err != nil {
+		return nil, err
+	}
+	for _, torrent := range foundTorrents {
 		if torrent.Info() != nil {
 			torrent.CancelPieces(0, torrent.NumPieces())
 		} else {
-			return nil, fmt.Errorf("torrent can't be stopped because metainfo is not yet received")
+			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
 		}
-
 	}
+	res.Body.Success = true
 
+	return res, nil
+}
+func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
+	res := &TorrentActionRes{}
+	foundTorrents, err := torr.FindTorrents(input.Body.InfoHashes)
+	if err != nil {
+		return nil, err
+	}
+	for _, foundTorrent := range foundTorrents {
+		// TODO(fatih): check if torrent is already started
+		if foundTorrent.Info() != nil {
+			foundTorrent.DownloadAll()
+		} else {
+			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
+		}
+	}
 	res.Body.Success = true
 
 	return res, nil
@@ -143,9 +166,25 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		}
 	}
 
-	// for _, file := range torrent.Files() {
-	// 	file.SetPriority(torrenttypes.PiecePriorityNone)
-	// }
+	for _, file := range torrent.Files() {
+		for _, clientFile := range input.Body.Files {
+			if file.Path() == clientFile.Path {
+				var priority torrenttypes.PiecePriority
+				switch clientFile.DownloadPriority {
+				case "None":
+					priority = torrenttypes.PiecePriorityNone
+				case "Maximum":
+					priority = torrenttypes.PiecePriorityNow
+				case "High":
+					priority = torrenttypes.PiecePriorityHigh
+				case "Normal":
+					priority = torrenttypes.PiecePriorityNormal
+				}
+				file.SetPriority(priority)
+			}
+		}
+
+	}
 
 	if !input.Body.SkipHashCheck {
 		torrent.VerifyData()

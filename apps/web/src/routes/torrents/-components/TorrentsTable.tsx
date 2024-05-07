@@ -13,10 +13,12 @@ import {
 } from "@tanstack/react-table"
 import {
   ArrowUpDown,
+  Check,
   ChevronDown,
   MoreHorizontal,
   Pause,
   Play,
+  RefreshCw,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -42,8 +44,23 @@ import {
 import { useMutation } from "@tanstack/react-query"
 import { components } from "@/api/v1"
 import { client } from "@/api"
+import { Progress } from "@/components/ui/progress"
+function TorrentStatusIcon(props: { status: string }) {
+  switch (props.status) {
+    case "loading":
+      return <RefreshCw className="h-4 w-4" />
+    case "paused":
+      return <Pause className="h-4 w-4" />
+    case "downloading":
+      return <Play className="h-4 w-4" />
+    case "completed":
+      return <Check className="h-4 w-4" />
+    default:
+      return null
+  }
+}
 
-export const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
+const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -69,10 +86,14 @@ export const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => <div>{row.getValue("status")}</div>,
+    cell: ({ row }) => (
+      <div>
+        <TorrentStatusIcon status={row.getValue("status")} />
+      </div>
+    ),
   },
   {
-    accessorKey: "Name",
+    accessorKey: "name",
     header: ({ column }) => {
       return (
         <Button
@@ -85,6 +106,86 @@ export const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
       )
     },
     cell: ({ row }) => <div>{row.getValue("name")}</div>,
+  },
+  {
+    accessorKey: "progress",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Progress
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => (
+      <div className="flex flex-col items-center gap-2">
+        <span>{row.getValue("progress").toFixed(2)}%</span>
+        <Progress value={row.getValue("progress")} className="w-full" />
+      </div>
+    ),
+  },
+  {
+    accessorKey: "seeds",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Seeds
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => <div>{row.getValue("seeds")}</div>,
+  },
+  {
+    accessorKey: "peers",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Peers
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => <div>{row.getValue("peers")}</div>,
+  },
+  {
+    accessorKey: "downloadSpeed",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Download Speed
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => <div>{row.getValue("downloadSpeed")}</div>,
+  },
+  {
+    accessorKey: "uploadSpeed",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Upload Speed
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => <div>{row.getValue("uploadSpeed")}</div>,
   },
 
   {
@@ -103,11 +204,27 @@ export const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => {}}>
+            <DropdownMenuItem
+              onClick={() => {
+                client.POST("/torrent/pause", {
+                  body: {
+                    infoHashes: [torrent.infoHash],
+                  },
+                })
+              }}
+            >
               <span>Pause</span>
               <Pause className="ml-2 h-4 w-4" />
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                client.POST("/torrent/resume", {
+                  body: {
+                    infoHashes: [torrent.infoHash],
+                  },
+                })
+              }}
+            >
               <span>Resume</span>
               <Play className="ml-2 h-4 w-4" />
             </DropdownMenuItem>
@@ -137,9 +254,11 @@ export function TorrentsTable() {
     },
   })
   React.useEffect(() => {
-    if (getTorrentsMutation.isIdle) {
-      getTorrentsMutation.mutate()
-    }
+    const tableUpdateInterval = setInterval(
+      () => getTorrentsMutation.mutate(),
+      1000
+    )
+    return () => clearInterval(tableUpdateInterval)
   }, [])
   const [torrents, setTorrents] = React.useState<
     components["schemas"]["Torrent"][]

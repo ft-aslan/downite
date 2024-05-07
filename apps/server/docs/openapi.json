@@ -159,46 +159,6 @@
         "required": ["torrents"],
         "type": "object"
       },
-      "PauseTorrentReqBody": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "http://localhost:9999/api/schemas/PauseTorrentReqBody.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "hashes": {
-            "description": "Hash of the torrent",
-            "examples": [["2b66980093bc11806fab50cb3cb41835b95a0362"]],
-            "items": { "type": "string" },
-            "maxLength": 30,
-            "type": "array"
-          }
-        },
-        "required": ["hashes"],
-        "type": "object"
-      },
-      "PauseTorrentResBody": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "http://localhost:9999/api/schemas/PauseTorrentResBody.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "result": { "type": "boolean" }
-        },
-        "required": ["result"],
-        "type": "object"
-      },
       "PeerInfo": {
         "additionalProperties": false,
         "properties": {
@@ -256,7 +216,7 @@
           "progress": { "format": "float", "type": "number" },
           "ratio": { "format": "float", "type": "number" },
           "seeds": { "format": "int64", "type": "integer" },
-          "status": { "format": "int64", "type": "integer" },
+          "status": { "type": "string" },
           "tags": { "items": { "type": "string" }, "type": "array" },
           "totalSize": { "format": "int64", "type": "integer" },
           "uploadSpeed": { "format": "int64", "type": "integer" },
@@ -288,6 +248,46 @@
           "downloadSpeed",
           "uploadSpeed"
         ],
+        "type": "object"
+      },
+      "TorrentActionReqBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/TorrentActionReqBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "infoHashes": {
+            "description": "Hashes of torrents",
+            "examples": [["2b66980093bc11806fab50cb3cb41835b95a0362"]],
+            "items": { "type": "string" },
+            "maxLength": 30,
+            "type": "array"
+          }
+        },
+        "required": ["infoHashes"],
+        "type": "object"
+      },
+      "TorrentActionResBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/TorrentActionResBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "result": { "type": "boolean" }
+        },
+        "required": ["result"],
         "type": "object"
       },
       "TorrentFileOptions": {
@@ -523,7 +523,7 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PauseTorrentReqBody" }
+              "schema": { "$ref": "#/components/schemas/TorrentActionReqBody" }
             }
           },
           "required": true
@@ -532,7 +532,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/PauseTorrentResBody" }
+                "schema": {
+                  "$ref": "#/components/schemas/TorrentActionResBody"
+                }
               }
             },
             "description": "OK"
@@ -547,6 +549,40 @@
           }
         },
         "summary": "Post torrent pause"
+      }
+    },
+    "/torrent/resume": {
+      "post": {
+        "operationId": "post-torrent-resume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TorrentActionReqBody" }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TorrentActionResBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Post torrent resume"
       }
     }
   },

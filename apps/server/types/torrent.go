@@ -41,7 +41,7 @@ type Torrent struct {
 	Uploaded      int64                       `json:"uploaded"`
 	Downloaded    int64                       `json:"downloaded"`
 	Magnet        string                      `json:"magnet"`
-	Status        TorrentStatus               `json:"status"`
+	Status        string                      `json:"status"`
 	PieceProgress []PieceProgress             `json:"pieceProgress"`
 	Peers         map[string]torrent.PeerInfo `json:"peers"`
 	Progress      float32                     `json:"progress"`
