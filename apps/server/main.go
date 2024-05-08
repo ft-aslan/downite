@@ -2,22 +2,27 @@ package main
 
 import (
 	"downite/api"
+	"downite/db"
 	"downite/download/torr"
+	"fmt"
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
 )
 
 func main() {
-	// api.ApiInit()
-	// db.DbInit()
 	// Create a new torrent client
 	torrentClientConfig := torrent.NewDefaultClientConfig()
 	torrentClientConfig.DataDir = "./downloads"
-	storage := storage.NewFile("./downloads")
-	torrentClientConfig.DefaultStorage = storage
+	sqliteStorage, err := storage.NewSqlitePieceCompletion("./downloads")
+	if err != nil {
+		fmt.Printf("Error creating sqlite storage: %v\n", err)
+		return
+	}
+	torrentClientConfig.DefaultStorage = storage.NewFileWithCompletion("./downloads", sqliteStorage)
 	torr.CreateTorrentClient(torrentClientConfig)
 
+	db.DbInit()
 	api.ApiInit()
 	// Load the torrent file
 	// torrentInfo, err := metainfo.LoadFromFile("./mocks/debian-12.5.0-amd64-netinst.iso.torrent")

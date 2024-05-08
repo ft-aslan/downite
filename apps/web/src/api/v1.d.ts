@@ -247,8 +247,7 @@ export interface components {
             ratio: number;
             /** Format: int64 */
             seeds: number;
-            /** Format: int64 */
-            status: number;
+            status: string;
             tags: string[];
             /** Format: int64 */
             totalSize: number;

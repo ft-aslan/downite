@@ -1,6 +1,11 @@
 package db
 
-import "github.com/jmoiron/sqlx"
+import (
+	_ "database/sql"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
+)
 
 var x *sqlx.DB
 

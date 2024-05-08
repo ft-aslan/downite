@@ -1,14 +1,13 @@
 module downite
 
-go 1.22
-
-
+go 1.22.2
 
 require (
 	github.com/anacrolix/torrent v1.55.0
 	github.com/danielgtaylor/huma/v2 v2.11.0
 	github.com/jackpal/bencode-go v1.0.2
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/rs/cors v1.10.1
 )
 
