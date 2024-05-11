@@ -12,7 +12,7 @@ var x *sqlx.DB
 
 func DbInit() error {
 	var err error
-	x, err = sqlx.Connect("sqlite", "./downite.db")
+	x, err = sqlx.Connect("sqlite", "./tmp/downite.db")
 	if err != nil {
 		panic(err)
 	}
@@ -21,7 +21,7 @@ func DbInit() error {
 	if err != nil {
 		panic(err)
 	}
-	migrationsDir := filepath.Join("..", "db", "migrations")
+	migrationsDir := filepath.Join(".", "db", "migrations")
 
 	sqlx.MustExec(x, "CREATE TABLE IF NOT EXISTS migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE)")
 

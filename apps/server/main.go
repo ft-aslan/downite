@@ -13,13 +13,13 @@ import (
 func main() {
 	// Create a new torrent client
 	torrentClientConfig := torrent.NewDefaultClientConfig()
-	torrentClientConfig.DataDir = "./downloads"
-	sqliteStorage, err := storage.NewSqlitePieceCompletion("./downloads")
+	torrentClientConfig.DataDir = "./tmp/downloads"
+	sqliteStorage, err := storage.NewSqlitePieceCompletion("./tmp")
 	if err != nil {
 		fmt.Printf("Error creating sqlite storage: %v\n", err)
 		return
 	}
-	torrentClientConfig.DefaultStorage = storage.NewFileWithCompletion("./downloads", sqliteStorage)
+	torrentClientConfig.DefaultStorage = storage.NewFileWithCompletion("./tmp/downloads", sqliteStorage)
 	torr.CreateTorrentClient(torrentClientConfig)
 
 	db.DbInit()
