@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"downite/db"
 	"downite/download/torr"
 	"downite/types"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	torrenttypes "github.com/anacrolix/torrent/types"
 	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/jmoiron/sqlx"
 )
 
 type GetTorrentsRes struct {
@@ -93,6 +95,7 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 	for _, torrent := range foundTorrents {
 		if torrent.Info() != nil {
 			torrent.CancelPieces(0, torrent.NumPieces())
+			sqlx.MustExec(db.DB, "UPDATE torrents SET status = 0 WHERE info_hash = ?", torrent.InfoHash().String())
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
 		}
@@ -111,6 +114,7 @@ func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 		// TODO(fatih): check if torrent is already started
 		if foundTorrent.Info() != nil {
 			foundTorrent.DownloadAll()
+			sqlx.MustExec(db.DB, "UPDATE torrents SET status = 1 WHERE info_hash = ?", foundTorrent.InfoHash().String())
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
 		}
@@ -186,12 +190,18 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 	}
 
+	sqlx.MustExec(db.DB,
+		"INSERT INTO torrents (info_hash, name, save_path, status, time_active, downloaded, uploaded, total_size, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		torrent.InfoHash().String(), torrent.Name(), input.Body.SavePath, 0, 0, 0, 0, 0, "")
+
 	if !input.Body.SkipHashCheck {
 		torrent.VerifyData()
 	}
 	if input.Body.StartTorrent {
 		torrent.DownloadAll()
 	}
+
+	sqlx.MustExec(db.DB, "UPDATE torrents SET status = 1 WHERE info_hash = ?", torrent.InfoHash().String())
 
 	res.Body = types.Torrent{
 		InfoHash: torrent.InfoHash().String(),

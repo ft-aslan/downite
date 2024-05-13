@@ -7,8 +7,10 @@
   ],
   "scripts": {
     "dev:web": "pnpm --filter @downite/web dev:web",
-    "dev:server": "cd apps/server && air"
+    "dev:server": "cd apps/server && air",
+    "db": "cd apps/server && goose -dir ./db/migrations sqlite3 ./tmp/downite.db"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  }
 }
