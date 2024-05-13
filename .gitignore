@@ -51,3 +51,6 @@ tmp
 
 #.torrent from go-torrent
 .torrent*
+
+# output folder
+bin

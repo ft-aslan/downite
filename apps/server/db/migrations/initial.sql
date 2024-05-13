@@ -1,0 +1,71 @@
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL,
+);
+CREATE TABLE IF NOT EXISTS torrents (
+    infohash VARCHAR(100) NOT NULL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    name VARCHAR(100) NOT NULL,
+    save_path VARCHAR(255) NOT NULL,
+    status INT NOT NULL,
+    time_active TIMESTAMP,
+    downloaded INT,
+    uploaded INT,
+    total_size INT,
+    comment VARCHAR(100),
+);
+CREATE TABLE IF NOT EXIST files (
+    id SERIAL PRIMARY KEY,
+    infohash FOREIGN KEY REFERENCES torrents(infohash),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    name VARCHAR(100) NOT NULL,
+    length INT NOT NULL,
+    path VARCHAR(255) NOT NULL,
+    priority INT NOT NULL,
+    piece_index INT NOT NULL,
+);
+CREATE TABLE IF NOT EXISTS trackers (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    address VARCHAR(100) NOT NULL UNIQUE,
+);
+CREATE TABLE IF NOT EXISTS torrent_trackers (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    infohash FOREIGN KEY REFERENCES torrents(infohash),
+    tracker_id FOREIGN KEY REFERENCES trackers(id),
+);
+CREATE TABLE IF NOT EXISTS tags (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    name VARCHAR(100) NOT NULL,
+);
+CREATE TABLE IF NOT EXISTS torrent_tags (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    infohash FOREIGN KEY REFERENCES torrents(infohash),
+    tag_id FOREIGN KEY REFERENCES tags(id),
+);
+CREATE TABLE IF NOT EXISTS categories (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    name VARCHAR(100) NOT NULL,
+    save_path VARCHAR(255) NOT NULL,
+    incomplete_save_path VARCHAR(255),
+);
+CREATE TABLE IF NOT EXISTS torrent_categories (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    infohash FOREIGN KEY REFERENCES torrents(infohash),
+    category_id FOREIGN KEY REFERENCES categories(id),
+);
+/* CREATE TABLE IF NOT EXIST peers (
+ id SERIAL PRIMARY KEY,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+ infohash VARCHAR(100) NOT NULL
+ ip VARCHAR(100) NOT NULL UNIQUE
+ port INT
+ status VARCHAR(100)
+ downloaded 
+ ); */
