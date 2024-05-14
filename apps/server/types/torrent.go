@@ -3,7 +3,15 @@ package types
 import (
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/types"
 )
+
+var PiecePriorityStringMap = map[string]types.PiecePriority{
+	"none":    types.PiecePriorityNone,
+	"maximum": types.PiecePriorityNow,
+	"high":    types.PiecePriorityHigh,
+	"normal":  types.PiecePriorityNormal,
+}
 
 type TorrentStatus int
 
@@ -12,7 +20,16 @@ const (
 	TorrentStatusDownloading
 	TorrentStatusCompleted
 	TorrentStatusSeeding
+	TorrentStatusMetadata
 )
+
+var TorrentStatusStringMap = map[TorrentStatus]string{
+	TorrentStatusPaused:      "paused",
+	TorrentStatusDownloading: "downloading",
+	TorrentStatusCompleted:   "completed",
+	TorrentStatusSeeding:     "seeding",
+	TorrentStatusMetadata:    "metadata",
+}
 
 type PieceProgress struct {
 	Index               int
@@ -36,7 +53,7 @@ type Torrent struct {
 	Name          string                      `json:"name"`
 	InfoHash      string                      `json:"infoHash"`
 	Files         metainfo.FileTree           `json:"files"`
-	TotalSize     int64                       `json:"totalSize"`
+	TotalSize     int64                       `json:"totalSize" db:"total_size"`
 	AmountLeft    int64                       `json:"amountLeft"`
 	Uploaded      int64                       `json:"uploaded"`
 	Downloaded    int64                       `json:"downloaded"`
@@ -48,10 +65,9 @@ type Torrent struct {
 	PeersCount    int                         `json:"peersCount"`
 	Eta           int                         `json:"eta"`
 	Category      string                      `json:"category"`
-	DownloadPath  string                      `json:"downloadPath"`
-	DownloadDir   string                      `json:"downloadDir"`
+	SavePath      string                      `json:"savePath" db:"save_path"`
 	Tags          []string                    `json:"tags"`
-	AddedOn       int64                       `json:"addedOn"`
+	AddedOn       int64                       `json:"addedOn" db:"added_on"`
 	Availability  float32                     `json:"availability"`
 	Ratio         float32                     `json:"ratio"`
 	Seeds         int                         `json:"seeds"`

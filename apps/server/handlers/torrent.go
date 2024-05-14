@@ -13,7 +13,6 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
-	torrenttypes "github.com/anacrolix/torrent/types"
 	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/jmoiron/sqlx"
 )
@@ -26,25 +25,46 @@ type GetTorrentsRes struct {
 
 func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) {
 	res := &GetTorrentsRes{}
-	torrents := torr.Client.Torrents()
-
 	torrentsRes := []types.Torrent{}
+
+	/* 	torrents := torr.Client.Torrents()
+	   	for _, torrent := range torrents {
+	   		if torrent.Info() == nil {
+	   			torrentsRes = append(torrentsRes, types.Torrent{
+	   				InfoHash: torrent.InfoHash().String(),
+	   				Name:     torrent.Name(),
+	   				AddedOn:  time.Now().Unix(),
+	   				Status:   "loading",
+	   			})
+	   		} else {
+	   			torrentsRes = append(torrentsRes, types.Torrent{
+	   				InfoHash:   torrent.InfoHash().String(),
+	   				Name:       torrent.Name(),
+	   				AddedOn:    time.Now().Unix(),
+	   				Files:      torrent.Info().FileTree,
+	   				TotalSize:  torrent.Info().TotalLength(),
+	   				AmountLeft: torrent.BytesMissing(),
+	   				Downloaded: torrent.BytesCompleted(),
+	   				Progress:   float32(torrent.BytesCompleted()) / float32(torrent.Info().TotalLength()) * 100,
+	   				Status:     "downloading",
+	   			})
+	   		}
+	   	} */
+	torrents, err := db.GetTorrents()
+	if err != nil {
+		return nil, err
+	}
 	for _, torrent := range torrents {
-		var status string
-		status = "downloading"
-		if torrent == nil || torrent.Info() == nil {
-			status = "loading"
-		}
 		torrentsRes = append(torrentsRes, types.Torrent{
-			InfoHash:   torrent.InfoHash().String(),
-			Name:       torrent.Name(),
-			AddedOn:    time.Now().Unix(),
-			Files:      torrent.Info().FileTree,
-			TotalSize:  torrent.Info().TotalLength(),
-			AmountLeft: torrent.BytesMissing(),
-			Downloaded: torrent.BytesCompleted(),
-			Progress:   float32(torrent.BytesCompleted()) / float32(torrent.Info().TotalLength()) * 100,
-			Status:     status,
+			InfoHash:   torrent.InfoHash,
+			Name:       torrent.Name,
+			AddedOn:    torrent.AddedOn,
+			Files:      torrent.Files,
+			TotalSize:  torrent.TotalSize,
+			AmountLeft: torrent.AmountLeft,
+			Downloaded: torrent.Downloaded,
+			Progress:   torrent.Progress,
+			Status:     torrent.Status,
 		})
 	}
 	res.Body.Torrents = torrentsRes
@@ -95,7 +115,7 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 	for _, torrent := range foundTorrents {
 		if torrent.Info() != nil {
 			torrent.CancelPieces(0, torrent.NumPieces())
-			sqlx.MustExec(db.DB, "UPDATE torrents SET status = 0 WHERE info_hash = ?", torrent.InfoHash().String())
+			sqlx.MustExec(db.DB, "UPDATE torrents SET status = ? WHERE infohash = ?", types.TorrentStatusPaused, torrent.InfoHash().String())
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
 		}
@@ -114,7 +134,27 @@ func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 		// TODO(fatih): check if torrent is already started
 		if foundTorrent.Info() != nil {
 			foundTorrent.DownloadAll()
-			sqlx.MustExec(db.DB, "UPDATE torrents SET status = 1 WHERE info_hash = ?", foundTorrent.InfoHash().String())
+			sqlx.MustExec(db.DB, "UPDATE torrents SET status = ? WHERE infohash = ?", types.TorrentStatusDownloading, foundTorrent.InfoHash().String())
+		} else {
+			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
+		}
+	}
+	res.Body.Success = true
+
+	return res, nil
+}
+func RemoveTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
+	res := &TorrentActionRes{}
+	foundTorrents, err := torr.FindTorrents(input.Body.InfoHashes)
+	if err != nil {
+		return nil, err
+	}
+	for _, foundTorrent := range foundTorrents {
+		// TODO(fatih): check if torrent is already started
+		if foundTorrent.Info() != nil {
+			foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
+			foundTorrent.Drop()
+			sqlx.MustExec(db.DB, "DELETE FROM torrents WHERE infohash = ?", foundTorrent.InfoHash().String())
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
 		}
@@ -155,7 +195,6 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		if err != nil {
 			return nil, err
 		}
-		<-torrent.GotInfo()
 
 	} else {
 		// Load the torrent file
@@ -169,20 +208,21 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 			return nil, err
 		}
 	}
+	sqlx.MustExec(db.DB,
+		"INSERT INTO torrents (infohash, name, created_at, save_path, status, time_active, downloaded, uploaded, total_size, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		torrent.InfoHash().String(), torrent.Name(), time.Now(), input.Body.SavePath, types.TorrentStatusMetadata, 0, 0, 0, 0, "")
+
+	<-torrent.GotInfo()
+
+	sqlx.MustExec(db.DB, "UPDATE torrents SET status = ? WHERE infohash = ?",
+		types.TorrentStatusPaused, torrent.InfoHash().String())
 
 	for _, file := range torrent.Files() {
 		for _, clientFile := range input.Body.Files {
 			if file.Path() == clientFile.Path {
-				var priority torrenttypes.PiecePriority
-				switch clientFile.DownloadPriority {
-				case "None":
-					priority = torrenttypes.PiecePriorityNone
-				case "Maximum":
-					priority = torrenttypes.PiecePriorityNow
-				case "High":
-					priority = torrenttypes.PiecePriorityHigh
-				case "Normal":
-					priority = torrenttypes.PiecePriorityNormal
+				priority, ok := types.PiecePriorityStringMap[clientFile.DownloadPriority]
+				if !ok {
+					return nil, fmt.Errorf("invalid download priority: %s", clientFile.DownloadPriority)
 				}
 				file.SetPriority(priority)
 			}
@@ -190,18 +230,15 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 	}
 
-	sqlx.MustExec(db.DB,
-		"INSERT INTO torrents (info_hash, name, save_path, status, time_active, downloaded, uploaded, total_size, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		torrent.InfoHash().String(), torrent.Name(), input.Body.SavePath, 0, 0, 0, 0, 0, "")
-
 	if !input.Body.SkipHashCheck {
 		torrent.VerifyData()
 	}
+
 	if input.Body.StartTorrent {
 		torrent.DownloadAll()
+		sqlx.MustExec(db.DB, "UPDATE torrents SET status = ? WHERE infohash = ?",
+			types.TorrentStatusDownloading, torrent.InfoHash().String())
 	}
-
-	sqlx.MustExec(db.DB, "UPDATE torrents SET status = 1 WHERE info_hash = ?", torrent.InfoHash().String())
 
 	res.Body = types.Torrent{
 		InfoHash: torrent.InfoHash().String(),
@@ -300,7 +337,6 @@ func GetMetaWithMagnet(ctx context.Context, input *GetMetaWithMagnetReq) (*GetMe
 
 	info = *torrent.Info()
 	infoHash = torrent.InfoHash().String()
-	torrent.Drop()
 
 	fileTree := createFileTreeFromMeta(info)
 
@@ -311,6 +347,8 @@ func GetMetaWithMagnet(ctx context.Context, input *GetMetaWithMagnetReq) (*GetMe
 		InfoHash:      infoHash,
 		TorrentMagnet: magnet,
 	}
+
+	torrent.Drop()
 	return res, nil
 }
 func createFolder(fileTree *[]*types.TreeNodeMeta, path []string) (*[]*types.TreeNodeMeta, *types.TreeNodeMeta) {

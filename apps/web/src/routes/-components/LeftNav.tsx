@@ -30,19 +30,17 @@ export default function LeftNav() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link to="/torrents">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-lg"
-                  aria-label="Playground"
-                  asChild
-                >
-                  <Link to="/torrents" activeProps={{ className: "bg-muted" }}>
-                    <PhMagnetStraight className="size-5" />
-                  </Link>
-                </Button>
-              </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-lg"
+                aria-label="Playground"
+                asChild
+              >
+                <Link to="/torrents" activeProps={{ className: "bg-muted" }}>
+                  <PhMagnetStraight className="size-5" />
+                </Link>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={5}>
               Torrents

@@ -195,8 +195,6 @@
           "amountLeft": { "format": "int64", "type": "integer" },
           "availability": { "format": "float", "type": "number" },
           "category": { "type": "string" },
-          "downloadDir": { "type": "string" },
-          "downloadPath": { "type": "string" },
           "downloadSpeed": { "format": "int64", "type": "integer" },
           "downloaded": { "format": "int64", "type": "integer" },
           "eta": { "format": "int64", "type": "integer" },
@@ -215,6 +213,7 @@
           },
           "progress": { "format": "float", "type": "number" },
           "ratio": { "format": "float", "type": "number" },
+          "savePath": { "type": "string" },
           "seeds": { "format": "int64", "type": "integer" },
           "status": { "type": "string" },
           "tags": { "items": { "type": "string" }, "type": "array" },
@@ -238,8 +237,7 @@
           "peersCount",
           "eta",
           "category",
-          "downloadPath",
-          "downloadDir",
+          "savePath",
           "tags",
           "addedOn",
           "availability",
@@ -549,6 +547,40 @@
           }
         },
         "summary": "Post torrent pause"
+      }
+    },
+    "/torrent/remove": {
+      "post": {
+        "operationId": "post-torrent-remove",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TorrentActionReqBody" }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TorrentActionResBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Post torrent remove"
       }
     },
     "/torrent/resume": {

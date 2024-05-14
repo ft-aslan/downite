@@ -1,0 +1,15 @@
+select
+    torrents.id,
+    torrents.infohash,
+    torrents.name,
+    torrents.save_path,
+    torrents.status,
+    torrents.time_active,
+    torrents.downloaded,
+    torrents.uploaded,
+    torrents.total_size,
+    torrents.comment,
+    torrents.category_id,
+    torrents.created_at
+from
+    torrents

@@ -15,10 +15,12 @@ import {
   ArrowUpDown,
   Check,
   ChevronDown,
+  Copy,
   MoreHorizontal,
   Pause,
   Play,
   RefreshCw,
+  Trash2,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -213,8 +215,8 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
                 })
               }}
             >
-              <span>Pause</span>
               <Pause className="ml-2 h-4 w-4" />
+              <span className="ml-1 sm:whitespace-nowrap">Pause</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
@@ -225,15 +227,28 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
                 })
               }}
             >
-              <span>Resume</span>
               <Play className="ml-2 h-4 w-4" />
+              <span className="ml-1 sm:whitespace-nowrap">Resume</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => navigator.clipboard.writeText(torrent.infoHash)}
             >
-              Copy info hash
+              <Copy className="ml-2 h-4 w-4" />
+              <span className="ml-1 sm:whitespace-nowrap">Copy info hash</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                client.POST("/torrent/remove", {
+                  body: {
+                    infoHashes: [torrent.infoHash],
+                  },
+                })
+              }}
+            >
+              <Trash2 className="ml-2 h-4 w-4" />
+              <span className="ml-1 sm:whitespace-nowrap">Remove</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )
