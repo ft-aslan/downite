@@ -51,7 +51,7 @@ type TorrentMeta struct {
 }
 type Torrent struct {
 	Name          string                      `json:"name"`
-	InfoHash      string                      `json:"infoHash"`
+	Infohash      string                      `json:"infohash"`
 	Files         metainfo.FileTree           `json:"files"`
 	TotalSize     int64                       `json:"totalSize" db:"total_size"`
 	AmountLeft    int64                       `json:"amountLeft"`
@@ -67,7 +67,8 @@ type Torrent struct {
 	Category      string                      `json:"category"`
 	SavePath      string                      `json:"savePath" db:"save_path"`
 	Tags          []string                    `json:"tags"`
-	AddedOn       int64                       `json:"addedOn" db:"added_on"`
+	CreatedAt     int64                       `json:"createdAt" db:"created_at"`
+	StartedAt     int64                       `json:"startedAt" db:"started_at"`
 	Availability  float32                     `json:"availability"`
 	Ratio         float32                     `json:"ratio"`
 	Seeds         int                         `json:"seeds"`

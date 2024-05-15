@@ -12,6 +12,7 @@ create table
         id int primary key,
         infohash text not null unique,
         created_at timestamp default current_timestamp,
+        started_at timestamp,
         name text not null,
         save_path text not null,
         status int not null,

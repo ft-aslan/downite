@@ -212,7 +212,7 @@ export default function DownloadTorrentForm({
           <div className="flex-1 space-y-1">
             <p className="text-sm font-medium leading-none">Info Hash: </p>
             <p className="text-muted-foreground text-sm">
-              {torrentMeta.infoHash}
+              {torrentMeta.infohash}
             </p>
           </div>
           <div className="flex-1 space-y-1">
