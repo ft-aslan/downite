@@ -12,6 +12,13 @@ require (
 )
 
 require (
+	github.com/mfridman/interpolate v0.0.2 // indirect
+	github.com/sethvargo/go-retry v0.2.4 // indirect
+	go.opentelemetry.io/otel/metric v1.20.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+)
+
+require (
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect
 	github.com/ajwerner/btree v0.0.0-20211221152037-f427b3e689c0 // indirect
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
@@ -42,7 +49,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.6.0 // indirect
 	github.com/go-llsqlite/adapter v0.0.0-20230927005056-7f5ce7f0c916 // indirect
 	github.com/go-llsqlite/crawshaw v0.4.0 // indirect
-	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -72,6 +79,7 @@ require (
 	github.com/pion/udp v0.1.4 // indirect
 	github.com/pion/webrtc/v3 v3.1.42 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pressly/goose/v3 v3.20.0
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
@@ -80,12 +88,12 @@ require (
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
-	go.opentelemetry.io/otel v1.8.0 // indirect
-	go.opentelemetry.io/otel/trace v1.8.0 // indirect
+	go.opentelemetry.io/otel v1.20.0 // indirect
+	go.opentelemetry.io/otel/trace v1.20.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
-	golang.org/x/exp v0.0.0-20231108232855-2478ac86f678 // indirect
-	golang.org/x/net v0.22.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
+	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect

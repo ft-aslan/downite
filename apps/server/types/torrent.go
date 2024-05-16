@@ -31,6 +31,10 @@ var TorrentStatusStringMap = map[TorrentStatus]string{
 	TorrentStatusMetadata:    "metadata",
 }
 
+func (s TorrentStatus) String() string {
+	return TorrentStatusStringMap[s]
+}
+
 type PieceProgress struct {
 	Index               int
 	DownloadedByteCount int
@@ -58,17 +62,20 @@ type Torrent struct {
 	Uploaded      int64                       `json:"uploaded"`
 	Downloaded    int64                       `json:"downloaded"`
 	Magnet        string                      `json:"magnet"`
-	Status        string                      `json:"status"`
+	Status        TorrentStatus               `json:"status"`
 	PieceProgress []PieceProgress             `json:"pieceProgress"`
 	Peers         map[string]torrent.PeerInfo `json:"peers"`
 	Progress      float32                     `json:"progress"`
 	PeersCount    int                         `json:"peersCount"`
 	Eta           int                         `json:"eta"`
+	CategoryId    int                         `json:"-" db:"category_id"`
 	Category      string                      `json:"category"`
 	SavePath      string                      `json:"savePath" db:"save_path"`
 	Tags          []string                    `json:"tags"`
+	Trackers      [][]string                  `json:"trackers"`
 	CreatedAt     int64                       `json:"createdAt" db:"created_at"`
 	StartedAt     int64                       `json:"startedAt" db:"started_at"`
+	TimeActive    int64                       `json:"timeActive" db:"time_active"`
 	Availability  float32                     `json:"availability"`
 	Ratio         float32                     `json:"ratio"`
 	Seeds         int                         `json:"seeds"`

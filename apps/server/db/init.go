@@ -1,6 +1,9 @@
 package db
 
 import (
+	"downite/cmd/migrations"
+	"path/filepath"
+
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -18,14 +21,12 @@ func DbInit() error {
 	if err != nil {
 		panic(err)
 	}
-	// migrationsDir := filepath.Join(".", "db", "migrations")
+	migrationsDir := filepath.Join(".", "db", "migrations")
 
-	// sqlx.MustExec(x, "CREATE TABLE IF NOT EXISTS migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE)")
-
-	// err = migrations.Migrate(x, migrationsDir)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	err = migrations.Migrate(DB, migrationsDir)
+	if err != nil {
+		panic(err)
+	}
 
 	return nil
 }

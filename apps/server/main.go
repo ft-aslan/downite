@@ -19,9 +19,10 @@ func main() {
 		return
 	}
 	torrentClientConfig.DefaultStorage = storage.NewFileWithCompletion("./tmp/downloads", sqliteStorage)
-	torr.CreateTorrentClient(torrentClientConfig)
 
 	db.DbInit()
+	torr.CreateTorrentClient(torrentClientConfig)
+	torr.InitTorrents()
 	api.ApiInit()
 	// Load the torrent file
 	// torrentInfo, err := metainfo.LoadFromFile("./mocks/debian-12.5.0-amd64-netinst.iso.torrent")

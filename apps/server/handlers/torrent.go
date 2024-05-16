@@ -119,7 +119,7 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 			if err != nil {
 				return nil, err
 			}
-			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
+			torrent.Status = types.TorrentStatusDownloading
 			db.UpdateTorrentStatus(torrent)
 
 		} else {
@@ -145,7 +145,7 @@ func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 			if err != nil {
 				return nil, err
 			}
-			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
+			torrent.Status = types.TorrentStatusDownloading
 			db.UpdateTorrentStatus(torrent)
 
 		} else {
@@ -227,7 +227,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	torrent = types.Torrent{
 		Infohash: goTorrent.InfoHash().String(),
 		Name:     goTorrent.Name(),
-		Status:   types.TorrentStatusStringMap[types.TorrentStatusDownloading],
+		Status:   types.TorrentStatusDownloading,
 	}
 	err = db.InsertTorrent(&torrent)
 	if err != nil {
@@ -236,7 +236,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 	<-goTorrent.GotInfo()
 
-	torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
+	torrent.Status = types.TorrentStatusPaused
 	torrent.TotalSize = goTorrent.Length()
 	torrent.Magnet = goTorrent.Metainfo().Magnet(nil, goTorrent.Info()).String()
 
@@ -262,7 +262,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	if input.Body.StartTorrent {
 		goTorrent.DownloadAll()
 
-		torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
+		torrent.Status = types.TorrentStatusDownloading
 		db.UpdateTorrentStatus(&torrent)
 	}
 	torrent.Files = goTorrent.Info().FileTree
