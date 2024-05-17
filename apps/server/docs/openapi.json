@@ -194,6 +194,7 @@
           "amountLeft": { "format": "int64", "type": "integer" },
           "availability": { "format": "float", "type": "number" },
           "category": { "type": "string" },
+          "comment": { "type": "string" },
           "createdAt": { "format": "int64", "type": "integer" },
           "downloadSpeed": { "format": "int64", "type": "integer" },
           "downloaded": { "format": "int64", "type": "integer" },
@@ -253,7 +254,8 @@
           "ratio",
           "seeds",
           "downloadSpeed",
-          "uploadSpeed"
+          "uploadSpeed",
+          "comment"
         ],
         "type": "object"
       },

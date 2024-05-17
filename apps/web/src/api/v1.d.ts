@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/torrent/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post torrent remove */
+        post: operations["post-torrent-remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/torrent/resume": {
         parameters: {
             query?: never;
@@ -217,14 +234,13 @@ export interface components {
              */
             readonly $schema?: string;
             /** Format: int64 */
-            addedOn: number;
-            /** Format: int64 */
             amountLeft: number;
             /** Format: float */
             availability: number;
             category: string;
-            downloadDir: string;
-            downloadPath: string;
+            comment: string;
+            /** Format: int64 */
+            createdAt: number;
             /** Format: int64 */
             downloadSpeed: number;
             /** Format: int64 */
@@ -232,7 +248,7 @@ export interface components {
             /** Format: int64 */
             eta: number;
             files: components["schemas"]["FileTree"];
-            infoHash: string;
+            infohash: string;
             magnet: string;
             name: string;
             peers: {
@@ -245,12 +261,19 @@ export interface components {
             progress: number;
             /** Format: float */
             ratio: number;
+            savePath: string;
             /** Format: int64 */
             seeds: number;
-            status: string;
+            /** Format: int64 */
+            startedAt: number;
+            /** Format: int64 */
+            status: number;
             tags: string[];
             /** Format: int64 */
+            timeActive: number;
+            /** Format: int64 */
             totalSize: number;
+            trackers: string[][];
             /** Format: int64 */
             uploadSpeed: number;
             /** Format: int64 */
@@ -477,6 +500,39 @@ export interface operations {
         };
     };
     "post-torrent-pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TorrentActionReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TorrentActionResBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "post-torrent-remove": {
         parameters: {
             query?: never;
             header?: never;

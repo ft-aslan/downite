@@ -2,7 +2,9 @@ package torr
 
 import (
 	"downite/db"
+	"downite/types"
 	"fmt"
+	"sort"
 
 	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/types/infohash"
@@ -29,7 +31,7 @@ func InitTorrents() error {
 		spec := gotorrent.TorrentSpec{
 			InfoHash: infohash.FromHexString(dbTorrent.Infohash),
 		}
-		_, new, err := Client.AddTorrentSpec(&spec)
+		torrent, new, err := Client.AddTorrentSpec(&spec)
 
 		if err != nil {
 			return err
@@ -37,9 +39,27 @@ func InitTorrents() error {
 		if !new {
 			return fmt.Errorf("torrent with hash %s already exists", dbTorrent.Infohash)
 		}
-		// Add trackers to the torrent
-		// _, err = torrent.AddTrackers(dbTorrent.Trackers)
-
+		// get the trackers
+		trackers, err := db.GetTorrentTrackers(dbTorrent.Infohash)
+		if err != nil {
+			return err
+		}
+		if len(trackers) > 0 {
+			// sort it based on their tiers
+			sort.Slice(trackers, func(i, j int) bool { return trackers[i].Tier < trackers[j].Tier })
+			// get the maximum tier number and create a tieredTrackers slice
+			maximumTierIndex := trackers[len(trackers)-1].Tier
+			tieredTrackers := make([][]string, 0, maximumTierIndex)
+			// insert the trackers into the tieredTrackers slice based on their tiers
+			for _, tracker := range trackers {
+				tieredTrackers[tracker.Tier] = append(tieredTrackers[tracker.Tier], tracker.Url.String())
+			}
+			// Add trackers to the torrent
+			torrent.AddTrackers(tieredTrackers)
+		}
+		if dbTorrent.Status == types.TorrentStatusDownloading {
+			torrent.DownloadAll()
+		}
 	}
 	return nil
 }

@@ -1,6 +1,9 @@
 package types
 
 import (
+	"net"
+	"net/url"
+
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/types"
@@ -72,7 +75,7 @@ type Torrent struct {
 	Category      string                      `json:"category"`
 	SavePath      string                      `json:"savePath" db:"save_path"`
 	Tags          []string                    `json:"tags"`
-	Trackers      [][]string                  `json:"trackers"`
+	Trackers      []Tracker                   `json:"trackers"`
 	CreatedAt     int64                       `json:"createdAt" db:"created_at"`
 	StartedAt     int64                       `json:"startedAt" db:"started_at"`
 	TimeActive    int64                       `json:"timeActive" db:"time_active"`
@@ -81,6 +84,18 @@ type Torrent struct {
 	Seeds         int                         `json:"seeds"`
 	DownloadSpeed int                         `json:"downloadSpeed"`
 	UploadSpeed   int                         `json:"uploadSpeed"`
+	Comment       string                      `json:"comment"`
+}
+type Tracker struct {
+	Interval uint64
+	Url      url.URL
+	Peers    []Peer
+	Tier     int
+}
+type Peer struct {
+	Url    url.URL
+	Ip     net.IP
+	IpPort uint16
 }
 
 type TorrentFileOptions struct {

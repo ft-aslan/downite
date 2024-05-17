@@ -41,7 +41,7 @@ create table
     if not exists trackers (
         id int primary key,
         created_at timestamp default current_timestamp,
-        address text not null unique
+        url text not null unique
     );
 
 create table
@@ -50,6 +50,7 @@ create table
         created_at timestamp default current_timestamp,
         infohash int not null,
         tracker_id int not null,
+        tier int not null,
         foreign key (infohash) references torrents (infohash),
         foreign key (tracker_id) references trackers (id)
     );
