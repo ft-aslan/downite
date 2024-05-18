@@ -12,15 +12,18 @@ func GetAllTrackers() ([]string, error) {
 	return trackers, err
 }
 
-func AddTracker(tracker types.Tracker, infohash string) error {
-	result := DB.MustExec(`INSERT INTO trackers (url) VALUES (?)`, tracker)
+func InsertTracker(tracker *types.Tracker, infohash string) error {
+	result, err := DB.NamedExec(`INSERT INTO trackers (url) VALUES (:url)`, tracker)
+	if err != nil {
+		return err
+	}
 
 	trackerId, err := result.LastInsertId()
 	if err != nil {
 		return err
 	}
 
-	DB.MustExec(`INSERT INTO torrent_trackers (infohash, tracker_id, tier) VALUES (?, ?)`, infohash, trackerId, tracker.Tier)
+	result = DB.MustExec(`INSERT INTO torrent_trackers (infohash, tracker_id, tier) VALUES ($1, $2, $3)`, infohash, trackerId, tracker.Tier)
 	return nil
 }
 func GetTorrentTrackers(infohash string) ([]types.Tracker, error) {

@@ -159,6 +159,16 @@
         "required": ["torrents"],
         "type": "object"
       },
+      "Peer": {
+        "additionalProperties": false,
+        "properties": {
+          "Ip": { "format": "ipv4", "type": "string" },
+          "IpPort": { "format": "int32", "type": "integer" },
+          "Url": { "$ref": "#/components/schemas/URL" }
+        },
+        "required": ["Url", "Ip", "IpPort"],
+        "type": "object"
+      },
       "PeerInfo": {
         "additionalProperties": false,
         "properties": {
@@ -222,7 +232,7 @@
           "timeActive": { "format": "int64", "type": "integer" },
           "totalSize": { "format": "int64", "type": "integer" },
           "trackers": {
-            "items": { "items": { "type": "string" }, "type": "array" },
+            "items": { "$ref": "#/components/schemas/Tracker" },
             "type": "array"
           },
           "uploadSpeed": { "format": "int64", "type": "integer" },
@@ -334,6 +344,20 @@
         "required": ["totalSize", "files", "name", "infoHash", "torrentMagnet"],
         "type": "object"
       },
+      "Tracker": {
+        "additionalProperties": false,
+        "properties": {
+          "Interval": { "format": "int64", "type": "integer" },
+          "Peers": {
+            "items": { "$ref": "#/components/schemas/Peer" },
+            "type": "array"
+          },
+          "Tier": { "format": "int64", "type": "integer" },
+          "Url": { "type": "string" }
+        },
+        "required": ["Interval", "Url", "Peers", "Tier"],
+        "type": "object"
+      },
       "TreeNodeMeta": {
         "additionalProperties": false,
         "properties": {
@@ -347,7 +371,8 @@
         },
         "required": ["length", "name", "path", "children"],
         "type": "object"
-      }
+      },
+      "URL": { "format": "uri", "type": "string" }
     }
   },
   "info": { "title": "Downite API", "version": "0.0.1" },

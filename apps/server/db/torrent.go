@@ -24,7 +24,7 @@ SELECT
 FROM
 	torrents
 ORDER BY
-	added_on DESC
+	created_at DESC
  `)
 	if err != nil {
 		return nil, err

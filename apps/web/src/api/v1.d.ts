@@ -212,6 +212,13 @@ export interface components {
             readonly $schema?: string;
             torrents: components["schemas"]["Torrent"][];
         };
+        Peer: {
+            /** Format: ipv4 */
+            Ip: string;
+            /** Format: int32 */
+            IpPort: number;
+            Url: components["schemas"]["URL"];
+        };
         PeerInfo: {
             Addr: unknown;
             Id: string;
@@ -273,7 +280,7 @@ export interface components {
             timeActive: number;
             /** Format: int64 */
             totalSize: number;
-            trackers: string[][];
+            trackers: components["schemas"]["Tracker"][];
             /** Format: int64 */
             uploadSpeed: number;
             /** Format: int64 */
@@ -315,6 +322,14 @@ export interface components {
             /** Format: int64 */
             totalSize: number;
         };
+        Tracker: {
+            /** Format: int64 */
+            Interval: number;
+            Peers: components["schemas"]["Peer"][];
+            /** Format: int64 */
+            Tier: number;
+            Url: string;
+        };
         TreeNodeMeta: {
             children: components["schemas"]["TreeNodeMeta"][];
             /** Format: int64 */
@@ -322,6 +337,8 @@ export interface components {
             name: string;
             path: string[];
         };
+        /** Format: uri */
+        URL: string;
     };
     responses: never;
     parameters: never;

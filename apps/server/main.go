@@ -6,13 +6,13 @@ import (
 	"downite/download/torr"
 	"fmt"
 
-	"github.com/anacrolix/torrent"
+	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
 )
 
 func main() {
 	// Create a new torrent client
-	torrentClientConfig := torrent.NewDefaultClientConfig()
+	torrentClientConfig := gotorrent.NewDefaultClientConfig()
 	sqliteStorage, err := storage.NewSqlitePieceCompletion("./tmp")
 	if err != nil {
 		fmt.Printf("Error creating sqlite storage: %v\n", err)

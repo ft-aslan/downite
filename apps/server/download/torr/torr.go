@@ -52,7 +52,7 @@ func InitTorrents() error {
 			tieredTrackers := make([][]string, 0, maximumTierIndex)
 			// insert the trackers into the tieredTrackers slice based on their tiers
 			for _, tracker := range trackers {
-				tieredTrackers[tracker.Tier] = append(tieredTrackers[tracker.Tier], tracker.Url.String())
+				tieredTrackers[tracker.Tier] = append(tieredTrackers[tracker.Tier], tracker.Url)
 			}
 			// Add trackers to the torrent
 			torrent.AddTrackers(tieredTrackers)

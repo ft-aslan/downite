@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"mime/multipart"
+	"net/url"
 	"time"
 
 	goTorrent "github.com/anacrolix/torrent"
@@ -242,6 +243,23 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 	db.UpdateTorrent(&torrent)
 
+	// Insert trackers
+	trackers := goTorrent.Metainfo().AnnounceList
+	for tierIndex, trackersOfTier := range trackers {
+		for _, tracker := range trackersOfTier {
+			//validate url
+			trackerUrl, err := url.Parse(tracker)
+			if err != nil {
+				return nil, err
+			}
+			db.InsertTracker(&types.Tracker{
+				Url:  trackerUrl.String(),
+				Tier: tierIndex,
+			}, torrent.Infohash)
+		}
+	}
+
+	// Set download priorities of the files
 	for _, file := range goTorrent.Files() {
 		for _, clientFile := range input.Body.Files {
 			if file.Path() == clientFile.Path {
