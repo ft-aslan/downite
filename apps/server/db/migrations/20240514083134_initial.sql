@@ -1,7 +1,7 @@
 -- +goose up
 create table
     if not exists users (
-        id int primary key,
+        id integer primary key,
         created_at timestamp default current_timestamp,
         username text unique not null,
         password text not null
@@ -26,7 +26,7 @@ create table
 
 create table
     if not exists files (
-        id int primary key,
+        id integer primary key,
         infohash int not null,
         created_at timestamp default current_timestamp,
         name text not null,
@@ -39,14 +39,14 @@ create table
 
 create table
     if not exists trackers (
-        id int primary key,
+        id integer primary key,
         created_at timestamp default current_timestamp,
         url text not null unique
     );
 
 create table
     if not exists torrent_trackers (
-        id int primary key,
+        id integer primary key,
         created_at timestamp default current_timestamp,
         infohash int not null,
         tracker_id int not null,
@@ -57,14 +57,14 @@ create table
 
 create table
     if not exists tags (
-        id int primary key,
+        id integer primary key,
         created_at timestamp default current_timestamp,
         name text not null
     );
 
 create table
     if not exists torrent_tags (
-        id int primary key,
+        id integer primary key,
         created_at timestamp default current_timestamp,
         infohash int not null,
         tag_id int not null,
@@ -74,7 +74,7 @@ create table
 
 create table
     if not exists categories (
-        id int primary key,
+        id integer primary key,
         created_at timestamp default current_timestamp,
         name text not null,
         save_path text not null,

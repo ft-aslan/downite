@@ -19,7 +19,7 @@ from
     left join torrent_tags on torrent_tags.torrent_id = torrents.id
     left join tags on tags.id = torrent_tags.tag_id
     left join torrent_trackers on torrent_trackers.torrent_id = torrents.id
-    left join trackers on trackers.rowid = torrent_trackers.tracker_id
+    left join trackers on trackers.id = torrent_trackers.tracker_id
 group by
     torrents.id;
 
@@ -40,11 +40,3 @@ from
     torrents
 order by
     created_at;
-
-/* SELECT
-tags.name
-FROM
-tags
-JOIN torrent_tags ON torrent_tags.tag_id = tags.id
-WHERE
-torrent_tags.torrent_id = 1 */
