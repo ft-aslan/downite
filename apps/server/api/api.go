@@ -55,6 +55,7 @@ func ApiInit() {
 		api := humago.NewWithPrefix(s, "/api", config)
 		// api.UseMiddleware(CorsMiddleware)
 
+		//register routes
 		AddRoutes(api)
 
 		//write api json to file

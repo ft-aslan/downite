@@ -50,6 +50,10 @@ func InitTorrents() error {
 			// get the maximum tier number and create a tieredTrackers slice
 			maximumTierIndex := trackers[len(trackers)-1].Tier
 			tieredTrackers := make([][]string, 0, maximumTierIndex)
+			// initialize the tieredTrackers slice
+			for i := 0; i < maximumTierIndex+1; i++ {
+				tieredTrackers = append(tieredTrackers, []string{})
+			}
 			// insert the trackers into the tieredTrackers slice based on their tiers
 			for _, tracker := range trackers {
 				tieredTrackers[tracker.Tier] = append(tieredTrackers[tracker.Tier], tracker.Url)
@@ -57,6 +61,13 @@ func InitTorrents() error {
 			// Add trackers to the torrent
 			torrent.AddTrackers(tieredTrackers)
 		}
+
+		// we need metainfo so we wait for it
+		<-torrent.GotInfo()
+
+		// verify the torrent
+		torrent.VerifyData()
+
 		if dbTorrent.Status == types.TorrentStatusDownloading {
 			torrent.DownloadAll()
 		}
