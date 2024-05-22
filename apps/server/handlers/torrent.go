@@ -28,30 +28,37 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 	res := &GetTorrentsRes{}
 	torrentsRes := []types.Torrent{}
 
-	/* 	torrents := torr.Client.Torrents()
-	   	for _, torrent := range torrents {
-	   		if torrent.Info() == nil {
-	   			torrentsRes = append(torrentsRes, types.Torrent{
-	   				InfoHash: torrent.InfoHash().String(),
-	   				Name:     torrent.Name(),
-	   				AddedOn:  time.Now().Unix(),
-	   				Status:   "loading",
-	   			})
-	   		} else {
-	   			torrentsRes = append(torrentsRes, types.Torrent{
-	   				InfoHash:   torrent.InfoHash().String(),
-	   				Name:       torrent.Name(),
-	   				AddedOn:    time.Now().Unix(),
-	   				Files:      torrent.Info().FileTree,
-	   				TotalSize:  torrent.Info().TotalLength(),
-	   				AmountLeft: torrent.BytesMissing(),
-	   				Downloaded: torrent.BytesCompleted(),
-	   				Progress:   float32(torrent.BytesCompleted()) / float32(torrent.Info().TotalLength()) * 100,
-	   				Status:     "downloading",
-	   			})
-	   		}
-	   	} */
-	torrents, err := db.GetTorrents()
+	torrents := torr.Client.Torrents()
+	for _, torrent := range torrents {
+		if torrent.Info() == nil {
+			torrentsRes = append(torrentsRes, types.Torrent{
+				Infohash:  torrent.InfoHash().String(),
+				Name:      torrent.Name(),
+				CreatedAt: time.Now().Unix(),
+				Status:    types.TorrentStatusMetadata,
+			})
+		} else {
+			dbTorrent, err := db.GetTorrent(torrent.InfoHash().String())
+			if err != nil {
+				return nil, err
+			}
+			torrentsRes = append(torrentsRes, types.Torrent{
+				Infohash:   torrent.InfoHash().String(),
+				Name:       torrent.Name(),
+				CreatedAt:  time.Now().Unix(),
+				Files:      torrent.Info().FileTree,
+				TotalSize:  torrent.Info().TotalLength(),
+				AmountLeft: torrent.BytesMissing(),
+				Downloaded: torrent.BytesCompleted(),
+				Progress:   float32(torrent.BytesCompleted()) / float32(torrent.Info().TotalLength()) * 100,
+				Seeds:      torrent.Stats().ConnectedSeeders,
+				PeersCount: torrent.Stats().ActivePeers,
+				// DownloadSpeed: int(torrent.Stats(). / 1000 / 1000),
+				Status: dbTorrent.Status,
+			})
+		}
+	}
+	/* torrents, err := db.GetTorrents()
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +74,7 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 			Progress:   torrent.Progress,
 			Status:     torrent.Status,
 		})
-	}
+	} */
 	res.Body.Torrents = torrentsRes
 	return res, nil
 }
@@ -120,7 +127,7 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 			if err != nil {
 				return nil, err
 			}
-			torrent.Status = types.TorrentStatusDownloading
+			torrent.Status = types.TorrentStatusPaused
 			db.UpdateTorrentStatus(torrent)
 
 		} else {

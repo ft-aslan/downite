@@ -157,7 +157,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
         </Button>
       )
     },
-    cell: ({ row }) => <div>{row.getValue("peers")}</div>,
+    cell: ({ row }) => <div>{row.getValue("peerCount")}</div>,
   },
   {
     accessorKey: "downloadSpeed",
@@ -210,7 +210,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
               onClick={() => {
                 client.POST("/torrent/pause", {
                   body: {
-                    infoHashes: [torrent.infoHash],
+                    infoHashes: [torrent.infohash],
                   },
                 })
               }}
@@ -222,7 +222,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
               onClick={() => {
                 client.POST("/torrent/resume", {
                   body: {
-                    infoHashes: [torrent.infoHash],
+                    infoHashes: [torrent.infohash],
                   },
                 })
               }}
@@ -231,7 +231,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
               <span className="ml-1 sm:whitespace-nowrap">Resume</span>
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(torrent.infoHash)}
+              onClick={() => navigator.clipboard.writeText(torrent.infohash)}
             >
               <Copy className="ml-2 h-4 w-4" />
               <span className="ml-1 sm:whitespace-nowrap">Copy info hash</span>
@@ -241,7 +241,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
               onClick={() => {
                 client.POST("/torrent/remove", {
                   body: {
-                    infoHashes: [torrent.infoHash],
+                    infoHashes: [torrent.infohash],
                   },
                 })
               }}
