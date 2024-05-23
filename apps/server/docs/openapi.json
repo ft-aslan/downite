@@ -206,18 +206,18 @@
           "category": { "type": "string" },
           "comment": { "type": "string" },
           "createdAt": { "format": "int64", "type": "integer" },
-          "downloadSpeed": { "format": "int64", "type": "integer" },
+          "downloadSpeed": { "format": "float", "type": "number" },
           "downloaded": { "format": "int64", "type": "integer" },
           "eta": { "format": "int64", "type": "integer" },
           "files": { "$ref": "#/components/schemas/FileTree" },
           "infohash": { "type": "string" },
           "magnet": { "type": "string" },
           "name": { "type": "string" },
+          "peerCount": { "format": "int64", "type": "integer" },
           "peers": {
             "additionalProperties": { "$ref": "#/components/schemas/PeerInfo" },
             "type": "object"
           },
-          "peersCount": { "format": "int64", "type": "integer" },
           "pieceProgress": {
             "items": { "$ref": "#/components/schemas/PieceProgress" },
             "type": "array"
@@ -251,7 +251,7 @@
           "pieceProgress",
           "peers",
           "progress",
-          "peersCount",
+          "peerCount",
           "eta",
           "category",
           "savePath",

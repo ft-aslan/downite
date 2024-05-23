@@ -172,7 +172,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
         </Button>
       )
     },
-    cell: ({ row }) => <div>{row.getValue("downloadSpeed")}</div>,
+    cell: ({ row }) => <div>{row.getValue("downloadSpeed")} KB/s</div>,
   },
   {
     accessorKey: "uploadSpeed",

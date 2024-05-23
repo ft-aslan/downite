@@ -43,18 +43,18 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 				return nil, err
 			}
 			torrentsRes = append(torrentsRes, types.Torrent{
-				Infohash:   torrent.InfoHash().String(),
-				Name:       torrent.Name(),
-				CreatedAt:  time.Now().Unix(),
-				Files:      torrent.Info().FileTree,
-				TotalSize:  torrent.Info().TotalLength(),
-				AmountLeft: torrent.BytesMissing(),
-				Downloaded: torrent.BytesCompleted(),
-				Progress:   float32(torrent.BytesCompleted()) / float32(torrent.Info().TotalLength()) * 100,
-				Seeds:      torrent.Stats().ConnectedSeeders,
-				PeersCount: torrent.Stats().ActivePeers,
-				// DownloadSpeed: int(torrent.Stats(). / 1000 / 1000),
-				Status: dbTorrent.Status,
+				Infohash:      torrent.InfoHash().String(),
+				Name:          torrent.Name(),
+				CreatedAt:     dbTorrent.CreatedAt,
+				Files:         torrent.Info().FileTree,
+				TotalSize:     torrent.Info().TotalLength(),
+				AmountLeft:    torrent.BytesMissing(),
+				Downloaded:    torrent.BytesCompleted(),
+				Progress:      float32(torrent.BytesCompleted()) / float32(torrent.Info().TotalLength()) * 100,
+				Seeds:         torrent.Stats().ConnectedSeeders,
+				PeerCount:     torrent.Stats().ActivePeers,
+				DownloadSpeed: torr.TorrentSpeedMap[torrent.InfoHash().String()],
+				Status:        dbTorrent.Status,
 			})
 		}
 	}

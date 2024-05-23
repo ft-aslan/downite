@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"net"
 	"net/url"
 
@@ -37,6 +38,9 @@ var TorrentStatusStringMap = map[TorrentStatus]string{
 func (s TorrentStatus) String() string {
 	return TorrentStatusStringMap[s]
 }
+func (s TorrentStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
 
 type PieceProgress struct {
 	Index               int
@@ -69,7 +73,7 @@ type Torrent struct {
 	PieceProgress []PieceProgress               `json:"pieceProgress"`
 	Peers         map[string]gotorrent.PeerInfo `json:"peers"`
 	Progress      float32                       `json:"progress"`
-	PeersCount    int                           `json:"peersCount"`
+	PeerCount     int                           `json:"peerCount"`
 	Eta           int                           `json:"eta"`
 	CategoryId    int                           `json:"-" db:"category_id"`
 	Category      string                        `json:"category"`
@@ -82,7 +86,7 @@ type Torrent struct {
 	Availability  float32                       `json:"availability"`
 	Ratio         float32                       `json:"ratio"`
 	Seeds         int                           `json:"seeds"`
-	DownloadSpeed int                           `json:"downloadSpeed"`
+	DownloadSpeed float32                       `json:"downloadSpeed"`
 	UploadSpeed   int                           `json:"uploadSpeed"`
 	Comment       string                        `json:"comment"`
 }

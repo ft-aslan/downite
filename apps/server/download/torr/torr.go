@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/types/infohash"
@@ -14,8 +15,9 @@ import (
 var Client *gotorrent.Client
 
 var (
-	lock             sync.Mutex
-	torrentSpeedsMap = make(map[string]float64)
+	lock               sync.Mutex
+	TorrentSpeedMap    = make(map[string]float32)
+	torrentPrevSizeMap = make(map[string]int64)
 )
 
 func CreateTorrentClient(config *gotorrent.ClientConfig) {
@@ -38,16 +40,26 @@ func InitTorrents() error {
 	}
 
 	// Start a goroutine to update download speed
-
+	go updateTorrentSpeeds()
 	return nil
 }
 func updateTorrentSpeeds() {
-	torrents := Client.Torrents()
-	for _, torrent := range torrents {
-		stats := torrent.Stats()
-		bytesWritten := stats.BytesWritten
-		fmt.Printf("Torrent: %s - Speed: %f\n", torrent.InfoHash().HexString(), bytesWritten)
+	for {
+		torrents := Client.Torrents()
+		for _, torrent := range torrents {
+			// stats := torrent.Stats()
+			lock.Lock()
+			prevTotalLength := torrentPrevSizeMap[torrent.InfoHash().HexString()]
+			newTotalLength := torrent.BytesCompleted()
+			downloadedByteCount := newTotalLength - prevTotalLength
+			downloadSpeed := float32(downloadedByteCount) / 1024
+			TorrentSpeedMap[torrent.InfoHash().HexString()] = downloadSpeed
+			torrentPrevSizeMap[torrent.InfoHash().HexString()] = newTotalLength
+			lock.Unlock()
+		}
+		time.Sleep(time.Second)
 	}
+
 }
 
 func initTorrent(dbTorrent *types.Torrent) error {
@@ -90,6 +102,8 @@ func initTorrent(dbTorrent *types.Torrent) error {
 
 	// verify the torrent
 	torrent.VerifyData()
+
+	torrentPrevSizeMap[torrent.InfoHash().String()] = torrent.BytesCompleted()
 
 	if dbTorrent.Status == types.TorrentStatusDownloading {
 		torrent.DownloadAll()
