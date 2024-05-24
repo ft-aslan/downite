@@ -6,15 +6,14 @@ import (
 	"net/url"
 
 	gotorrent "github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/types"
+	gotorrenttypes "github.com/anacrolix/torrent/types"
 )
 
-var PiecePriorityStringMap = map[string]types.PiecePriority{
-	"none":    types.PiecePriorityNone,
-	"maximum": types.PiecePriorityNow,
-	"high":    types.PiecePriorityHigh,
-	"normal":  types.PiecePriorityNormal,
+var PiecePriorityStringMap = map[string]gotorrenttypes.PiecePriority{
+	"none":    gotorrenttypes.PiecePriorityNone,
+	"maximum": gotorrenttypes.PiecePriorityNow,
+	"high":    gotorrenttypes.PiecePriorityHigh,
+	"normal":  gotorrenttypes.PiecePriorityNormal,
 }
 
 type TorrentStatus int
@@ -63,13 +62,13 @@ type TorrentMeta struct {
 type Torrent struct {
 	Name          string                        `json:"name"`
 	Infohash      string                        `json:"infohash"`
-	Files         metainfo.FileTree             `json:"files"`
+	Files         []TorrentFileInfo             `json:"files"`
 	TotalSize     int64                         `json:"totalSize" db:"total_size"`
 	AmountLeft    int64                         `json:"amountLeft"`
 	Uploaded      int64                         `json:"uploaded"`
 	Downloaded    int64                         `json:"downloaded"`
 	Magnet        string                        `json:"magnet"`
-	Status        TorrentStatus                 `json:"status"`
+	Status        TorrentStatus                 `json:"status" enum:"paused,downloading,completed,seeding,metadata"`
 	PieceProgress []PieceProgress               `json:"pieceProgress"`
 	Peers         map[string]gotorrent.PeerInfo `json:"peers"`
 	Progress      float32                       `json:"progress"`
@@ -102,18 +101,8 @@ type Peer struct {
 	IpPort uint16
 }
 
-type TorrentFileOptions struct {
-	Path             string `json:"path"`
-	Name             string `json:"name"`
-	DownloadPriority string `json:"downloadPriority" enum:"None,Low,Normal,High,Maximum"`
+type TorrentFileInfo struct {
+	Path     string `json:"path"`
+	Name     string `json:"name"`
+	Priority string `json:"priority" enum:"None,Low,Normal,High,Maximum"`
 }
-
-type DownloadPriority int
-
-const (
-	DownloadPriorityNone DownloadPriority = iota
-	DownloadPriorityLow
-	DownloadPriorityNormal
-	DownloadPriorityHigh
-	DownloadPriorityMaximum
-)

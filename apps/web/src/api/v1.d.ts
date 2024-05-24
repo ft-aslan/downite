@@ -248,7 +248,7 @@ export interface components {
             comment: string;
             /** Format: int64 */
             createdAt: number;
-            /** Format: int64 */
+            /** Format: float */
             downloadSpeed: number;
             /** Format: int64 */
             downloaded: number;
@@ -258,11 +258,11 @@ export interface components {
             infohash: string;
             magnet: string;
             name: string;
+            /** Format: int64 */
+            peerCount: number;
             peers: {
                 [key: string]: components["schemas"]["PeerInfo"] | undefined;
             };
-            /** Format: int64 */
-            peersCount: number;
             pieceProgress: components["schemas"]["PieceProgress"][];
             /** Format: float */
             progress: number;

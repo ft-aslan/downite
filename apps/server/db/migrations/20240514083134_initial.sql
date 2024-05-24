@@ -30,10 +30,8 @@ create table
         infohash int not null,
         created_at timestamp default current_timestamp,
         name text not null,
-        length int not null,
         path text not null,
         priority int not null,
-        piece_index int not null,
         foreign key (infohash) references torrents (infohash)
     );
 

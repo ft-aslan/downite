@@ -31,7 +31,7 @@ func TestTorrentDownload(t *testing.T) {
 	req.Body.DownloadSequentially = false
 	req.Body.SkipHashCheck = false
 	req.Body.ContentLayout = ""
-	req.Body.Files = []types.TorrentFileOptions{}
+	req.Body.Files = []types.TorrentFileInfo{}
 
 	res := api.Post("/torrent", req.Body)
 

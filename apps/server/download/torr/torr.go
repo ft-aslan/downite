@@ -15,9 +15,9 @@ import (
 var Client *gotorrent.Client
 
 var (
-	lock               sync.Mutex
-	TorrentSpeedMap    = make(map[string]float32)
-	torrentPrevSizeMap = make(map[string]int64)
+	MutexForTorrentSpeed sync.Mutex
+	TorrentSpeedMap      = make(map[string]float32)
+	torrentPrevSizeMap   = make(map[string]int64)
 )
 
 func CreateTorrentClient(config *gotorrent.ClientConfig) {
@@ -48,14 +48,14 @@ func updateTorrentSpeeds() {
 		torrents := Client.Torrents()
 		for _, torrent := range torrents {
 			// stats := torrent.Stats()
-			lock.Lock()
+			MutexForTorrentSpeed.Lock()
 			prevTotalLength := torrentPrevSizeMap[torrent.InfoHash().HexString()]
 			newTotalLength := torrent.BytesCompleted()
 			downloadedByteCount := newTotalLength - prevTotalLength
 			downloadSpeed := float32(downloadedByteCount) / 1024
 			TorrentSpeedMap[torrent.InfoHash().HexString()] = downloadSpeed
 			torrentPrevSizeMap[torrent.InfoHash().HexString()] = newTotalLength
-			lock.Unlock()
+			MutexForTorrentSpeed.Unlock()
 		}
 		time.Sleep(time.Second)
 	}
