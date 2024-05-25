@@ -18,7 +18,7 @@
           "contentLayout": { "type": "string" },
           "downloadSequentially": { "type": "boolean" },
           "files": {
-            "items": { "$ref": "#/components/schemas/TorrentFileOptions" },
+            "items": { "$ref": "#/components/schemas/Item" },
             "type": "array"
           },
           "incompleteSavePath": { "type": "string" },
@@ -101,27 +101,6 @@
         },
         "type": "object"
       },
-      "FileTree": {
-        "additionalProperties": false,
-        "properties": {
-          "Dir": {
-            "additionalProperties": { "$ref": "#/components/schemas/FileTree" },
-            "type": "object"
-          },
-          "File": { "$ref": "#/components/schemas/FileTreeFileStruct" }
-        },
-        "required": ["File", "Dir"],
-        "type": "object"
-      },
-      "FileTreeFileStruct": {
-        "additionalProperties": false,
-        "properties": {
-          "Length": { "format": "int64", "type": "integer" },
-          "PiecesRoot": { "type": "string" }
-        },
-        "required": ["Length", "PiecesRoot"],
-        "type": "object"
-      },
       "GetMetaWithMagnetReqBody": {
         "additionalProperties": false,
         "properties": {
@@ -159,14 +138,27 @@
         "required": ["torrents"],
         "type": "object"
       },
+      "Item": {
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "priority": {
+            "enum": ["None", "Low", "Normal", "High", "Maximum"],
+            "type": "string"
+          }
+        },
+        "required": ["path", "name", "priority"],
+        "type": "object"
+      },
       "Peer": {
         "additionalProperties": false,
         "properties": {
-          "Ip": { "format": "ipv4", "type": "string" },
-          "IpPort": { "format": "int32", "type": "integer" },
-          "Url": { "$ref": "#/components/schemas/URL" }
+          "ip": { "format": "ipv4", "type": "string" },
+          "ipPort": { "format": "int32", "type": "integer" },
+          "url": { "$ref": "#/components/schemas/URL" }
         },
-        "required": ["Url", "Ip", "IpPort"],
+        "required": ["url", "ip", "ipPort"],
         "type": "object"
       },
       "PeerInfo": {
@@ -184,11 +176,11 @@
       "PieceProgress": {
         "additionalProperties": false,
         "properties": {
-          "DownloadedByteCount": { "format": "int64", "type": "integer" },
-          "Index": { "format": "int64", "type": "integer" },
-          "Length": { "format": "int64", "type": "integer" }
+          "downloadedByteCount": { "format": "int64", "type": "integer" },
+          "index": { "format": "int64", "type": "integer" },
+          "length": { "format": "int64", "type": "integer" }
         },
-        "required": ["Index", "DownloadedByteCount", "Length"],
+        "required": ["index", "downloadedByteCount", "length"],
         "type": "object"
       },
       "Torrent": {
@@ -209,7 +201,10 @@
           "downloadSpeed": { "format": "float", "type": "number" },
           "downloaded": { "format": "int64", "type": "integer" },
           "eta": { "format": "int64", "type": "integer" },
-          "files": { "$ref": "#/components/schemas/FileTree" },
+          "files": {
+            "items": { "$ref": "#/components/schemas/TorrentFile" },
+            "type": "array"
+          },
           "infohash": { "type": "string" },
           "magnet": { "type": "string" },
           "name": { "type": "string" },
@@ -309,17 +304,19 @@
         "required": ["result"],
         "type": "object"
       },
-      "TorrentFileOptions": {
+      "TorrentFile": {
         "additionalProperties": false,
         "properties": {
-          "downloadPriority": {
-            "enum": ["None", "Low", "Normal", "High", "Maximum"],
-            "type": "string"
+          "children": {
+            "items": { "$ref": "#/components/schemas/TorrentFile" },
+            "type": "array"
           },
+          "length": { "format": "int64", "type": "integer" },
           "name": { "type": "string" },
-          "path": { "type": "string" }
+          "path": { "type": "string" },
+          "priority": { "format": "int32", "type": "integer" }
         },
-        "required": ["path", "name", "downloadPriority"],
+        "required": ["length", "name", "priority", "path", "children"],
         "type": "object"
       },
       "TorrentMeta": {
@@ -333,43 +330,29 @@
             "type": "string"
           },
           "files": {
-            "items": { "$ref": "#/components/schemas/TreeNodeMeta" },
+            "items": { "$ref": "#/components/schemas/TorrentFile" },
             "type": "array"
           },
-          "infoHash": { "type": "string" },
+          "infohash": { "type": "string" },
+          "magnet": { "type": "string" },
           "name": { "type": "string" },
-          "torrentMagnet": { "type": "string" },
           "totalSize": { "format": "int64", "type": "integer" }
         },
-        "required": ["totalSize", "files", "name", "infoHash", "torrentMagnet"],
+        "required": ["totalSize", "files", "name", "infohash", "magnet"],
         "type": "object"
       },
       "Tracker": {
         "additionalProperties": false,
         "properties": {
-          "Interval": { "format": "int64", "type": "integer" },
-          "Peers": {
+          "interval": { "format": "int64", "type": "integer" },
+          "peers": {
             "items": { "$ref": "#/components/schemas/Peer" },
             "type": "array"
           },
-          "Tier": { "format": "int64", "type": "integer" },
-          "Url": { "type": "string" }
+          "tier": { "format": "int64", "type": "integer" },
+          "url": { "type": "string" }
         },
-        "required": ["Interval", "Url", "Peers", "Tier"],
-        "type": "object"
-      },
-      "TreeNodeMeta": {
-        "additionalProperties": false,
-        "properties": {
-          "children": {
-            "items": { "$ref": "#/components/schemas/TreeNodeMeta" },
-            "type": "array"
-          },
-          "length": { "format": "int64", "type": "integer" },
-          "name": { "type": "string" },
-          "path": { "items": { "type": "string" }, "type": "array" }
-        },
-        "required": ["length", "name", "path", "children"],
+        "required": ["interval", "url", "peers", "tier"],
         "type": "object"
       },
       "URL": { "format": "uri", "type": "string" }

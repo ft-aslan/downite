@@ -42,33 +42,34 @@ func (s TorrentStatus) MarshalJSON() ([]byte, error) {
 }
 
 type PieceProgress struct {
-	Index               int
-	DownloadedByteCount int
-	Length              int
+	Index               int `json:"index"`
+	DownloadedByteCount int `json:"downloadedByteCount"`
+	Length              int `json:"length"`
 }
-type TreeNodeMeta struct {
-	Length   int64            `json:"length"`
-	Name     string           `json:"name"`
-	Path     []string         `json:"path"`
-	Children *[]*TreeNodeMeta `json:"children"`
+type TorrentFile struct {
+	Length   int64                        `json:"length"`
+	Name     string                       `json:"name"`
+	Priority gotorrenttypes.PiecePriority `json:"priority"` // enum:"none,low,normal,high,maximum"`
+	Path     string                       `json:"path"`
+	Children *[]*TorrentFile              `json:"children"`
 }
 type TorrentMeta struct {
-	TotalSize     int64           `json:"totalSize"`
-	Files         []*TreeNodeMeta `json:"files"`
-	Name          string          `json:"name"`
-	InfoHash      string          `json:"infoHash"`
-	TorrentMagnet string          `json:"torrentMagnet"`
+	TotalSize int64          `json:"totalSize"`
+	Files     []*TorrentFile `json:"files"`
+	Name      string         `json:"name"`
+	Infohash  string         `json:"infohash"`
+	Magnet    string         `json:"magnet"`
 }
 type Torrent struct {
 	Name          string                        `json:"name"`
 	Infohash      string                        `json:"infohash"`
-	Files         []TorrentFileInfo             `json:"files"`
+	Files         []*TorrentFile                `json:"files"`
 	TotalSize     int64                         `json:"totalSize" db:"total_size"`
 	AmountLeft    int64                         `json:"amountLeft"`
 	Uploaded      int64                         `json:"uploaded"`
 	Downloaded    int64                         `json:"downloaded"`
 	Magnet        string                        `json:"magnet"`
-	Status        TorrentStatus                 `json:"status" enum:"paused,downloading,completed,seeding,metadata"`
+	Status        TorrentStatus                 `json:"status"` // enum:"paused,downloading,completed,seeding,metadata"`
 	PieceProgress []PieceProgress               `json:"pieceProgress"`
 	Peers         map[string]gotorrent.PeerInfo `json:"peers"`
 	Progress      float32                       `json:"progress"`
@@ -90,19 +91,13 @@ type Torrent struct {
 	Comment       string                        `json:"comment"`
 }
 type Tracker struct {
-	Interval uint64
-	Url      string
-	Peers    []Peer
-	Tier     int
+	Interval uint64 `json:"interval"`
+	Url      string `json:"url"`
+	Peers    []Peer `json:"peers"`
+	Tier     int    `json:"tier"`
 }
 type Peer struct {
-	Url    url.URL
-	Ip     net.IP
-	IpPort uint16
-}
-
-type TorrentFileInfo struct {
-	Path     string `json:"path"`
-	Name     string `json:"name"`
-	Priority string `json:"priority" enum:"None,Low,Normal,High,Maximum"`
+	Url    url.URL `json:"url"`
+	Ip     net.IP  `json:"ip"`
+	IpPort uint16  `json:"ipPort"`
 }
