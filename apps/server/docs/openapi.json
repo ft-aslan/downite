@@ -18,7 +18,7 @@
           "contentLayout": { "type": "string" },
           "downloadSequentially": { "type": "boolean" },
           "files": {
-            "items": { "$ref": "#/components/schemas/Item" },
+            "items": { "$ref": "#/components/schemas/TorrentFileFlatTree" },
             "type": "array"
           },
           "incompleteSavePath": { "type": "string" },
@@ -138,19 +138,6 @@
         "required": ["torrents"],
         "type": "object"
       },
-      "Item": {
-        "additionalProperties": false,
-        "properties": {
-          "name": { "type": "string" },
-          "path": { "type": "string" },
-          "priority": {
-            "enum": ["None", "Low", "Normal", "High", "Maximum"],
-            "type": "string"
-          }
-        },
-        "required": ["path", "name", "priority"],
-        "type": "object"
-      },
       "Peer": {
         "additionalProperties": false,
         "properties": {
@@ -202,7 +189,7 @@
           "downloaded": { "format": "int64", "type": "integer" },
           "eta": { "format": "int64", "type": "integer" },
           "files": {
-            "items": { "$ref": "#/components/schemas/TorrentFile" },
+            "items": { "$ref": "#/components/schemas/TorrentFileTreeNode" },
             "type": "array"
           },
           "infohash": { "type": "string" },
@@ -222,7 +209,16 @@
           "savePath": { "type": "string" },
           "seeds": { "format": "int64", "type": "integer" },
           "startedAt": { "format": "int64", "type": "integer" },
-          "status": { "format": "int64", "type": "integer" },
+          "status": {
+            "enum": [
+              "paused",
+              "downloading",
+              "completed",
+              "seeding",
+              "metadata"
+            ],
+            "type": "string"
+          },
           "tags": { "items": { "type": "string" }, "type": "array" },
           "timeActive": { "format": "int64", "type": "integer" },
           "totalSize": { "format": "int64", "type": "integer" },
@@ -304,17 +300,33 @@
         "required": ["result"],
         "type": "object"
       },
-      "TorrentFile": {
+      "TorrentFileFlatTree": {
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "priority": {
+            "enum": ["none", "low", "normal", "high", "maximum"],
+            "type": "string"
+          }
+        },
+        "required": ["name", "priority", "path"],
+        "type": "object"
+      },
+      "TorrentFileTreeNode": {
         "additionalProperties": false,
         "properties": {
           "children": {
-            "items": { "$ref": "#/components/schemas/TorrentFile" },
+            "items": { "$ref": "#/components/schemas/TorrentFileTreeNode" },
             "type": "array"
           },
           "length": { "format": "int64", "type": "integer" },
           "name": { "type": "string" },
           "path": { "type": "string" },
-          "priority": { "format": "int32", "type": "integer" }
+          "priority": {
+            "enum": ["none", "low", "normal", "high", "maximum"],
+            "type": "string"
+          }
         },
         "required": ["length", "name", "priority", "path", "children"],
         "type": "object"
@@ -330,7 +342,7 @@
             "type": "string"
           },
           "files": {
-            "items": { "$ref": "#/components/schemas/TorrentFile" },
+            "items": { "$ref": "#/components/schemas/TorrentFileTreeNode" },
             "type": "array"
           },
           "infohash": { "type": "string" },
@@ -532,6 +544,40 @@
           }
         },
         "summary": "Get torrent hash"
+      }
+    },
+    "/torrent/delete": {
+      "post": {
+        "operationId": "post-torrent-delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TorrentActionReqBody" }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TorrentActionResBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Post torrent delete"
       }
     },
     "/torrent/pause": {

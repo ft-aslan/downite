@@ -4,22 +4,16 @@ import (
 	"downite/api"
 	"downite/db"
 	"downite/download/torr"
-	"fmt"
-
-	gotorrent "github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/storage"
+	"downite/types"
 )
 
 func main() {
-	// Create a new torrent client
-	torrentClientConfig := gotorrent.NewDefaultClientConfig()
-	sqliteStorage, err := storage.NewSqlitePieceCompletion("./tmp")
-	if err != nil {
-		fmt.Printf("Error creating sqlite storage: %v\n", err)
-		return
+	pieceCompletionDir := "./tmp"
+	defaultTorrentsDir := "./tmp/downloads"
+	torrentClientConfig := types.TorrentClientConfig{
+		PieceCompletionDbPath: pieceCompletionDir,
+		DownloadPath:          defaultTorrentsDir,
 	}
-	torrentClientConfig.DefaultStorage = storage.NewFileWithCompletion("./tmp/downloads", sqliteStorage)
-
 	db.DbInit()
 	torr.CreateTorrentClient(torrentClientConfig)
 	torr.InitTorrents()

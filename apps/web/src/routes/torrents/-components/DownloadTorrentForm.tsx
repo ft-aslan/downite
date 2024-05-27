@@ -124,10 +124,10 @@ export default function DownloadTorrentForm({
   ) {
     data.files = fileTree.map((file) => ({
       name: file.name,
-      path: file.path.join("/"),
-      downloadPriority: file.downloadPriority,
+      path: file.path,
+      priority: file.priority,
     }))
-    if (!torrentMeta.torrentMagnet && !torrentFile) {
+    if (!torrentMeta.magnet && !torrentFile) {
       // TODO(fatih): Show error to user. There is no torrent file or magnet
       return
     }
@@ -135,35 +135,35 @@ export default function DownloadTorrentForm({
     if (torrentFile) {
       data.torrentFile = await torrentFile.text()
     } else {
-      data.magnet = torrentMeta.torrentMagnet
+      data.magnet = torrentMeta.magnet
     }
 
     torrentDownloadFormMutation.mutate(data)
   }
   enum DownloadPriority {
-    None = "None",
-    Low = "Low",
-    Normal = "Normal",
-    High = "High",
-    Maximum = "Maximum",
+    None = "none",
+    Low = "low",
+    Normal = "normal",
+    High = "high",
+    Maximum = "maximum",
   }
   interface FileTreeNode {
     id: string
     name: string
     size: string
-    path: string[]
-    downloadPriority: DownloadPriority
+    path: string
+    priority: DownloadPriority
     expanded: boolean
     children: FileTreeNode[]
   }
   const createFileTree = (
-    file: components["schemas"]["TreeNodeMeta"]
+    file: components["schemas"]["TorrentFile"]
   ): FileTreeNode => ({
-    id: file.path.join("/"),
+    id: file.path,
     name: file.name,
     size: (file.length / 1024 / 1024).toFixed(2) + " MB",
     path: file.path,
-    downloadPriority: DownloadPriority.Normal,
+    priority: DownloadPriority.Normal,
     expanded: false,
     children: file.children.map(createFileTree),
   })
@@ -190,7 +190,7 @@ export default function DownloadTorrentForm({
   const onTabChange = (value: string) => {
     setTab(value)
   }
-  if (!torrentMeta.torrentMagnet && !torrentFile) {
+  if (!torrentMeta.magnet && !torrentFile) {
     return (
       <div>
         <p>There is no torrent file or magnet</p>
@@ -464,20 +464,20 @@ export default function DownloadTorrentForm({
               </Button>
             )}
             <Checkbox
-              checked={item.downloadPriority != DownloadPriority.None}
+              checked={item.priority != DownloadPriority.None}
               onCheckedChange={(checked) => {
                 updateTreeNodeById(item.id, (item) => {
                   // if changed to folder checkbox, set download priority for all children recursively
                   if (item.children.length) {
                     item.children.forEach((child) => {
-                      child.downloadPriority = checked
+                      child.priority = checked
                         ? DownloadPriority.Normal
                         : DownloadPriority.None
                     })
                   }
                   return {
                     ...item,
-                    downloadPriority: checked
+                    priority: checked
                       ? DownloadPriority.Normal
                       : DownloadPriority.None,
                   }
@@ -497,11 +497,11 @@ export default function DownloadTorrentForm({
         </TableCell>
         <TableCell>
           <Select
-            value={item.downloadPriority}
+            value={item.priority}
             onValueChange={(downloadPriority) => {
               updateTreeNodeById(item.id, (item) => ({
                 ...item,
-                downloadPriority: DownloadPriority[downloadPriority],
+                priority: DownloadPriority[downloadPriority],
               }))
             }}
           >

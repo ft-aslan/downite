@@ -5,7 +5,6 @@ import (
 
 	downiteapi "downite/api"
 	"downite/handlers"
-	"downite/types"
 
 	"github.com/danielgtaylor/huma/v2/humatest"
 )
@@ -31,7 +30,7 @@ func TestTorrentDownload(t *testing.T) {
 	req.Body.DownloadSequentially = false
 	req.Body.SkipHashCheck = false
 	req.Body.ContentLayout = ""
-	req.Body.Files = []types.TorrentFile{}
+	// req.Body.Files = []types.TorrentFile{}
 
 	res := api.Post("/torrent", req.Body)
 

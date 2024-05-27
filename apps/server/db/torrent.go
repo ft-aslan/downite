@@ -100,3 +100,8 @@ func UpdateTorrentStatus(torrent *types.Torrent) error {
 	`, torrent)
 	return err
 }
+
+func DeleteTorrent(torrentHash string) error {
+	_, err := DB.Exec(`DELETE FROM torrents WHERE infohash = ?`, torrentHash)
+	return err
+}

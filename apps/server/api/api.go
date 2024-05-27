@@ -105,6 +105,7 @@ func AddRoutes(api huma.API) {
 	huma.Post(api, "/torrent/pause", handlers.PauseTorrent)
 	huma.Post(api, "/torrent/resume", handlers.ResumeTorrent)
 	huma.Post(api, "/torrent/remove", handlers.RemoveTorrent)
+	huma.Post(api, "/torrent/delete", handlers.DeleteTorrent)
 	huma.Post(api, "/meta/magnet", handlers.GetMetaWithMagnet)
 	huma.Post(api, "/meta/file", handlers.GetMetaWithFile)
 

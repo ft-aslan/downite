@@ -38,7 +38,7 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 				Infohash:  torrent.InfoHash().String(),
 				Name:      torrent.Name(),
 				CreatedAt: time.Now().Unix(),
-				Status:    types.TorrentStatusMetadata,
+				Status:    types.TorrentStatusStringMap[types.TorrentStatusMetadata],
 			})
 		} else {
 			dbTorrent, err := db.GetTorrent(torrent.InfoHash().String())
@@ -136,7 +136,7 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 			if err != nil {
 				return nil, err
 			}
-			torrent.Status = types.TorrentStatusPaused
+			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
 			db.UpdateTorrentStatus(torrent)
 
 		} else {
@@ -162,7 +162,7 @@ func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 			if err != nil {
 				return nil, err
 			}
-			torrent.Status = types.TorrentStatusDownloading
+			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
 			db.UpdateTorrentStatus(torrent)
 
 		} else {
@@ -208,9 +208,11 @@ func DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 		}
 		foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
 		foundTorrent.Drop()
-		sqlx.MustExec(db.DB, "DELETE FROM torrents WHERE infohash = ?", foundTorrent.InfoHash().String())
-		// TODO(fatih): we should delete with using save path of the torrent
-		err := os.RemoveAll(filepath.Join("tmp", "downloads", foundTorrent.Name()))
+
+		dbTorrent, err := db.GetTorrent(foundTorrent.InfoHash().String())
+		err = db.DeleteTorrent(foundTorrent.InfoHash().String())
+		err = db.DeleteTorrentFilesByInfohash(foundTorrent.InfoHash().String())
+		err = os.RemoveAll(filepath.Join(dbTorrent.SavePath, foundTorrent.Name()))
 		if err != nil {
 			return nil, err
 		}
@@ -221,23 +223,19 @@ func DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 
 type DownloadTorrentReq struct {
 	Body struct {
-		Magnet                      string   `json:"magnet,omitempty"`
-		TorrentFile                 string   `json:"torrentFile,omitempty"`
-		SavePath                    string   `json:"savePath" validate:"required, dir"`
-		IsIncompleteSavePathEnabled bool     `json:"isIncompleteSavePathEnabled"`
-		IncompleteSavePath          string   `json:"incompleteSavePath,omitempty" validate:"dir"`
-		Category                    string   `json:"category,omitempty"`
-		Tags                        []string `json:"tags,omitempty"`
-		StartTorrent                bool     `json:"startTorrent"`
-		AddTopOfQueue               bool     `json:"addTopOfQueue"`
-		DownloadSequentially        bool     `json:"downloadSequentially"`
-		SkipHashCheck               bool     `json:"skipHashCheck"`
-		ContentLayout               string   `json:"contentLayout" validate:"oneof='Original' 'Create subfolder' 'Don't create subfolder'"`
-		Files                       []struct {
-			Path     string `json:"path"`
-			Name     string `json:"name"`
-			Priority string `json:"priority" enum:"None,Low,Normal,High,Maximum"`
-		} `json:"files"`
+		Magnet                      string                      `json:"magnet,omitempty"`
+		TorrentFile                 string                      `json:"torrentFile,omitempty"`
+		SavePath                    string                      `json:"savePath" validate:"required, dir"`
+		IsIncompleteSavePathEnabled bool                        `json:"isIncompleteSavePathEnabled"`
+		IncompleteSavePath          string                      `json:"incompleteSavePath,omitempty" validate:"dir"`
+		Category                    string                      `json:"category,omitempty"`
+		Tags                        []string                    `json:"tags,omitempty"`
+		StartTorrent                bool                        `json:"startTorrent"`
+		AddTopOfQueue               bool                        `json:"addTopOfQueue"`
+		DownloadSequentially        bool                        `json:"downloadSequentially"`
+		SkipHashCheck               bool                        `json:"skipHashCheck"`
+		ContentLayout               string                      `json:"contentLayout" validate:"oneof='Original' 'Create subfolder' 'Don't create subfolder'"`
+		Files                       []types.TorrentFileFlatTree `json:"files"`
 	}
 }
 type DownloadTorrentRes struct {
@@ -269,11 +267,16 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 			return nil, err
 		}
 	}
-
+	savePath := input.Body.SavePath
+	// if save path empty use default path
+	if savePath == "" {
+		savePath = torr.TorrentClientConfig.DownloadPath
+	}
 	torrent = types.Torrent{
 		Infohash: goTorrent.InfoHash().String(),
 		Name:     goTorrent.Name(),
-		Status:   types.TorrentStatusDownloading,
+		SavePath: savePath,
+		Status:   types.TorrentStatusStringMap[types.TorrentStatusDownloading],
 	}
 	err = db.InsertTorrent(&torrent)
 	if err != nil {
@@ -282,7 +285,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 	<-goTorrent.GotInfo()
 
-	torrent.Status = types.TorrentStatusPaused
+	torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
 	torrent.TotalSize = goTorrent.Length()
 	torrent.Magnet = goTorrent.Metainfo().Magnet(nil, goTorrent.Info()).String()
 
@@ -313,9 +316,9 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 					return nil, fmt.Errorf("invalid download priority: %s", clientFile.Priority)
 				}
 				file.SetPriority(priority)
-				db.InsertTorrentFile(&types.TorrentFile{
+				db.InsertTorrentFile(&types.TorrentFileTreeNode{
 					Path:     file.Path(),
-					Priority: types.PiecePriorityStringMap[clientFile.Priority],
+					Priority: clientFile.Priority,
 					Name:     file.FileInfo().Path[len(file.FileInfo().Path)-1],
 				}, torrent.Infohash)
 			}
@@ -330,7 +333,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	if input.Body.StartTorrent {
 		goTorrent.DownloadAll()
 
-		torrent.Status = types.TorrentStatusDownloading
+		torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
 		db.UpdateTorrentStatus(&torrent)
 	}
 	// torrent.Files = goTorrent.Info().
@@ -442,9 +445,9 @@ func GetMetaWithMagnet(ctx context.Context, input *GetMetaWithMagnetReq) (*GetMe
 	torrent.Drop()
 	return res, nil
 }
-func createFolder(fileTree *[]*types.TorrentFile, path []string) (*[]*types.TorrentFile, *types.TorrentFile) {
+func createFolder(fileTree *[]*types.TorrentFileTreeNode, path []string) (*[]*types.TorrentFileTreeNode, *types.TorrentFileTreeNode) {
 	currentFileTree := fileTree
-	var parentNode *types.TorrentFile
+	var parentNode *types.TorrentFileTreeNode
 	for pathIndex, segment := range path {
 		currentPath := path[:pathIndex+1]
 		found := false
@@ -461,11 +464,11 @@ func createFolder(fileTree *[]*types.TorrentFile, path []string) (*[]*types.Torr
 				continue
 			}
 		}
-		parentNode = &types.TorrentFile{
+		parentNode = &types.TorrentFileTreeNode{
 			Length:   0,
 			Name:     segment,
 			Path:     strings.Join(currentPath, "/"),
-			Children: &[]*types.TorrentFile{},
+			Children: &[]*types.TorrentFileTreeNode{},
 		}
 		*currentFileTree = append(*currentFileTree, parentNode)
 		currentFileTree = parentNode.Children
@@ -473,31 +476,31 @@ func createFolder(fileTree *[]*types.TorrentFile, path []string) (*[]*types.Torr
 
 	return currentFileTree, parentNode
 }
-func createFileTreeFromMeta(meta metainfo.Info) []*types.TorrentFile {
-	var fileTree []*types.TorrentFile
+func createFileTreeFromMeta(meta metainfo.Info) []*types.TorrentFileTreeNode {
+	var fileTree []*types.TorrentFileTreeNode
 	//there is no file tree in torrent
 	if len(meta.Files) == 0 {
-		fileTree = []*types.TorrentFile{
+		fileTree = []*types.TorrentFileTreeNode{
 			{
 				Length:   meta.TotalLength(),
 				Name:     meta.Name,
 				Path:     meta.Name,
-				Children: &[]*types.TorrentFile{},
+				Children: &[]*types.TorrentFileTreeNode{},
 			},
 		}
 	}
 	//there is a file tree in torrent
 	for _, file := range meta.Files {
 		targetNodeTree := &fileTree
-		var parentNode *types.TorrentFile
+		var parentNode *types.TorrentFileTreeNode
 		if len(file.Path) > 1 {
 			targetNodeTree, parentNode = createFolder(targetNodeTree, file.Path[:len(file.Path)-1])
 		}
-		*targetNodeTree = append(*targetNodeTree, &types.TorrentFile{
+		*targetNodeTree = append(*targetNodeTree, &types.TorrentFileTreeNode{
 			Length:   file.Length,
 			Name:     file.Path[len(file.Path)-1],
 			Path:     strings.Join(file.Path, "/"),
-			Children: &[]*types.TorrentFile{},
+			Children: &[]*types.TorrentFileTreeNode{},
 		})
 		if parentNode != nil {
 			parentNode.Length += file.Length

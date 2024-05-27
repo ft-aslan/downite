@@ -46,30 +46,35 @@ type PieceProgress struct {
 	DownloadedByteCount int `json:"downloadedByteCount"`
 	Length              int `json:"length"`
 }
-type TorrentFile struct {
-	Length   int64                        `json:"length"`
-	Name     string                       `json:"name"`
-	Priority gotorrenttypes.PiecePriority `json:"priority"` // enum:"none,low,normal,high,maximum"`
-	Path     string                       `json:"path"`
-	Children *[]*TorrentFile              `json:"children"`
+type TorrentFileTreeNode struct {
+	Length   int64                   `json:"length"`
+	Name     string                  `json:"name"`
+	Priority string                  `json:"priority" enum:"none,low,normal,high,maximum"`
+	Path     string                  `json:"path"`
+	Children *[]*TorrentFileTreeNode `json:"children"`
+}
+type TorrentFileFlatTree struct {
+	Name     string `json:"name"`
+	Priority string `json:"priority" enum:"none,low,normal,high,maximum"`
+	Path     string `json:"path"`
 }
 type TorrentMeta struct {
-	TotalSize int64          `json:"totalSize"`
-	Files     []*TorrentFile `json:"files"`
-	Name      string         `json:"name"`
-	Infohash  string         `json:"infohash"`
-	Magnet    string         `json:"magnet"`
+	TotalSize int64                  `json:"totalSize"`
+	Files     []*TorrentFileTreeNode `json:"files"`
+	Name      string                 `json:"name"`
+	Infohash  string                 `json:"infohash"`
+	Magnet    string                 `json:"magnet"`
 }
 type Torrent struct {
 	Name          string                        `json:"name"`
 	Infohash      string                        `json:"infohash"`
-	Files         []*TorrentFile                `json:"files"`
+	Files         []*TorrentFileTreeNode        `json:"files"`
 	TotalSize     int64                         `json:"totalSize" db:"total_size"`
 	AmountLeft    int64                         `json:"amountLeft"`
 	Uploaded      int64                         `json:"uploaded"`
 	Downloaded    int64                         `json:"downloaded"`
 	Magnet        string                        `json:"magnet"`
-	Status        TorrentStatus                 `json:"status"` // enum:"paused,downloading,completed,seeding,metadata"`
+	Status        string                        `json:"status" enum:"paused,downloading,completed,seeding,metadata"`
 	PieceProgress []PieceProgress               `json:"pieceProgress"`
 	Peers         map[string]gotorrent.PeerInfo `json:"peers"`
 	Progress      float32                       `json:"progress"`
@@ -100,4 +105,8 @@ type Peer struct {
 	Url    url.URL `json:"url"`
 	Ip     net.IP  `json:"ip"`
 	IpPort uint16  `json:"ipPort"`
+}
+type TorrentClientConfig struct {
+	PieceCompletionDbPath string
+	DownloadPath          string
 }

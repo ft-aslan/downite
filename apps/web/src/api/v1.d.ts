@@ -138,7 +138,7 @@ export interface components {
             category?: string;
             contentLayout: string;
             downloadSequentially: boolean;
-            files: components["schemas"]["TorrentFileOptions"][];
+            files: components["schemas"]["TorrentFile"][];
             incompleteSavePath?: string;
             isIncompleteSavePathEnabled: boolean;
             magnet?: string;
@@ -185,17 +185,6 @@ export interface components {
              */
             type: string;
         };
-        FileTree: {
-            Dir: {
-                [key: string]: components["schemas"]["FileTree"] | undefined;
-            };
-            File: components["schemas"]["FileTreeFileStruct"];
-        };
-        FileTreeFileStruct: {
-            /** Format: int64 */
-            Length: number;
-            PiecesRoot: string;
-        };
         GetMetaWithMagnetReqBody: {
             /**
              * Format: uri
@@ -214,10 +203,10 @@ export interface components {
         };
         Peer: {
             /** Format: ipv4 */
-            Ip: string;
+            ip: string;
             /** Format: int32 */
-            IpPort: number;
-            Url: components["schemas"]["URL"];
+            ipPort: number;
+            url: components["schemas"]["URL"];
         };
         PeerInfo: {
             Addr: unknown;
@@ -228,11 +217,11 @@ export interface components {
         };
         PieceProgress: {
             /** Format: int64 */
-            DownloadedByteCount: number;
+            downloadedByteCount: number;
             /** Format: int64 */
-            Index: number;
+            index: number;
             /** Format: int64 */
-            Length: number;
+            length: number;
         };
         Torrent: {
             /**
@@ -254,7 +243,7 @@ export interface components {
             downloaded: number;
             /** Format: int64 */
             eta: number;
-            files: components["schemas"]["FileTree"];
+            files: components["schemas"]["TorrentFile"][];
             infohash: string;
             magnet: string;
             name: string;
@@ -273,8 +262,8 @@ export interface components {
             seeds: number;
             /** Format: int64 */
             startedAt: number;
-            /** Format: int64 */
-            status: number;
+            /** @enum {string} */
+            status: "paused" | "downloading" | "completed" | "seeding" | "metadata";
             tags: string[];
             /** Format: int64 */
             timeActive: number;
@@ -303,11 +292,14 @@ export interface components {
             readonly $schema?: string;
             result: boolean;
         };
-        TorrentFileOptions: {
-            /** @enum {string} */
-            downloadPriority: "None" | "Low" | "Normal" | "High" | "Maximum";
+        TorrentFile: {
+            children?: components["schemas"]["TorrentFile"][];
+            /** Format: int64 */
+            length?: number;
             name: string;
             path: string;
+            /** @enum {string} */
+            priority: "none" | "low" | "normal" | "high" | "maximum";
         };
         TorrentMeta: {
             /**
@@ -315,27 +307,20 @@ export interface components {
              * @description A URL to the JSON Schema for this object.
              */
             readonly $schema?: string;
-            files: components["schemas"]["TreeNodeMeta"][];
-            infoHash: string;
+            files: components["schemas"]["TorrentFile"][];
+            infohash: string;
+            magnet: string;
             name: string;
-            torrentMagnet: string;
             /** Format: int64 */
             totalSize: number;
         };
         Tracker: {
             /** Format: int64 */
-            Interval: number;
-            Peers: components["schemas"]["Peer"][];
+            interval: number;
+            peers: components["schemas"]["Peer"][];
             /** Format: int64 */
-            Tier: number;
-            Url: string;
-        };
-        TreeNodeMeta: {
-            children: components["schemas"]["TreeNodeMeta"][];
-            /** Format: int64 */
-            length: number;
-            name: string;
-            path: string[];
+            tier: number;
+            url: string;
         };
         /** Format: uri */
         URL: string;

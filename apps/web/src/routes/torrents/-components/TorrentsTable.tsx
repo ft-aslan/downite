@@ -144,7 +144,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     },
     cell: ({ row }) => <div>{row.getValue("seeds")}</div>,
   },
-  {
+  /*   {
     accessorKey: "peers",
     header: ({ column }) => {
       return (
@@ -158,7 +158,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
       )
     },
     cell: ({ row }) => <div>{row.getValue("peerCount")}</div>,
-  },
+  }, */
   {
     accessorKey: "downloadSpeed",
     header: ({ column }) => {
@@ -248,6 +248,20 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
             >
               <Trash2 className="ml-2 h-4 w-4" />
               <span className="ml-1 sm:whitespace-nowrap">Remove</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                client.POST("/torrent/delete", {
+                  body: {
+                    infoHashes: [torrent.infohash],
+                  },
+                })
+              }}
+            >
+              <Trash2 className="ml-2 h-4 w-4" />
+              <span className="ml-1 sm:whitespace-nowrap">
+                Delete With Files
+              </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

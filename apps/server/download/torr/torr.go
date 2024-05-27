@@ -9,6 +9,7 @@ import (
 	"time"
 
 	gotorrent "github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/storage"
 	"github.com/anacrolix/torrent/types/infohash"
 )
 
@@ -18,16 +19,27 @@ var (
 	MutexForTorrentSpeed sync.Mutex
 	TorrentSpeedMap      = make(map[string]float32)
 	torrentPrevSizeMap   = make(map[string]int64)
+	TorrentClientConfig  *types.TorrentClientConfig
 )
 
-func CreateTorrentClient(config *gotorrent.ClientConfig) {
+func CreateTorrentClient(config types.TorrentClientConfig) error {
+	TorrentClientConfig = &config
+	// Create a new torrent client config
+	goTorrentClientConfig := gotorrent.NewDefaultClientConfig()
+	sqliteStorage, err := storage.NewSqlitePieceCompletion(config.PieceCompletionDbPath)
+	if err != nil {
+		fmt.Printf("Error creating sqlite storage: %v\n", err)
+		return err
+	}
+	goTorrentClientConfig.DefaultStorage = storage.NewFileWithCompletion(config.DownloadPath, sqliteStorage)
+
 	// Initialize the torrent client
-	var err error
-	Client, err = gotorrent.NewClient(config)
+	Client, err = gotorrent.NewClient(goTorrentClientConfig)
 	if err != nil {
 		fmt.Println("Error creating torrent client:", err)
-		return
+		return err
 	}
+	return nil
 }
 func InitTorrents() error {
 	dbTorrents, err := db.GetTorrents()
@@ -65,6 +77,7 @@ func updateTorrentSpeeds() {
 func initTorrent(dbTorrent *types.Torrent) error {
 	spec := gotorrent.TorrentSpec{
 		InfoHash: infohash.FromHexString(dbTorrent.Infohash),
+		Storage:  storage.NewFile(dbTorrent.SavePath),
 	}
 	torrent, new, err := Client.AddTorrentSpec(&spec)
 
@@ -103,9 +116,24 @@ func initTorrent(dbTorrent *types.Torrent) error {
 	// verify the torrent
 	torrent.VerifyData()
 
+	// set torrent file priorities
+	// TODO(fatih): in the future we can make this a hashmap for faster search
+	dbFiles, err := db.GetTorrentTorrentFiles(torrent.InfoHash().String())
+	if err != nil {
+		return err
+	}
+	for _, file := range torrent.Files() {
+		for _, dbFile := range dbFiles {
+			if file.Path() == dbFile.Path {
+				file.SetPriority(types.PiecePriorityStringMap[dbFile.Priority])
+			}
+		}
+	}
+
+	// get current size of torrent for speed calculation
 	torrentPrevSizeMap[torrent.InfoHash().String()] = torrent.BytesCompleted()
 
-	if dbTorrent.Status == types.TorrentStatusDownloading {
+	if dbTorrent.Status == types.TorrentStatusStringMap[types.TorrentStatusDownloading] {
 		torrent.DownloadAll()
 	}
 	return nil
