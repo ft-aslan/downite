@@ -15,9 +15,6 @@ import { cn } from "@/lib/utils"
 import { useMutation } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { z } from "zod"
-
-import { zodResolver } from "@hookform/resolvers/zod"
 
 interface GetTorrentMetaFormProps {
   type: "magnet" | "file"
@@ -45,16 +42,17 @@ interface WithFileProps {
 function WithFile({ onTorrentMetaChange }: WithFileProps) {
   const form = useForm({})
   const torrentMetaFormMutation = useMutation({
-    mutationFn: async (
-      data: components["schemas"]["GetMetaWithMagnetReqBody"]
-    ) => {
+    mutationFn: async (data: MultipartFormData) => {
       const res = await client.POST("/meta/file", {
         body: data,
         bodySerializer(body) {
           //turn it into multipart/form-data by bypassing json serialization
           const fd = new FormData()
           for (const name in body) {
-            fd.append(name, body[name])
+            const field = body[name]
+            if (field) {
+              fd.append(name, field)
+            }
           }
           return fd
         },

@@ -53,7 +53,7 @@ type TorrentFileTreeNode struct {
 	Path     string                  `json:"path"`
 	Children *[]*TorrentFileTreeNode `json:"children"`
 }
-type TorrentFileFlatTree struct {
+type TorrentFileFlatTreeNode struct {
 	Name     string `json:"name"`
 	Priority string `json:"priority" enum:"none,low,normal,high,maximum"`
 	Path     string `json:"path"`
@@ -92,7 +92,7 @@ type Torrent struct {
 	Ratio         float32                       `json:"ratio"`
 	Seeds         int                           `json:"seeds"`
 	DownloadSpeed float32                       `json:"downloadSpeed"`
-	UploadSpeed   int                           `json:"uploadSpeed"`
+	UploadSpeed   float32                       `json:"uploadSpeed"`
 	Comment       string                        `json:"comment"`
 }
 type Tracker struct {
@@ -109,4 +109,8 @@ type Peer struct {
 type TorrentClientConfig struct {
 	PieceCompletionDbPath string
 	DownloadPath          string
+}
+type TorrentSpeedInfo struct {
+	DownloadSpeed float32
+	UploadSpeed   float32
 }

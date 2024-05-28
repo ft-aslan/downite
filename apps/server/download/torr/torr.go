@@ -15,10 +15,15 @@ import (
 
 var Client *gotorrent.Client
 
+type TorrentPrevSize struct {
+	DownloadedBytes int64
+	UploadedBytes   int64
+}
+
 var (
 	MutexForTorrentSpeed sync.Mutex
-	TorrentSpeedMap      = make(map[string]float32)
-	torrentPrevSizeMap   = make(map[string]int64)
+	TorrentSpeedMap      = make(map[string]types.TorrentSpeedInfo)
+	torrentPrevSizeMap   = make(map[string]TorrentPrevSize)
 	TorrentClientConfig  *types.TorrentClientConfig
 )
 
@@ -59,14 +64,27 @@ func updateTorrentSpeeds() {
 	for {
 		torrents := Client.Torrents()
 		for _, torrent := range torrents {
-			// stats := torrent.Stats()
 			MutexForTorrentSpeed.Lock()
-			prevTotalLength := torrentPrevSizeMap[torrent.InfoHash().HexString()]
-			newTotalLength := torrent.BytesCompleted()
-			downloadedByteCount := newTotalLength - prevTotalLength
+
+			prevDownloadedTotalLength := torrentPrevSizeMap[torrent.InfoHash().HexString()].DownloadedBytes
+			newDownloadedTotalLength := torrent.BytesCompleted()
+			downloadedByteCount := newDownloadedTotalLength - prevDownloadedTotalLength
 			downloadSpeed := float32(downloadedByteCount) / 1024
-			TorrentSpeedMap[torrent.InfoHash().HexString()] = downloadSpeed
-			torrentPrevSizeMap[torrent.InfoHash().HexString()] = newTotalLength
+
+			prevUploadedTotalLength := torrentPrevSizeMap[torrent.InfoHash().HexString()].UploadedBytes
+			stats := torrent.Stats()
+			uploadedByteCount := stats.BytesWrittenData.Int64() - prevUploadedTotalLength
+			uploadSpeed := float32(uploadedByteCount) / 1024
+
+			TorrentSpeedMap[torrent.InfoHash().HexString()] = types.TorrentSpeedInfo{
+				DownloadSpeed: downloadSpeed,
+				UploadSpeed:   uploadSpeed,
+			}
+			prevSize := torrentPrevSizeMap[torrent.InfoHash().HexString()]
+			prevSize.DownloadedBytes = newDownloadedTotalLength
+			prevSize.UploadedBytes = stats.BytesWrittenData.Int64()
+			torrentPrevSizeMap[torrent.InfoHash().HexString()] = prevSize
+
 			MutexForTorrentSpeed.Unlock()
 		}
 		time.Sleep(time.Second)
@@ -131,7 +149,10 @@ func initTorrent(dbTorrent *types.Torrent) error {
 	}
 
 	// get current size of torrent for speed calculation
-	torrentPrevSizeMap[torrent.InfoHash().String()] = torrent.BytesCompleted()
+	torrentPrevSizeMap[torrent.InfoHash().String()] = TorrentPrevSize{
+		DownloadedBytes: torrent.BytesCompleted(),
+		UploadedBytes:   0,
+	}
 
 	if dbTorrent.Status == types.TorrentStatusStringMap[types.TorrentStatusDownloading] {
 		torrent.DownloadAll()

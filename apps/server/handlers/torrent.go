@@ -15,8 +15,9 @@ import (
 	"strings"
 	"time"
 
-	goTorrent "github.com/anacrolix/torrent"
+	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/storage"
 	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/jmoiron/sqlx"
 )
@@ -33,23 +34,25 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 
 	torrents := torr.Client.Torrents()
 	for _, torrent := range torrents {
+		dbTorrent, err := db.GetTorrent(torrent.InfoHash().String())
+		if err != nil {
+			return nil, err
+		}
 		if torrent.Info() == nil {
 			torrentsRes = append(torrentsRes, types.Torrent{
 				Infohash:  torrent.InfoHash().String(),
 				Name:      torrent.Name(),
-				CreatedAt: time.Now().Unix(),
+				CreatedAt: dbTorrent.CreatedAt,
 				Status:    types.TorrentStatusStringMap[types.TorrentStatusMetadata],
 			})
 		} else {
-			dbTorrent, err := db.GetTorrent(torrent.InfoHash().String())
-			if err != nil {
-				return nil, err
-			}
+
+			fileTree := createFileTreeFromMeta(*torrent.Info())
 			newTorrent := types.Torrent{
-				Infohash:  torrent.InfoHash().String(),
-				Name:      torrent.Name(),
-				CreatedAt: dbTorrent.CreatedAt,
-				// Files:      torrent.Info().FileTree,
+				Infohash:   torrent.InfoHash().String(),
+				Name:       torrent.Name(),
+				CreatedAt:  dbTorrent.CreatedAt,
+				Files:      fileTree,
 				TotalSize:  torrent.Info().TotalLength(),
 				AmountLeft: torrent.BytesMissing(),
 				Downloaded: torrent.BytesCompleted(),
@@ -61,7 +64,9 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 
 			// we use mutex becouse calculating speed is concurrent
 			torr.MutexForTorrentSpeed.Lock()
-			newTorrent.DownloadSpeed = torr.TorrentSpeedMap[torrent.InfoHash().String()]
+			speeds := torr.TorrentSpeedMap[torrent.InfoHash().String()]
+			newTorrent.DownloadSpeed = speeds.DownloadSpeed
+			newTorrent.UploadSpeed = speeds.UploadSpeed
 			torr.MutexForTorrentSpeed.Unlock()
 
 			torrentsRes = append(torrentsRes, newTorrent)
@@ -223,19 +228,19 @@ func DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 
 type DownloadTorrentReq struct {
 	Body struct {
-		Magnet                      string                      `json:"magnet,omitempty"`
-		TorrentFile                 string                      `json:"torrentFile,omitempty"`
-		SavePath                    string                      `json:"savePath" validate:"required, dir"`
-		IsIncompleteSavePathEnabled bool                        `json:"isIncompleteSavePathEnabled"`
-		IncompleteSavePath          string                      `json:"incompleteSavePath,omitempty" validate:"dir"`
-		Category                    string                      `json:"category,omitempty"`
-		Tags                        []string                    `json:"tags,omitempty"`
-		StartTorrent                bool                        `json:"startTorrent"`
-		AddTopOfQueue               bool                        `json:"addTopOfQueue"`
-		DownloadSequentially        bool                        `json:"downloadSequentially"`
-		SkipHashCheck               bool                        `json:"skipHashCheck"`
-		ContentLayout               string                      `json:"contentLayout" validate:"oneof='Original' 'Create subfolder' 'Don't create subfolder'"`
-		Files                       []types.TorrentFileFlatTree `json:"files"`
+		Magnet                      string                          `json:"magnet,omitempty"`
+		TorrentFile                 string                          `json:"torrentFile,omitempty"`
+		SavePath                    string                          `json:"savePath" validate:"required, dir"`
+		IsIncompleteSavePathEnabled bool                            `json:"isIncompleteSavePathEnabled"`
+		IncompleteSavePath          string                          `json:"incompleteSavePath,omitempty" validate:"dir"`
+		Category                    string                          `json:"category,omitempty"`
+		Tags                        []string                        `json:"tags,omitempty"`
+		StartTorrent                bool                            `json:"startTorrent"`
+		AddTopOfQueue               bool                            `json:"addTopOfQueue"`
+		DownloadSequentially        bool                            `json:"downloadSequentially"`
+		SkipHashCheck               bool                            `json:"skipHashCheck"`
+		ContentLayout               string                          `json:"contentLayout" enum:"Original,Create subfolder,Don't create subfolder"`
+		Files                       []types.TorrentFileFlatTreeNode `json:"files"`
 	}
 }
 type DownloadTorrentRes struct {
@@ -244,17 +249,22 @@ type DownloadTorrentRes struct {
 
 func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadTorrentRes, error) {
 	res := &DownloadTorrentRes{}
-	var goTorrent *goTorrent.Torrent
-	var torrent types.Torrent
+	var torrent *gotorrent.Torrent
+	var torrentSpec *gotorrent.TorrentSpec
+	var dbTorrent types.Torrent
 
 	var err error
 	if input.Body.Magnet != "" {
+		// Validate magnet
+		if _, err = metainfo.ParseMagnetUri(input.Body.Magnet); err != nil {
+			return nil, errors.New("invalid magnet")
+		}
+
 		// Load from a magnet link
-		goTorrent, err = torr.Client.AddMagnet(input.Body.Magnet)
+		torrentSpec, err = gotorrent.TorrentSpecFromMagnetUri(input.Body.Magnet)
 		if err != nil {
 			return nil, err
 		}
-
 	} else {
 		// Load the torrent file
 		fileReader := bytes.NewReader([]byte(input.Body.TorrentFile))
@@ -262,37 +272,61 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		if err != nil {
 			return nil, err
 		}
-		goTorrent, err = torr.Client.AddTorrent(torrentMeta)
-		if err != nil {
-			return nil, err
-		}
+		torrentSpec = gotorrent.TorrentSpecFromMetaInfo(torrentMeta)
 	}
+	if torrentSpec == nil {
+		return nil, errors.New("invalid torrent")
+	}
+
 	savePath := input.Body.SavePath
 	// if save path empty use default path
 	if savePath == "" {
 		savePath = torr.TorrentClientConfig.DownloadPath
 	}
-	torrent = types.Torrent{
-		Infohash: goTorrent.InfoHash().String(),
-		Name:     goTorrent.Name(),
+
+	pieceCompletion, err := storage.NewDefaultPieceCompletionForDir(".")
+	if err != nil {
+		return nil, fmt.Errorf("new piece completion: %w", err)
+	}
+	torrentSpec.Storage = storage.NewFileOpts(storage.NewFileClientOpts{
+		ClientBaseDir: savePath,
+		TorrentDirMaker: func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string {
+			return filepath.Join(savePath, torrent.Name())
+		},
+		FilePathMaker: func(opts storage.FilePathMakerOpts) string {
+			return filepath.Join(opts.File.BestPath()...)
+		},
+		PieceCompletion: pieceCompletion,
+	})
+
+	goTorrent, new, err := torr.Client.AddTorrentSpec(torrentSpec)
+	if err != nil {
+		return nil, err
+	}
+	if !new {
+		return nil, fmt.Errorf("torrent with hash %s already exists", goTorrent.InfoHash().String())
+	}
+	dbTorrent = types.Torrent{
+		Infohash: torrent.InfoHash().String(),
+		Name:     torrent.Name(),
 		SavePath: savePath,
 		Status:   types.TorrentStatusStringMap[types.TorrentStatusDownloading],
 	}
-	err = db.InsertTorrent(&torrent)
+	err = db.InsertTorrent(&dbTorrent)
 	if err != nil {
 		return nil, err
 	}
 
-	<-goTorrent.GotInfo()
+	<-torrent.GotInfo()
 
-	torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
-	torrent.TotalSize = goTorrent.Length()
-	torrent.Magnet = goTorrent.Metainfo().Magnet(nil, goTorrent.Info()).String()
+	dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
+	dbTorrent.TotalSize = torrent.Length()
+	dbTorrent.Magnet = torrent.Metainfo().Magnet(nil, torrent.Info()).String()
 
-	db.UpdateTorrent(&torrent)
+	db.UpdateTorrent(&dbTorrent)
 
 	// Insert trackers
-	trackers := goTorrent.Metainfo().AnnounceList
+	trackers := torrent.Metainfo().AnnounceList
 	for tierIndex, trackersOfTier := range trackers {
 		for _, tracker := range trackersOfTier {
 			//validate url
@@ -303,12 +337,12 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 			db.InsertTracker(&types.Tracker{
 				Url:  trackerUrl.String(),
 				Tier: tierIndex,
-			}, torrent.Infohash)
+			}, dbTorrent.Infohash)
 		}
 	}
 
 	// Set download priorities of the files
-	for _, file := range goTorrent.Files() {
+	for _, file := range torrent.Files() {
 		for _, clientFile := range input.Body.Files {
 			if file.Path() == clientFile.Path {
 				priority, ok := types.PiecePriorityStringMap[clientFile.Priority]
@@ -320,25 +354,25 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 					Path:     file.Path(),
 					Priority: clientFile.Priority,
 					Name:     file.FileInfo().Path[len(file.FileInfo().Path)-1],
-				}, torrent.Infohash)
+				}, dbTorrent.Infohash)
 			}
 		}
 
 	}
 
 	if !input.Body.SkipHashCheck {
-		goTorrent.VerifyData()
+		torrent.VerifyData()
 	}
 
 	if input.Body.StartTorrent {
-		goTorrent.DownloadAll()
+		torrent.DownloadAll()
 
-		torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
-		db.UpdateTorrentStatus(&torrent)
+		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
+		db.UpdateTorrentStatus(&dbTorrent)
 	}
 	// torrent.Files = goTorrent.Info().
 
-	res.Body = torrent
+	res.Body = dbTorrent
 
 	return res, nil
 }

@@ -140,13 +140,9 @@ export default function DownloadTorrentForm({
 
     torrentDownloadFormMutation.mutate(data)
   }
-  enum DownloadPriority {
-    None = "none",
-    Low = "low",
-    Normal = "normal",
-    High = "high",
-    Maximum = "maximum",
-  }
+  type DownloadPriority =
+    components["schemas"]["TorrentFileTreeNode"]["priority"]
+
   interface FileTreeNode {
     id: string
     name: string
@@ -157,13 +153,13 @@ export default function DownloadTorrentForm({
     children: FileTreeNode[]
   }
   const createFileTree = (
-    file: components["schemas"]["TorrentFile"]
+    file: components["schemas"]["TorrentFileTreeNode"]
   ): FileTreeNode => ({
     id: file.path,
     name: file.name,
     size: (file.length / 1024 / 1024).toFixed(2) + " MB",
     path: file.path,
-    priority: DownloadPriority.Normal,
+    priority: "normal",
     expanded: false,
     children: file.children.map(createFileTree),
   })
@@ -464,22 +460,18 @@ export default function DownloadTorrentForm({
               </Button>
             )}
             <Checkbox
-              checked={item.priority != DownloadPriority.None}
+              checked={item.priority != "none"}
               onCheckedChange={(checked) => {
                 updateTreeNodeById(item.id, (item) => {
                   // if changed to folder checkbox, set download priority for all children recursively
                   if (item.children.length) {
                     item.children.forEach((child) => {
-                      child.priority = checked
-                        ? DownloadPriority.Normal
-                        : DownloadPriority.None
+                      child.priority = checked ? "normal" : "none"
                     })
                   }
                   return {
                     ...item,
-                    priority: checked
-                      ? DownloadPriority.Normal
-                      : DownloadPriority.None,
+                    priority: checked ? "normal" : "none",
                   }
                 })
               }}
@@ -498,10 +490,10 @@ export default function DownloadTorrentForm({
         <TableCell>
           <Select
             value={item.priority}
-            onValueChange={(downloadPriority) => {
+            onValueChange={(downloadPriority: DownloadPriority) => {
               updateTreeNodeById(item.id, (item) => ({
                 ...item,
-                priority: DownloadPriority[downloadPriority],
+                priority: downloadPriority,
               }))
             }}
           >
@@ -509,11 +501,11 @@ export default function DownloadTorrentForm({
               <SelectValue placeholder="Select download priority" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={DownloadPriority.None}>None</SelectItem>
-              <SelectItem value={DownloadPriority.Low}>Low</SelectItem>
-              <SelectItem value={DownloadPriority.Normal}>Normal</SelectItem>
-              <SelectItem value={DownloadPriority.High}>High</SelectItem>
-              <SelectItem value={DownloadPriority.Maximum}>Maximum</SelectItem>
+              <SelectItem value={"none"}>None</SelectItem>
+              <SelectItem value={"low"}>Low</SelectItem>
+              <SelectItem value={"normal"}>Normal</SelectItem>
+              <SelectItem value={"high"}>High</SelectItem>
+              <SelectItem value={"maximum"}>Maximum</SelectItem>
             </SelectContent>
           </Select>
         </TableCell>

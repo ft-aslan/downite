@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/torrent/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post torrent delete */
+        post: operations["post-torrent-delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/torrent/pause": {
         parameters: {
             query?: never;
@@ -138,7 +155,7 @@ export interface components {
             category?: string;
             contentLayout: string;
             downloadSequentially: boolean;
-            files: components["schemas"]["TorrentFile"][];
+            files: components["schemas"]["TorrentFileFlatTreeNode"][];
             incompleteSavePath?: string;
             isIncompleteSavePathEnabled: boolean;
             magnet?: string;
@@ -243,7 +260,7 @@ export interface components {
             downloaded: number;
             /** Format: int64 */
             eta: number;
-            files: components["schemas"]["TorrentFile"][];
+            files: components["schemas"]["TorrentFileTreeNode"][];
             infohash: string;
             magnet: string;
             name: string;
@@ -292,10 +309,16 @@ export interface components {
             readonly $schema?: string;
             result: boolean;
         };
-        TorrentFile: {
-            children?: components["schemas"]["TorrentFile"][];
+        TorrentFileFlatTreeNode: {
+            name: string;
+            path: string;
+            /** @enum {string} */
+            priority: "none" | "low" | "normal" | "high" | "maximum";
+        };
+        TorrentFileTreeNode: {
+            children: components["schemas"]["TorrentFileTreeNode"][];
             /** Format: int64 */
-            length?: number;
+            length: number;
             name: string;
             path: string;
             /** @enum {string} */
@@ -307,7 +330,7 @@ export interface components {
              * @description A URL to the JSON Schema for this object.
              */
             readonly $schema?: string;
-            files: components["schemas"]["TorrentFile"][];
+            files: components["schemas"]["TorrentFileTreeNode"][];
             infohash: string;
             magnet: string;
             name: string;
@@ -488,6 +511,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Torrent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "post-torrent-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TorrentActionReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TorrentActionResBody"];
                 };
             };
             /** @description Error */

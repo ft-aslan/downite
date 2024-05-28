@@ -15,10 +15,13 @@
           },
           "addTopOfQueue": { "type": "boolean" },
           "category": { "type": "string" },
-          "contentLayout": { "type": "string" },
+          "contentLayout": {
+            "enum": ["Original", "Create subfolder", "Don't create subfolder"],
+            "type": "string"
+          },
           "downloadSequentially": { "type": "boolean" },
           "files": {
-            "items": { "$ref": "#/components/schemas/TorrentFileFlatTree" },
+            "items": { "$ref": "#/components/schemas/TorrentFileFlatTreeNode" },
             "type": "array"
           },
           "incompleteSavePath": { "type": "string" },
@@ -226,7 +229,7 @@
             "items": { "$ref": "#/components/schemas/Tracker" },
             "type": "array"
           },
-          "uploadSpeed": { "format": "int64", "type": "integer" },
+          "uploadSpeed": { "format": "float", "type": "number" },
           "uploaded": { "format": "int64", "type": "integer" }
         },
         "required": [
@@ -300,7 +303,7 @@
         "required": ["result"],
         "type": "object"
       },
-      "TorrentFileFlatTree": {
+      "TorrentFileFlatTreeNode": {
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
