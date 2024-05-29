@@ -153,7 +153,8 @@ export interface components {
             readonly $schema?: string;
             addTopOfQueue: boolean;
             category?: string;
-            contentLayout: string;
+            /** @enum {string} */
+            contentLayout: "Original" | "Create subfolder" | "Don't create subfolder";
             downloadSequentially: boolean;
             files: components["schemas"]["TorrentFileFlatTreeNode"][];
             incompleteSavePath?: string;
@@ -287,7 +288,7 @@ export interface components {
             /** Format: int64 */
             totalSize: number;
             trackers: components["schemas"]["Tracker"][];
-            /** Format: int64 */
+            /** Format: float */
             uploadSpeed: number;
             /** Format: int64 */
             uploaded: number;

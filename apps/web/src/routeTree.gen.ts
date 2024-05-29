@@ -49,22 +49,37 @@ const TorrentTorrentIdRoute = TorrentTorrentIdImport.update({
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
     '/torrents': {
+      id: '/torrents'
+      path: '/torrents'
+      fullPath: '/torrents'
       preLoaderRoute: typeof TorrentsImport
       parentRoute: typeof rootRoute
     }
     '/torrent/$torrentId': {
+      id: '/torrent/$torrentId'
+      path: '/torrent/$torrentId'
+      fullPath: '/torrent/$torrentId'
       preLoaderRoute: typeof TorrentTorrentIdImport
       parentRoute: typeof rootRoute
     }
     '/torrent/': {
+      id: '/torrent/'
+      path: '/torrent'
+      fullPath: '/torrent'
       preLoaderRoute: typeof TorrentIndexImport
       parentRoute: typeof rootRoute
     }
     '/torrents/': {
+      id: '/torrents/'
+      path: '/'
+      fullPath: '/torrents/'
       preLoaderRoute: typeof TorrentsIndexImport
       parentRoute: typeof TorrentsImport
     }
@@ -73,11 +88,46 @@ declare module '@tanstack/react-router' {
 
 // Create and export the route tree
 
-export const routeTree = rootRoute.addChildren([
+export const routeTree = rootRoute.addChildren({
   IndexRoute,
-  TorrentsRoute.addChildren([TorrentsIndexRoute]),
+  TorrentsRoute: TorrentsRoute.addChildren({ TorrentsIndexRoute }),
   TorrentTorrentIdRoute,
   TorrentIndexRoute,
-])
+})
 
 /* prettier-ignore-end */
+
+/* ROUTE_MANIFEST_START
+{
+  "routes": {
+    "__root__": {
+      "filePath": "__root.tsx",
+      "children": [
+        "/",
+        "/torrents",
+        "/torrent/$torrentId",
+        "/torrent/"
+      ]
+    },
+    "/": {
+      "filePath": "index.tsx"
+    },
+    "/torrents": {
+      "filePath": "torrents.tsx",
+      "children": [
+        "/torrents/"
+      ]
+    },
+    "/torrent/$torrentId": {
+      "filePath": "torrent/$torrentId.tsx"
+    },
+    "/torrent/": {
+      "filePath": "torrent/index.tsx"
+    },
+    "/torrents/": {
+      "filePath": "torrents/index.tsx",
+      "parent": "/torrents"
+    }
+  }
+}
+ROUTE_MANIFEST_END */
