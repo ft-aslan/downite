@@ -55,6 +55,12 @@ func InitTorrents() error {
 	}
 
 	for _, dbTorrent := range dbTorrents {
+		// get the trackers
+		trackers, err := db.GetTorrentTrackers(dbTorrent.Infohash)
+		if err != nil {
+			return err
+		}
+		dbTorrent.Trackers = trackers
 		go AddTorrent(&dbTorrent)
 	}
 
@@ -94,13 +100,13 @@ func updateTorrentSpeeds() {
 
 }
 
-func AddTorrent(dbTorrent *types.Torrent) error {
+func AddTorrent(dbTorrent *types.Torrent, startDownloading bool, verifyFiles bool) (*gotorrent.Torrent, error) {
 	torrentSpec := gotorrent.TorrentSpec{
 		InfoHash: infohash.FromHexString(dbTorrent.Infohash),
 	}
 	pieceCompletion, err := storage.NewDefaultPieceCompletionForDir("./tmp")
 	if err != nil {
-		return fmt.Errorf("new piece completion: %w", err)
+		return nil, fmt.Errorf("new piece completion: %w", err)
 	}
 	torrentSpec.Storage = storage.NewFileOpts(storage.NewFileClientOpts{
 		ClientBaseDir: dbTorrent.SavePath,
@@ -115,28 +121,25 @@ func AddTorrent(dbTorrent *types.Torrent) error {
 	torrent, new, err := Client.AddTorrentSpec(&torrentSpec)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !new {
-		return fmt.Errorf("torrent with hash %s already exists", dbTorrent.Infohash)
+		return nil, fmt.Errorf("torrent with hash %s already exists", dbTorrent.Infohash)
 	}
-	// get the trackers
-	trackers, err := db.GetTorrentTrackers(dbTorrent.Infohash)
-	if err != nil {
-		return err
-	}
-	if len(trackers) > 0 {
+	// set trackers of torrent
+	dbTrackers := dbTorrent.Trackers
+	if len(dbTrackers) > 0 {
 		// sort it based on their tiers
-		sort.Slice(trackers, func(i, j int) bool { return trackers[i].Tier < trackers[j].Tier })
+		sort.Slice(dbTrackers, func(i, j int) bool { return dbTrackers[i].Tier < dbTrackers[j].Tier })
 		// get the maximum tier number and create a tieredTrackers slice
-		maximumTierIndex := trackers[len(trackers)-1].Tier
+		maximumTierIndex := dbTrackers[len(dbTrackers)-1].Tier
 		tieredTrackers := make([][]string, 0, maximumTierIndex)
 		// initialize the tieredTrackers slice
 		for i := 0; i < maximumTierIndex+1; i++ {
 			tieredTrackers = append(tieredTrackers, []string{})
 		}
 		// insert the trackers into the tieredTrackers slice based on their tiers
-		for _, tracker := range trackers {
+		for _, tracker := range dbTrackers {
 			tieredTrackers[tracker.Tier] = append(tieredTrackers[tracker.Tier], tracker.Url)
 		}
 		// Add trackers to the torrent
@@ -147,16 +150,18 @@ func AddTorrent(dbTorrent *types.Torrent) error {
 	<-torrent.GotInfo()
 
 	// verify the torrent
-	torrent.VerifyData()
+	if verifyFiles {
+		torrent.VerifyData()
+	}
 
 	// set torrent file priorities
 	// TODO(fatih): in the future we can make this a hashmap for faster search
 	dbFiles, err := db.GetTorrentTorrentFiles(torrent.InfoHash().String())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if dbTorrent.Status == types.TorrentStatusStringMap[types.TorrentStatusDownloading] {
+	if startDownloading {
 		for _, file := range torrent.Files() {
 			for _, dbFile := range dbFiles {
 				if file.Path() == dbFile.Path {
@@ -173,7 +178,7 @@ func AddTorrent(dbTorrent *types.Torrent) error {
 		UploadedBytes:   0,
 	}
 
-	return nil
+	return torrent, nil
 }
 
 func FindTorrents(hashes []string) ([]*gotorrent.Torrent, error) {

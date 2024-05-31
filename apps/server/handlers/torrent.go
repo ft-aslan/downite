@@ -18,7 +18,6 @@ import (
 
 	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/storage"
 	gotorrenttypes "github.com/anacrolix/torrent/types"
 	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/jmoiron/sqlx"
@@ -238,6 +237,8 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	var torrent *gotorrent.Torrent
 	var torrentSpec *gotorrent.TorrentSpec
 	var dbTorrent types.Torrent
+	var dbTrackers []types.Tracker
+	var savePath string
 
 	var err error
 	if input.Body.Magnet != "" {
@@ -259,12 +260,28 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 			return nil, err
 		}
 		torrentSpec = gotorrent.TorrentSpecFromMetaInfo(torrentMeta)
+
 	}
 	if torrentSpec == nil {
 		return nil, errors.New("invalid torrent")
 	}
 
-	savePath := input.Body.SavePath
+	specTrackers := torrentSpec.Trackers
+	for tierIndex, trackersOfTier := range specTrackers {
+		for _, tracker := range trackersOfTier {
+			//validate url
+			trackerUrl, err := url.Parse(tracker)
+			if err != nil {
+				return nil, err
+			}
+			dbTrackers = append(dbTorrent.Trackers, types.Tracker{
+				Url:  trackerUrl.String(),
+				Tier: tierIndex,
+			})
+		}
+	}
+
+	savePath = input.Body.SavePath
 	// if save path empty use default path
 	if savePath == "" {
 		savePath = torr.TorrentClientConfig.DownloadPath
@@ -274,40 +291,28 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		}
 	}
 
-	pieceCompletion, err := storage.NewDefaultPieceCompletionForDir("./tmp")
-	if err != nil {
-		return nil, fmt.Errorf("new piece completion: %w", err)
-	}
-	torrentSpec.Storage = storage.NewFileOpts(storage.NewFileClientOpts{
-		ClientBaseDir: savePath,
-		TorrentDirMaker: func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string {
-			return filepath.Join(baseDir, info.BestName())
-		},
-		FilePathMaker: func(opts storage.FilePathMakerOpts) string {
-			return filepath.Join(opts.File.BestPath()...)
-		},
-		PieceCompletion: pieceCompletion,
-	})
-
-	torrent, new, err := torr.Client.AddTorrentSpec(torrentSpec)
-	if err != nil {
-		return nil, err
-	}
-	if !new {
-		return nil, fmt.Errorf("torrent with hash %s already exists", torrent.InfoHash().String())
-	}
 	dbTorrent = types.Torrent{
-		Infohash: torrent.InfoHash().String(),
-		Name:     torrent.Name(),
+		Infohash: torrentSpec.InfoHash.String(),
+		Name:     torrentSpec.DisplayName,
 		SavePath: savePath,
-		Status:   types.TorrentStatusStringMap[types.TorrentStatusDownloading],
+		Status:   types.TorrentStatusStringMap[types.TorrentStatusMetadata],
+		Trackers: dbTrackers,
 	}
+
 	err = db.InsertTorrent(&dbTorrent)
 	if err != nil {
 		return nil, err
 	}
-
-	<-torrent.GotInfo()
+	for _, dbTracker := range dbTorrent.Trackers {
+		if err = db.InsertTracker(&dbTracker, dbTorrent.Infohash); err != nil {
+			return nil, err
+		}
+	}
+	// ADD TORRENT TO CLIENT
+	torrent, err = torr.AddTorrent(&dbTorrent, input.Body.StartTorrent, !input.Body.SkipHashCheck)
+	if err != nil {
+		return nil, err
+	}
 
 	dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
 	dbTorrent.TotalSize = torrent.Length()

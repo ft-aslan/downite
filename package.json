@@ -9,7 +9,7 @@
     "dev:web": "bun --filter @downite/web dev:web",
     "dev:server": "cd apps/server && air",
     "test:server": "cd apps/server && go test -cover",
-    "db": "cd apps/server && goose -dir ./db/migrations sqlite3 ./tmp/downite.db"
+    "db": "cd apps/server && goose -dir ./db/migrations sqlite3 ./bin/downite.db"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

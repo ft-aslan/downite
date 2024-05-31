@@ -12,7 +12,7 @@ var DB *sqlx.DB
 
 func DbInit() error {
 	var err error
-	DB, err = sqlx.Connect("sqlite", "./tmp/downite.db")
+	DB, err = sqlx.Connect("sqlite", filepath.Join(".", "bin", "downite.db"))
 	if err != nil {
 		panic(err)
 	}
