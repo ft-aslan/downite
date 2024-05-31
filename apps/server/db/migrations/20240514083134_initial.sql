@@ -19,6 +19,7 @@ create table
         downloaded int,
         uploaded int,
         total_size int,
+        size_of_wanted int,
         comment text,
         category_id int,
         foreign key (category_id) references categories (id)

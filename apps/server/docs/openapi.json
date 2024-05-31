@@ -211,6 +211,7 @@
           "ratio": { "format": "float", "type": "number" },
           "savePath": { "type": "string" },
           "seeds": { "format": "int64", "type": "integer" },
+          "sizeOfWanted": { "format": "int64", "type": "integer" },
           "startedAt": { "format": "int64", "type": "integer" },
           "status": {
             "enum": [
@@ -237,6 +238,7 @@
           "infohash",
           "files",
           "totalSize",
+          "sizeOfWanted",
           "amountLeft",
           "uploaded",
           "downloaded",

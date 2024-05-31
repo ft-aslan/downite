@@ -70,6 +70,7 @@ type Torrent struct {
 	Infohash      string                        `json:"infohash"`
 	Files         []*TorrentFileTreeNode        `json:"files"`
 	TotalSize     int64                         `json:"totalSize" db:"total_size"`
+	SizeOfWanted  int64                         `json:"sizeOfWanted" db:"size_of_wanted"`
 	AmountLeft    int64                         `json:"amountLeft"`
 	Uploaded      int64                         `json:"uploaded"`
 	Downloaded    int64                         `json:"downloaded"`

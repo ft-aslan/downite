@@ -4,11 +4,13 @@ import (
 	"downite/db"
 	"downite/types"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
 
 	gotorrent "github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 	"github.com/anacrolix/torrent/types/infohash"
 )
@@ -53,7 +55,7 @@ func InitTorrents() error {
 	}
 
 	for _, dbTorrent := range dbTorrents {
-		go initTorrent(&dbTorrent)
+		go AddTorrent(&dbTorrent)
 	}
 
 	// Start a goroutine to update download speed
@@ -92,12 +94,25 @@ func updateTorrentSpeeds() {
 
 }
 
-func initTorrent(dbTorrent *types.Torrent) error {
-	spec := gotorrent.TorrentSpec{
+func AddTorrent(dbTorrent *types.Torrent) error {
+	torrentSpec := gotorrent.TorrentSpec{
 		InfoHash: infohash.FromHexString(dbTorrent.Infohash),
-		Storage:  storage.NewFile(dbTorrent.SavePath),
 	}
-	torrent, new, err := Client.AddTorrentSpec(&spec)
+	pieceCompletion, err := storage.NewDefaultPieceCompletionForDir("./tmp")
+	if err != nil {
+		return fmt.Errorf("new piece completion: %w", err)
+	}
+	torrentSpec.Storage = storage.NewFileOpts(storage.NewFileClientOpts{
+		ClientBaseDir: dbTorrent.SavePath,
+		TorrentDirMaker: func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string {
+			return filepath.Join(baseDir, info.BestName())
+		},
+		FilePathMaker: func(opts storage.FilePathMakerOpts) string {
+			return filepath.Join(opts.File.BestPath()...)
+		},
+		PieceCompletion: pieceCompletion,
+	})
+	torrent, new, err := Client.AddTorrentSpec(&torrentSpec)
 
 	if err != nil {
 		return err
@@ -140,10 +155,14 @@ func initTorrent(dbTorrent *types.Torrent) error {
 	if err != nil {
 		return err
 	}
-	for _, file := range torrent.Files() {
-		for _, dbFile := range dbFiles {
-			if file.Path() == dbFile.Path {
-				file.SetPriority(types.PiecePriorityStringMap[dbFile.Priority])
+
+	if dbTorrent.Status == types.TorrentStatusStringMap[types.TorrentStatusDownloading] {
+		for _, file := range torrent.Files() {
+			for _, dbFile := range dbFiles {
+				if file.Path() == dbFile.Path {
+					// set priority also starts the download for file if priority is not none
+					file.SetPriority(types.PiecePriorityStringMap[dbFile.Priority])
+				}
 			}
 		}
 	}
@@ -154,9 +173,6 @@ func initTorrent(dbTorrent *types.Torrent) error {
 		UploadedBytes:   0,
 	}
 
-	if dbTorrent.Status == types.TorrentStatusStringMap[types.TorrentStatusDownloading] {
-		torrent.DownloadAll()
-	}
 	return nil
 }
 

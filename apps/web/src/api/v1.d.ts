@@ -279,6 +279,8 @@ export interface components {
             /** Format: int64 */
             seeds: number;
             /** Format: int64 */
+            sizeOfWanted: number;
+            /** Format: int64 */
             startedAt: number;
             /** @enum {string} */
             status: "paused" | "downloading" | "completed" | "seeding" | "metadata";

@@ -17,6 +17,7 @@ SELECT
 	downloaded,
 	uploaded,
 	total_size,
+	size_of_wanted,
 	comment,
 	category_id,
 	created_at,
@@ -46,6 +47,7 @@ SELECT
 	downloaded,
 	uploaded,
 	total_size,
+	size_of_wanted,
 	comment,
 	category_id,
 	created_at,
@@ -63,9 +65,9 @@ WHERE
 
 func InsertTorrent(torrent *types.Torrent) error {
 	_, err := DB.NamedExec(`INSERT INTO torrents
-	(infohash, name, save_path, status, time_active, downloaded, uploaded, total_size, comment, category_id, created_at, started_at)
+	(infohash, name, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
 	VALUES
-	(:infohash, :name, :save_path, :status, :time_active, :downloaded, :uploaded, :total_size, :comment, :category_id, :created_at, :started_at)
+	(:infohash, :name, :save_path, :status, :time_active, :downloaded, :uploaded, :total_size, :size_of_wanted, :comment, :category_id, :created_at, :started_at)
 	`, torrent)
 	return err
 }
@@ -81,6 +83,7 @@ func UpdateTorrent(torrent *types.Torrent) error {
 		downloaded = :downloaded,
 		uploaded = :uploaded,
 		total_size = :total_size,
+		size_of_wanted = :size_of_wanted,
 		comment = :comment,
 		category_id = :category_id,
 		created_at = :created_at,
