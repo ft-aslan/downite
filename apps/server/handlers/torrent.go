@@ -299,44 +299,19 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		Trackers: dbTrackers,
 	}
 
+	// Insert torrent
 	err = db.InsertTorrent(&dbTorrent)
 	if err != nil {
 		return nil, err
 	}
+
+	// Insert trackers
 	for _, dbTracker := range dbTorrent.Trackers {
 		if err = db.InsertTracker(&dbTracker, dbTorrent.Infohash); err != nil {
 			return nil, err
 		}
 	}
-	// ADD TORRENT TO CLIENT
-	torrent, err = torr.AddTorrent(&dbTorrent, input.Body.StartTorrent, !input.Body.SkipHashCheck)
-	if err != nil {
-		return nil, err
-	}
-
-	dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
-	dbTorrent.TotalSize = torrent.Length()
-	dbTorrent.Magnet = torrent.Metainfo().Magnet(nil, torrent.Info()).String()
-
-	db.UpdateTorrent(&dbTorrent)
-
-	// Insert trackers
-	trackers := torrent.Metainfo().AnnounceList
-	for tierIndex, trackersOfTier := range trackers {
-		for _, tracker := range trackersOfTier {
-			//validate url
-			trackerUrl, err := url.Parse(tracker)
-			if err != nil {
-				return nil, err
-			}
-			db.InsertTracker(&types.Tracker{
-				Url:  trackerUrl.String(),
-				Tier: tierIndex,
-			}, dbTorrent.Infohash)
-		}
-	}
-
-	// Set download priorities of the files
+	// Insert download priorities of the files
 	for _, file := range torrent.Files() {
 		for _, clientFile := range input.Body.Files {
 			if file.DisplayPath() == clientFile.Path {
@@ -345,10 +320,6 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 					return nil, fmt.Errorf("invalid download priority: %s", clientFile.Priority)
 				}
 
-				if input.Body.StartTorrent {
-					// set priority also starts the download for file if priority is not none
-					file.SetPriority(priority)
-				}
 				if priority != gotorrenttypes.PiecePriorityNone {
 					dbTorrent.SizeOfWanted += file.Length()
 				}
@@ -362,18 +333,22 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		}
 
 	}
+	dbTorrent.Files = createFileTreeFromMeta(*torrent.Info())
 
-	// update size of wanted in torrent
-	db.UpdateTorrent(&dbTorrent)
-
-	if !input.Body.SkipHashCheck {
-		torrent.VerifyData()
+	// ADD TORRENT TO CLIENT
+	torrent, err = torr.AddTorrent(&dbTorrent, input.Body.StartTorrent, !input.Body.SkipHashCheck)
+	if err != nil {
+		return nil, err
 	}
 
 	if input.Body.StartTorrent {
 		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
-		db.UpdateTorrentStatus(&dbTorrent)
+	} else {
+		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
 	}
+
+	dbTorrent.TotalSize = torrent.Length()
+	dbTorrent.Magnet = torrent.Metainfo().Magnet(nil, torrent.Info()).String()
 
 	res.Body = dbTorrent
 

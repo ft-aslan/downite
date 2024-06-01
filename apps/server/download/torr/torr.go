@@ -61,7 +61,11 @@ func InitTorrents() error {
 			return err
 		}
 		dbTorrent.Trackers = trackers
-		go AddTorrent(&dbTorrent)
+		startDownloading := false
+		if types.TorrentStatusDownloading.String() == dbTorrent.Status {
+			startDownloading = true
+		}
+		go AddTorrent(&dbTorrent, startDownloading, true)
 	}
 
 	// Start a goroutine to update download speed
