@@ -311,6 +311,13 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 			return nil, err
 		}
 	}
+
+	// ADD TORRENT TO CLIENT
+	torrent, err = torr.AddTorrent(&dbTorrent, input.Body.StartTorrent, !input.Body.SkipHashCheck)
+	if err != nil {
+		return nil, err
+	}
+
 	// Insert download priorities of the files
 	for _, file := range torrent.Files() {
 		for _, clientFile := range input.Body.Files {
@@ -335,10 +342,11 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	}
 	dbTorrent.Files = createFileTreeFromMeta(*torrent.Info())
 
-	// ADD TORRENT TO CLIENT
-	torrent, err = torr.AddTorrent(&dbTorrent, input.Body.StartTorrent, !input.Body.SkipHashCheck)
-	if err != nil {
-		return nil, err
+	if input.Body.StartTorrent {
+		torrent, err = torr.StartTorrent(dbTorrent.Infohash)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if input.Body.StartTorrent {

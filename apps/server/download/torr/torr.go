@@ -65,7 +65,7 @@ func InitTorrents() error {
 		if types.TorrentStatusDownloading.String() == dbTorrent.Status {
 			startDownloading = true
 		}
-		go AddTorrent(&dbTorrent, startDownloading, true)
+		go AddTorrent(&dbTorrent, true)
 	}
 
 	// Start a goroutine to update download speed
@@ -104,7 +104,7 @@ func updateTorrentSpeeds() {
 
 }
 
-func AddTorrent(dbTorrent *types.Torrent, startDownloading bool, verifyFiles bool) (*gotorrent.Torrent, error) {
+func AddTorrent(dbTorrent *types.Torrent, verifyFiles bool) (*gotorrent.Torrent, error) {
 	torrentSpec := gotorrent.TorrentSpec{
 		InfoHash: infohash.FromHexString(dbTorrent.Infohash),
 	}
@@ -158,6 +158,14 @@ func AddTorrent(dbTorrent *types.Torrent, startDownloading bool, verifyFiles boo
 		torrent.VerifyData()
 	}
 
+	return torrent, nil
+}
+
+func StartTorrent(hash string) (*gotorrent.Torrent, error) {
+	torrent, ok := Client.Torrent(infohash.FromHexString(hash))
+	if !ok {
+		return nil, fmt.Errorf("torrent with hash %s not found", hash)
+	}
 	// set torrent file priorities
 	// TODO(fatih): in the future we can make this a hashmap for faster search
 	dbFiles, err := db.GetTorrentTorrentFiles(torrent.InfoHash().String())
@@ -165,13 +173,11 @@ func AddTorrent(dbTorrent *types.Torrent, startDownloading bool, verifyFiles boo
 		return nil, err
 	}
 
-	if startDownloading {
-		for _, file := range torrent.Files() {
-			for _, dbFile := range dbFiles {
-				if file.Path() == dbFile.Path {
-					// set priority also starts the download for file if priority is not none
-					file.SetPriority(types.PiecePriorityStringMap[dbFile.Priority])
-				}
+	for _, file := range torrent.Files() {
+		for _, dbFile := range dbFiles {
+			if file.Path() == dbFile.Path {
+				// set priority also starts the download for file if priority is not none
+				file.SetPriority(types.PiecePriorityStringMap[dbFile.Priority])
 			}
 		}
 	}
@@ -184,7 +190,6 @@ func AddTorrent(dbTorrent *types.Torrent, startDownloading bool, verifyFiles boo
 
 	return torrent, nil
 }
-
 func FindTorrents(hashes []string) ([]*gotorrent.Torrent, error) {
 	foundTorrents := []*gotorrent.Torrent{}
 	for _, hash := range hashes {
