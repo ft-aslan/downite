@@ -501,7 +501,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @example 2b66980093bc11806fab50cb3cb41835b95a0362 */
-                hash: string;
+                infohash: string;
             };
             cookie?: never;
         };

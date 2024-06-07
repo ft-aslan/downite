@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -203,4 +204,112 @@ func FindTorrents(hashes []string) ([]*gotorrent.Torrent, error) {
 		foundTorrents = append(foundTorrents, torrent)
 	}
 	return foundTorrents, nil
+}
+func GetTorrentDetails(torrent *gotorrent.Torrent) (*types.Torrent, error) {
+	var foundTorrent types.Torrent
+	dbTorrent, err := db.GetTorrent(torrent.InfoHash().String())
+	if err != nil {
+		return nil, err
+	}
+	//info is not yet received
+	if torrent.Info() == nil {
+		foundTorrent = types.Torrent{
+			Infohash:  torrent.InfoHash().String(),
+			Name:      torrent.Name(),
+			CreatedAt: dbTorrent.CreatedAt,
+			Status:    types.TorrentStatusStringMap[types.TorrentStatusMetadata],
+		}
+	} else {
+		fileTree := CreateFileTreeFromMeta(*torrent.Info())
+		var progress float32 = 0.0
+		if dbTorrent.SizeOfWanted != 0 {
+			progress = float32(torrent.BytesCompleted()) / float32(dbTorrent.SizeOfWanted) * 100
+		}
+		foundTorrent = types.Torrent{
+			Infohash:     torrent.InfoHash().String(),
+			Name:         torrent.Name(),
+			CreatedAt:    dbTorrent.CreatedAt,
+			Files:        fileTree,
+			TotalSize:    torrent.Info().TotalLength(),
+			SizeOfWanted: dbTorrent.SizeOfWanted,
+			AmountLeft:   torrent.BytesMissing(),
+			Downloaded:   torrent.BytesCompleted(),
+			Progress:     progress,
+			Seeds:        torrent.Stats().ConnectedSeeders,
+			PeerCount:    torrent.Stats().ActivePeers,
+			Status:       dbTorrent.Status,
+		}
+
+		// we use mutex becouse calculating speed is concurrent
+		MutexForTorrentSpeed.Lock()
+		speeds := TorrentSpeedMap[torrent.InfoHash().String()]
+		foundTorrent.DownloadSpeed = speeds.DownloadSpeed
+		foundTorrent.UploadSpeed = speeds.UploadSpeed
+		MutexForTorrentSpeed.Unlock()
+
+	}
+	return &foundTorrent, nil
+}
+func createFolder(fileTree *[]*types.TorrentFileTreeNode, path []string) (*[]*types.TorrentFileTreeNode, *types.TorrentFileTreeNode) {
+	currentFileTree := fileTree
+	var parentNode *types.TorrentFileTreeNode
+	for pathIndex, segment := range path {
+		currentPath := path[:pathIndex+1]
+		found := false
+		if len(*currentFileTree) > 0 {
+			for _, node := range *currentFileTree {
+				if node.Name == segment {
+					parentNode = node
+					currentFileTree = node.Children
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+		}
+		parentNode = &types.TorrentFileTreeNode{
+			Length:   0,
+			Name:     segment,
+			Path:     strings.Join(currentPath, "/"),
+			Children: &[]*types.TorrentFileTreeNode{},
+		}
+		*currentFileTree = append(*currentFileTree, parentNode)
+		currentFileTree = parentNode.Children
+	}
+
+	return currentFileTree, parentNode
+}
+func CreateFileTreeFromMeta(meta metainfo.Info) []*types.TorrentFileTreeNode {
+	var fileTree []*types.TorrentFileTreeNode
+	//there is no file tree in torrent
+	if len(meta.Files) == 0 {
+		fileTree = []*types.TorrentFileTreeNode{
+			{
+				Length:   meta.TotalLength(),
+				Name:     meta.Name,
+				Path:     meta.Name,
+				Children: &[]*types.TorrentFileTreeNode{},
+			},
+		}
+	}
+	//there is a file tree in torrent
+	for _, file := range meta.Files {
+		targetNodeTree := &fileTree
+		var parentNode *types.TorrentFileTreeNode
+		if len(file.Path) > 1 {
+			targetNodeTree, parentNode = createFolder(targetNodeTree, file.Path[:len(file.Path)-1])
+		}
+		*targetNodeTree = append(*targetNodeTree, &types.TorrentFileTreeNode{
+			Length:   file.Length,
+			Name:     file.Path[len(file.Path)-1],
+			Path:     strings.Join(file.Path, "/"),
+			Children: &[]*types.TorrentFileTreeNode{},
+		})
+		if parentNode != nil {
+			parentNode.Length += file.Length
+		}
+	}
+	return fileTree
 }

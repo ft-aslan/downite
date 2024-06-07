@@ -47,6 +47,7 @@ import { useMutation } from "@tanstack/react-query"
 import { components } from "@/api/v1"
 import { client } from "@/api"
 import { Progress } from "@/components/ui/progress"
+import { Link } from "@tanstack/react-router"
 function TorrentStatusIcon(props: { status: string }) {
   switch (props.status) {
     case "loading":
@@ -107,7 +108,16 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
         </Button>
       )
     },
-    cell: ({ row }) => <div>{row.getValue("name")}</div>,
+    cell: ({ row }) => (
+      <div>
+        <Link
+          to={`/torrent/$infohash`}
+          params={{ infohash: row.original.infohash }}
+        >
+          {row.getValue("name")}
+        </Link>
+      </div>
+    ),
   },
   {
     accessorKey: "progress",

@@ -520,10 +520,10 @@
           {
             "example": "2b66980093bc11806fab50cb3cb41835b95a0362",
             "in": "path",
-            "name": "hash",
+            "name": "infohash",
             "required": true,
             "schema": {
-              "description": "Hash of the torrent",
+              "description": "Infohash of the torrent",
               "examples": ["2b66980093bc11806fab50cb3cb41835b95a0362"],
               "maxLength": 30,
               "type": "string"
