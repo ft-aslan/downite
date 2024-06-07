@@ -47,20 +47,24 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 				Status:    types.TorrentStatusStringMap[types.TorrentStatusMetadata],
 			})
 		} else {
-
 			fileTree := createFileTreeFromMeta(*torrent.Info())
+			var progress float32 = 0.0
+			if dbTorrent.SizeOfWanted != 0 {
+				progress = float32(torrent.BytesCompleted()) / float32(dbTorrent.SizeOfWanted) * 100
+			}
 			newTorrent := types.Torrent{
-				Infohash:   torrent.InfoHash().String(),
-				Name:       torrent.Name(),
-				CreatedAt:  dbTorrent.CreatedAt,
-				Files:      fileTree,
-				TotalSize:  torrent.Info().TotalLength(),
-				AmountLeft: torrent.BytesMissing(),
-				Downloaded: torrent.BytesCompleted(),
-				Progress:   float32(torrent.BytesCompleted()) / float32(dbTorrent.SizeOfWanted) * 100,
-				Seeds:      torrent.Stats().ConnectedSeeders,
-				PeerCount:  torrent.Stats().ActivePeers,
-				Status:     dbTorrent.Status,
+				Infohash:     torrent.InfoHash().String(),
+				Name:         torrent.Name(),
+				CreatedAt:    dbTorrent.CreatedAt,
+				Files:        fileTree,
+				TotalSize:    torrent.Info().TotalLength(),
+				SizeOfWanted: dbTorrent.SizeOfWanted,
+				AmountLeft:   torrent.BytesMissing(),
+				Downloaded:   torrent.BytesCompleted(),
+				Progress:     progress,
+				Seeds:        torrent.Stats().ConnectedSeeders,
+				PeerCount:    torrent.Stats().ActivePeers,
+				Status:       dbTorrent.Status,
 			}
 
 			// we use mutex becouse calculating speed is concurrent
@@ -313,7 +317,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	}
 
 	// ADD TORRENT TO CLIENT
-	torrent, err = torr.AddTorrent(&dbTorrent, input.Body.StartTorrent, !input.Body.SkipHashCheck)
+	torrent, err = torr.AddTorrent(dbTorrent.Infohash, dbTorrent.Trackers, dbTorrent.SavePath, !input.Body.SkipHashCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -340,16 +344,14 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		}
 
 	}
+
 	dbTorrent.Files = createFileTreeFromMeta(*torrent.Info())
 
 	if input.Body.StartTorrent {
-		torrent, err = torr.StartTorrent(dbTorrent.Infohash)
+		torrent, err = torr.StartTorrent(torrent)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if input.Body.StartTorrent {
 		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
 	} else {
 		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
@@ -357,6 +359,8 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 
 	dbTorrent.TotalSize = torrent.Length()
 	dbTorrent.Magnet = torrent.Metainfo().Magnet(nil, torrent.Info()).String()
+
+	db.UpdateTorrent(&dbTorrent)
 
 	res.Body = dbTorrent
 

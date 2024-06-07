@@ -53,7 +53,6 @@ func InitTorrents() error {
 	if err != nil {
 		return err
 	}
-
 	for _, dbTorrent := range dbTorrents {
 		// get the trackers
 		trackers, err := db.GetTorrentTrackers(dbTorrent.Infohash)
@@ -61,15 +60,23 @@ func InitTorrents() error {
 			return err
 		}
 		dbTorrent.Trackers = trackers
-		startDownloading := false
-		if types.TorrentStatusDownloading.String() == dbTorrent.Status {
-			startDownloading = true
-		}
-		go AddTorrent(&dbTorrent, true)
-	}
 
+		go func() {
+			torrent, err := AddTorrent(dbTorrent.Infohash, dbTorrent.Trackers, dbTorrent.SavePath, true)
+			if err != nil {
+				fmt.Printf("Error while adding torrent to client %s", err)
+			}
+			if dbTorrent.Status == types.TorrentStatusDownloading.String() {
+				_, err = StartTorrent(torrent)
+				if err != nil {
+					fmt.Printf("Error while starting torrent download %s", err)
+				}
+			}
+		}()
+	}
 	// Start a goroutine to update download speed
 	go updateTorrentSpeeds()
+
 	return nil
 }
 func updateTorrentSpeeds() {
@@ -104,16 +111,16 @@ func updateTorrentSpeeds() {
 
 }
 
-func AddTorrent(dbTorrent *types.Torrent, verifyFiles bool) (*gotorrent.Torrent, error) {
+func AddTorrent(hash string, trackers []types.Tracker, savePath string, verifyFiles bool) (*gotorrent.Torrent, error) {
 	torrentSpec := gotorrent.TorrentSpec{
-		InfoHash: infohash.FromHexString(dbTorrent.Infohash),
+		InfoHash: infohash.FromHexString(hash),
 	}
 	pieceCompletion, err := storage.NewDefaultPieceCompletionForDir("./tmp")
 	if err != nil {
 		return nil, fmt.Errorf("new piece completion: %w", err)
 	}
 	torrentSpec.Storage = storage.NewFileOpts(storage.NewFileClientOpts{
-		ClientBaseDir: dbTorrent.SavePath,
+		ClientBaseDir: savePath,
 		TorrentDirMaker: func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string {
 			return filepath.Join(baseDir, info.BestName())
 		},
@@ -123,15 +130,14 @@ func AddTorrent(dbTorrent *types.Torrent, verifyFiles bool) (*gotorrent.Torrent,
 		PieceCompletion: pieceCompletion,
 	})
 	torrent, new, err := Client.AddTorrentSpec(&torrentSpec)
-
 	if err != nil {
 		return nil, err
 	}
 	if !new {
-		return nil, fmt.Errorf("torrent with hash %s already exists", dbTorrent.Infohash)
+		return nil, fmt.Errorf("torrent with hash %s already exists", hash)
 	}
 	// set trackers of torrent
-	dbTrackers := dbTorrent.Trackers
+	dbTrackers := trackers
 	if len(dbTrackers) > 0 {
 		// sort it based on their tiers
 		sort.Slice(dbTrackers, func(i, j int) bool { return dbTrackers[i].Tier < dbTrackers[j].Tier })
@@ -161,11 +167,7 @@ func AddTorrent(dbTorrent *types.Torrent, verifyFiles bool) (*gotorrent.Torrent,
 	return torrent, nil
 }
 
-func StartTorrent(hash string) (*gotorrent.Torrent, error) {
-	torrent, ok := Client.Torrent(infohash.FromHexString(hash))
-	if !ok {
-		return nil, fmt.Errorf("torrent with hash %s not found", hash)
-	}
+func StartTorrent(torrent *gotorrent.Torrent) (*gotorrent.Torrent, error) {
 	// set torrent file priorities
 	// TODO(fatih): in the future we can make this a hashmap for faster search
 	dbFiles, err := db.GetTorrentTorrentFiles(torrent.InfoHash().String())
