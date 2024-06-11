@@ -46,7 +46,7 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 }
 
 type GetTorrentReq struct {
-	Infohash string `path:"infohash" maxLength:"30" example:"2b66980093bc11806fab50cb3cb41835b95a0362" doc:"Infohash of the torrent"`
+	Infohash string `path:"infohash" maxLength:"40" example:"2b66980093bc11806fab50cb3cb41835b95a0362" doc:"Infohash of the torrent"`
 }
 type GetTorrentRes struct {
 	Body types.Torrent
@@ -88,6 +88,7 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 	for _, foundTorrent := range foundTorrents {
 		if foundTorrent.Info() != nil {
 			foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
+			foundTorrent.SetMaxEstablishedConns(0)
 			torrent, err := db.GetTorrent(foundTorrent.InfoHash().String())
 			if err != nil {
 				return nil, err
@@ -112,7 +113,8 @@ func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 	for _, foundTorrent := range foundTorrents {
 		// TODO(fatih): check if torrent is already started
 		if foundTorrent.Info() != nil {
-			foundTorrent.DownloadAll()
+			foundTorrent.SetMaxEstablishedConns(80)
+			torr.StartTorrent(foundTorrent)
 
 			torrent, err := db.GetTorrent(foundTorrent.InfoHash().String())
 			if err != nil {

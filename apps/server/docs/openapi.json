@@ -513,44 +513,6 @@
         "summary": "Post torrent"
       }
     },
-    "/torrent/:hash": {
-      "get": {
-        "operationId": "get-torrent-hash",
-        "parameters": [
-          {
-            "example": "2b66980093bc11806fab50cb3cb41835b95a0362",
-            "in": "path",
-            "name": "infohash",
-            "required": true,
-            "schema": {
-              "description": "Infohash of the torrent",
-              "examples": ["2b66980093bc11806fab50cb3cb41835b95a0362"],
-              "maxLength": 30,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Torrent" }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ErrorModel" }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Get torrent hash"
-      }
-    },
     "/torrent/delete": {
       "post": {
         "operationId": "post-torrent-delete",
@@ -685,6 +647,44 @@
           }
         },
         "summary": "Post torrent resume"
+      }
+    },
+    "/torrent/{infohash}": {
+      "get": {
+        "operationId": "get-torrent-by-infohash",
+        "parameters": [
+          {
+            "example": "2b66980093bc11806fab50cb3cb41835b95a0362",
+            "in": "path",
+            "name": "infohash",
+            "required": true,
+            "schema": {
+              "description": "Infohash of the torrent",
+              "examples": ["2b66980093bc11806fab50cb3cb41835b95a0362"],
+              "maxLength": 40,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Torrent" }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get torrent by infohash"
       }
     }
   },

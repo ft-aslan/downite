@@ -56,23 +56,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/torrent/:hash": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get torrent hash */
-        get: operations["get-torrent-hash"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/torrent/delete": {
         parameters: {
             query?: never;
@@ -135,6 +118,23 @@ export interface paths {
         put?: never;
         /** Post torrent resume */
         post: operations["post-torrent-resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/torrent/{infohash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get torrent by infohash */
+        get: operations["get-torrent-by-infohash"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -495,38 +495,6 @@ export interface operations {
             };
         };
     };
-    "get-torrent-hash": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @example 2b66980093bc11806fab50cb3cb41835b95a0362 */
-                infohash: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Torrent"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     "post-torrent-delete": {
         parameters: {
             query?: never;
@@ -646,6 +614,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TorrentActionResBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-torrent-by-infohash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @example 2b66980093bc11806fab50cb3cb41835b95a0362 */
+                infohash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Torrent"];
                 };
             };
             /** @description Error */

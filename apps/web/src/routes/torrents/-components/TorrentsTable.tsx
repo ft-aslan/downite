@@ -140,6 +140,25 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     ),
   },
   {
+    accessorKey: "sizeOfWanted",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Size
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => (
+      <div>
+        {(row.getValue("sizeOfWanted") / 1024 / 1024).toFixed(2) + " MB"}
+      </div>
+    ),
+  },
+  {
     accessorKey: "seeds",
     header: ({ column }) => {
       return (

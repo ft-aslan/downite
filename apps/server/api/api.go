@@ -103,7 +103,7 @@ func AddRoutes(api huma.API) {
 		Summary:     "Get all torrents",
 	}, handlers.GetTorrents)
 	huma.Post(api, "/torrent", handlers.DownloadTorrent)
-	huma.Get(api, "/torrent/:hash", handlers.GetTorrent)
+	huma.Get(api, "/torrent/{infohash}", handlers.GetTorrent)
 	huma.Post(api, "/torrent/pause", handlers.PauseTorrent)
 	huma.Post(api, "/torrent/resume", handlers.ResumeTorrent)
 	huma.Post(api, "/torrent/remove", handlers.RemoveTorrent)
