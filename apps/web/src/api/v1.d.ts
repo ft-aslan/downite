@@ -220,18 +220,7 @@ export interface components {
             torrents: components["schemas"]["Torrent"][];
         };
         Peer: {
-            /** Format: ipv4 */
-            ip: string;
-            /** Format: int32 */
-            ipPort: number;
-            url: components["schemas"]["URL"];
-        };
-        PeerInfo: {
-            Addr: unknown;
-            Id: string;
-            Source: string;
-            SupportsEncryption: boolean;
-            Trusted: boolean;
+            url: string;
         };
         PieceProgress: {
             /** Format: int64 */
@@ -267,9 +256,7 @@ export interface components {
             name: string;
             /** Format: int64 */
             peerCount: number;
-            peers: {
-                [key: string]: components["schemas"]["PeerInfo"] | undefined;
-            };
+            peers: components["schemas"]["Peer"][];
             pieceProgress: components["schemas"]["PieceProgress"][];
             /** Format: float */
             progress: number;
@@ -348,8 +335,6 @@ export interface components {
             tier: number;
             url: string;
         };
-        /** Format: uri */
-        URL: string;
     };
     responses: never;
     parameters: never;

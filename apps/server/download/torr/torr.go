@@ -225,6 +225,25 @@ func GetTorrentDetails(torrent *gotorrent.Torrent) (*types.Torrent, error) {
 		if dbTorrent.SizeOfWanted != 0 {
 			progress = float32(torrent.BytesCompleted()) / float32(dbTorrent.SizeOfWanted) * 100
 		}
+		torrentMeta := torrent.Metainfo()
+		torrentSpec := gotorrent.TorrentSpecFromMetaInfo(&torrentMeta)
+		trackers := []types.Tracker{}
+		specTrackers := torrentSpec.Trackers
+		for tierIndex, trackersOfTier := range specTrackers {
+			for _, tracker := range trackersOfTier {
+				trackers = append(trackers, types.Tracker{
+					Url:  tracker,
+					Tier: tierIndex,
+				})
+			}
+		}
+		torrentPeers := torrent.PeerConns()
+		peers := []types.Peer{}
+		for _, peer := range torrentPeers {
+			peers = append(peers, types.Peer{
+				Url: peer.RemoteAddr.String(),
+			})
+		}
 		foundTorrent = types.Torrent{
 			Infohash:     torrent.InfoHash().String(),
 			Name:         torrent.Name(),
@@ -238,6 +257,8 @@ func GetTorrentDetails(torrent *gotorrent.Torrent) (*types.Torrent, error) {
 			Seeds:        torrent.Stats().ConnectedSeeders,
 			PeerCount:    torrent.Stats().ActivePeers,
 			Status:       dbTorrent.Status,
+			Trackers:     trackers,
+			Peers:        peers,
 		}
 
 		// we use mutex becouse calculating speed is concurrent

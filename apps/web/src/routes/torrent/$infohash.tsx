@@ -18,6 +18,8 @@ import TorrentFileTree, {
   createFlatFileTree,
 } from "@/components/TorrentFileTree"
 import { Progress } from "@/components/ui/progress"
+import PeerTable from "./-components/PeerTable"
+import TrackerTable from "./-components/TrackerTable"
 
 const getTorrentQueryOptions = (infohash: string) =>
   queryOptions({
@@ -160,6 +162,12 @@ function TorrentRoot() {
             <span className="text-muted-foreground">{torrent.eta}</span>
           </div>
         </div>
+      </TabsContent>
+      <TabsContent value="peers">
+        <PeerTable peers={torrent.peers} />
+      </TabsContent>
+      <TabsContent value="trackers">
+        <TrackerTable trackers={torrent.trackers} />
       </TabsContent>
       <TabsContent value="files">
         <ScrollArea className="h-80">

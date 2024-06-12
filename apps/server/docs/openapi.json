@@ -143,24 +143,8 @@
       },
       "Peer": {
         "additionalProperties": false,
-        "properties": {
-          "ip": { "format": "ipv4", "type": "string" },
-          "ipPort": { "format": "int32", "type": "integer" },
-          "url": { "$ref": "#/components/schemas/URL" }
-        },
-        "required": ["url", "ip", "ipPort"],
-        "type": "object"
-      },
-      "PeerInfo": {
-        "additionalProperties": false,
-        "properties": {
-          "Addr": {},
-          "Id": { "contentEncoding": "base64", "type": "string" },
-          "Source": { "type": "string" },
-          "SupportsEncryption": { "type": "boolean" },
-          "Trusted": { "type": "boolean" }
-        },
-        "required": ["Id", "Addr", "Source", "SupportsEncryption", "Trusted"],
+        "properties": { "url": { "type": "string" } },
+        "required": ["url"],
         "type": "object"
       },
       "PieceProgress": {
@@ -200,8 +184,8 @@
           "name": { "type": "string" },
           "peerCount": { "format": "int64", "type": "integer" },
           "peers": {
-            "additionalProperties": { "$ref": "#/components/schemas/PeerInfo" },
-            "type": "object"
+            "items": { "$ref": "#/components/schemas/Peer" },
+            "type": "array"
           },
           "pieceProgress": {
             "items": { "$ref": "#/components/schemas/PieceProgress" },
@@ -371,8 +355,7 @@
         },
         "required": ["interval", "url", "peers", "tier"],
         "type": "object"
-      },
-      "URL": { "format": "uri", "type": "string" }
+      }
     }
   },
   "info": { "title": "Downite API", "version": "0.0.1" },

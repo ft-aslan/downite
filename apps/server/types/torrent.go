@@ -2,10 +2,7 @@ package types
 
 import (
 	"encoding/json"
-	"net"
-	"net/url"
 
-	gotorrent "github.com/anacrolix/torrent"
 	gotorrenttypes "github.com/anacrolix/torrent/types"
 )
 
@@ -66,35 +63,35 @@ type TorrentMeta struct {
 	Magnet    string                 `json:"magnet"`
 }
 type Torrent struct {
-	Name          string                        `json:"name"`
-	Infohash      string                        `json:"infohash"`
-	Files         []*TorrentFileTreeNode        `json:"files"`
-	TotalSize     int64                         `json:"totalSize" db:"total_size"`
-	SizeOfWanted  int64                         `json:"sizeOfWanted" db:"size_of_wanted"`
-	AmountLeft    int64                         `json:"amountLeft"`
-	Uploaded      int64                         `json:"uploaded"`
-	Downloaded    int64                         `json:"downloaded"`
-	Magnet        string                        `json:"magnet"`
-	Status        string                        `json:"status" enum:"paused,downloading,completed,seeding,metadata"`
-	PieceProgress []PieceProgress               `json:"pieceProgress"`
-	Peers         map[string]gotorrent.PeerInfo `json:"peers"`
-	Progress      float32                       `json:"progress"`
-	PeerCount     int                           `json:"peerCount"`
-	Eta           int                           `json:"eta"`
-	CategoryId    int                           `json:"-" db:"category_id"`
-	Category      string                        `json:"category"`
-	SavePath      string                        `json:"savePath" db:"save_path"`
-	Tags          []string                      `json:"tags"`
-	Trackers      []Tracker                     `json:"trackers"`
-	CreatedAt     int64                         `json:"createdAt" db:"created_at"`
-	StartedAt     int64                         `json:"startedAt" db:"started_at"`
-	TimeActive    int64                         `json:"timeActive" db:"time_active"`
-	Availability  float32                       `json:"availability"`
-	Ratio         float32                       `json:"ratio"`
-	Seeds         int                           `json:"seeds"`
-	DownloadSpeed float32                       `json:"downloadSpeed"`
-	UploadSpeed   float32                       `json:"uploadSpeed"`
-	Comment       string                        `json:"comment"`
+	Name          string                 `json:"name"`
+	Infohash      string                 `json:"infohash"`
+	Files         []*TorrentFileTreeNode `json:"files"`
+	TotalSize     int64                  `json:"totalSize" db:"total_size"`
+	SizeOfWanted  int64                  `json:"sizeOfWanted" db:"size_of_wanted"`
+	AmountLeft    int64                  `json:"amountLeft"`
+	Uploaded      int64                  `json:"uploaded"`
+	Downloaded    int64                  `json:"downloaded"`
+	Magnet        string                 `json:"magnet"`
+	Status        string                 `json:"status" enum:"paused,downloading,completed,seeding,metadata"`
+	PieceProgress []PieceProgress        `json:"pieceProgress"`
+	Peers         []Peer                 `json:"peers"`
+	Progress      float32                `json:"progress"`
+	PeerCount     int                    `json:"peerCount"`
+	Eta           int                    `json:"eta"`
+	CategoryId    int                    `json:"-" db:"category_id"`
+	Category      string                 `json:"category"`
+	SavePath      string                 `json:"savePath" db:"save_path"`
+	Tags          []string               `json:"tags"`
+	Trackers      []Tracker              `json:"trackers"`
+	CreatedAt     int64                  `json:"createdAt" db:"created_at"`
+	StartedAt     int64                  `json:"startedAt" db:"started_at"`
+	TimeActive    int64                  `json:"timeActive" db:"time_active"`
+	Availability  float32                `json:"availability"`
+	Ratio         float32                `json:"ratio"`
+	Seeds         int                    `json:"seeds"`
+	DownloadSpeed float32                `json:"downloadSpeed"`
+	UploadSpeed   float32                `json:"uploadSpeed"`
+	Comment       string                 `json:"comment"`
 }
 type Tracker struct {
 	Interval uint64 `json:"interval"`
@@ -103,9 +100,7 @@ type Tracker struct {
 	Tier     int    `json:"tier"`
 }
 type Peer struct {
-	Url    url.URL `json:"url"`
-	Ip     net.IP  `json:"ip"`
-	IpPort uint16  `json:"ipPort"`
+	Url string `json:"url"`
 }
 type TorrentClientConfig struct {
 	PieceCompletionDbPath string
