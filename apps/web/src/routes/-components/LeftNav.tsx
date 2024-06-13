@@ -1,4 +1,5 @@
 import { PhMagnetStraight } from "@/components/icons"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -15,10 +16,11 @@ import {
   SquareUser,
   Download,
   Aperture,
+  Moon,
 } from "lucide-react"
 export default function LeftNav() {
   return (
-    <aside className="inset-y fixed  left-0 z-20 flex h-full flex-col border-r">
+    <aside className="inset-y fixed left-0 z-20 flex h-full flex-col border-r">
       <div className="border-b p-2">
         <Button asChild variant="outline" size="icon" aria-label="Home">
           <Link to="/" activeProps={{ className: "bg-muted" }}>
@@ -91,6 +93,16 @@ export default function LeftNav() {
         </TooltipProvider>
       </nav>
       <nav className="mt-auto grid gap-1 p-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ThemeToggle />
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={5}>
+              Theme
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

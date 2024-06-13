@@ -27,6 +27,7 @@ var (
 	MutexForTorrentSpeed sync.Mutex
 	TorrentSpeedMap      = make(map[string]types.TorrentSpeedInfo)
 	torrentPrevSizeMap   = make(map[string]TorrentPrevSize)
+	TorrentQueue         = make([]string, 0)
 	TorrentClientConfig  *types.TorrentClientConfig
 )
 
@@ -225,18 +226,22 @@ func GetTorrentDetails(torrent *gotorrent.Torrent) (*types.Torrent, error) {
 		if dbTorrent.SizeOfWanted != 0 {
 			progress = float32(torrent.BytesCompleted()) / float32(dbTorrent.SizeOfWanted) * 100
 		}
+		trackers := []types.Tracker{}
+
 		torrentMeta := torrent.Metainfo()
 		torrentSpec := gotorrent.TorrentSpecFromMetaInfo(&torrentMeta)
-		trackers := []types.Tracker{}
 		specTrackers := torrentSpec.Trackers
+
 		for tierIndex, trackersOfTier := range specTrackers {
 			for _, tracker := range trackersOfTier {
 				trackers = append(trackers, types.Tracker{
-					Url:  tracker,
-					Tier: tierIndex,
+					Url:   tracker,
+					Tier:  tierIndex,
+					Peers: []types.Peer{},
 				})
 			}
 		}
+
 		torrentPeers := torrent.PeerConns()
 		peers := []types.Peer{}
 		for _, peer := range torrentPeers {
@@ -247,6 +252,7 @@ func GetTorrentDetails(torrent *gotorrent.Torrent) (*types.Torrent, error) {
 		foundTorrent = types.Torrent{
 			Infohash:     torrent.InfoHash().String(),
 			Name:         torrent.Name(),
+			QueueNumber:  dbTorrent.QueueNumber,
 			CreatedAt:    dbTorrent.CreatedAt,
 			Files:        fileTree,
 			TotalSize:    torrent.Info().TotalLength(),
@@ -333,4 +339,23 @@ func CreateFileTreeFromMeta(meta metainfo.Info) []*types.TorrentFileTreeNode {
 		}
 	}
 	return fileTree
+}
+
+func GetTotalDownloadSpeed() float32 {
+	MutexForTorrentSpeed.Lock()
+	defer MutexForTorrentSpeed.Unlock()
+	var totalDownloadSpeed float32
+	for _, downloadSpeed := range TorrentSpeedMap {
+		totalDownloadSpeed += downloadSpeed.DownloadSpeed
+	}
+	return totalDownloadSpeed
+}
+func GetTotalUploadSpeed() float32 {
+	MutexForTorrentSpeed.Lock()
+	defer MutexForTorrentSpeed.Unlock()
+	var totalUploadSpeed float32
+	for _, uploadSpeed := range TorrentSpeedMap {
+		totalUploadSpeed += uploadSpeed.UploadSpeed
+	}
+	return totalUploadSpeed
 }

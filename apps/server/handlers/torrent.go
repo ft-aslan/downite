@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
@@ -21,6 +22,23 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jmoiron/sqlx"
 )
+
+type TorrentsTotalSpeedData struct {
+	DownloadSpeed float32 `json:"downloadSpeed"`
+	UploadSpeed   float32 `json:"uploadSpeed"`
+	Time          string  `json:"time"`
+}
+type GetTorrentsTotalSpeedRes struct {
+	Body TorrentsTotalSpeedData
+}
+
+func GetTorrentsTotalSpeed(ctx context.Context, input *struct{}) (*GetTorrentsTotalSpeedRes, error) {
+	res := &GetTorrentsTotalSpeedRes{}
+	res.Body.DownloadSpeed = torr.GetTotalDownloadSpeed()
+	res.Body.UploadSpeed = torr.GetTotalUploadSpeed()
+	res.Body.Time = time.Now().Format("15:04:05")
+	return res, nil
+}
 
 type GetTorrentsRes struct {
 	Body struct {

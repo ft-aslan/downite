@@ -299,28 +299,11 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
   },
 ]
 
-export function TorrentsTable() {
-  const getTorrentsMutation = useMutation({
-    mutationFn: async () => {
-      const res = await client.GET("/torrent")
-      return res
-    },
-    onSuccess(result) {
-      if (result.data) {
-        setTorrents(result.data.torrents)
-      }
-    },
-  })
-  React.useEffect(() => {
-    const tableUpdateInterval = setInterval(
-      () => getTorrentsMutation.mutate(),
-      1000
-    )
-    return () => clearInterval(tableUpdateInterval)
-  }, [])
-  const [torrents, setTorrents] = React.useState<
-    components["schemas"]["Torrent"][]
-  >([])
+export function TorrentsTable({
+  torrents,
+}: {
+  torrents: components["schemas"]["Torrent"][]
+}) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []

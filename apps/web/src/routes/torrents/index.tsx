@@ -1,12 +1,35 @@
+import { createFileRoute } from "@tanstack/react-router"
+export const Route = createFileRoute("/torrents/")({
+  component: () => TorrentsPage(),
+  loader: ({ context: { queryClient } }) => {
+    queryClient.ensureQueryData(getTorrentsQueryOptions())
+  },
+})
+
 import { Button } from "@/components/ui/button"
-import { Link, createFileRoute } from "@tanstack/react-router"
 import { AddTorrentDialog } from "./-components/AddTorrentDialog"
 import { PlusCircle } from "lucide-react"
 import { TorrentsTable } from "./-components/TorrentsTable"
-export const Route = createFileRoute("/torrents/")({
-  component: () => TorrentsPage(),
-})
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query"
+import { client } from "@/api"
+import React from "react"
+const getTorrentsQueryOptions = () =>
+  queryOptions({
+    queryKey: ["torrents"],
+    queryFn: () => client.GET("/torrent"),
+  })
 function TorrentsPage() {
+  const {
+    data: { data },
+    refetch,
+  } = useSuspenseQuery(getTorrentsQueryOptions())
+  React.useEffect(() => {
+    const tableUpdateInterval = setInterval(() => refetch(), 1000)
+    return () => clearInterval(tableUpdateInterval)
+  }, [])
+
+  if (!data) return null
+
   return (
     <div>
       <div className="flex items-center gap-2">
@@ -23,7 +46,7 @@ function TorrentsPage() {
           </Button>
         </AddTorrentDialog>
       </div>
-      <TorrentsTable />
+      <TorrentsTable torrents={data?.torrents} />
     </div>
   )
 }

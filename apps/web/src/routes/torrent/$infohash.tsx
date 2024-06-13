@@ -37,10 +37,16 @@ function TorrentRoot() {
   const { infohash } = Route.useParams()
   const {
     data: { data: torrent },
+    refetch,
   } = useSuspenseQuery(getTorrentQueryOptions(infohash))
   const [fileTree, setFileTree] = React.useState(
     torrent?.files.map(createFlatFileTree) || []
   )
+  React.useEffect(() => {
+    const torrentUpdateInterval = setInterval(() => refetch(), 1000)
+    return () => clearInterval(torrentUpdateInterval)
+  }, [])
+
   if (!torrent) return null
   return (
     <Tabs defaultValue="overview">

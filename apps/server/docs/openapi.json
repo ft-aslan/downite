@@ -192,6 +192,7 @@
             "type": "array"
           },
           "progress": { "format": "float", "type": "number" },
+          "queueNumber": { "format": "int64", "type": "integer" },
           "ratio": { "format": "float", "type": "number" },
           "savePath": { "type": "string" },
           "seeds": { "format": "int64", "type": "integer" },
@@ -220,6 +221,7 @@
         "required": [
           "name",
           "infohash",
+          "queueNumber",
           "files",
           "totalSize",
           "sizeOfWanted",
@@ -342,6 +344,25 @@
         "required": ["totalSize", "files", "name", "infohash", "magnet"],
         "type": "object"
       },
+      "TorrentsTotalSpeedData": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/TorrentsTotalSpeedData.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "downloadSpeed": { "format": "float", "type": "number" },
+          "time": { "type": "string" },
+          "uploadSpeed": { "format": "float", "type": "number" }
+        },
+        "required": ["downloadSpeed", "uploadSpeed", "time"],
+        "type": "object"
+      },
       "Tracker": {
         "additionalProperties": false,
         "properties": {
@@ -370,6 +391,7 @@
               "schema": {
                 "properties": {
                   "filename": {
+                    "contentMediaType": "application/octet-stream",
                     "description": "filename of the file being uploaded",
                     "format": "binary",
                     "type": "string"
@@ -632,11 +654,38 @@
         "summary": "Post torrent resume"
       }
     },
+    "/torrent/speed": {
+      "get": {
+        "operationId": "get-torrent-speed",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TorrentsTotalSpeedData"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get torrent speed"
+      }
+    },
     "/torrent/{infohash}": {
       "get": {
         "operationId": "get-torrent-by-infohash",
         "parameters": [
           {
+            "description": "Infohash of the torrent",
             "example": "2b66980093bc11806fab50cb3cb41835b95a0362",
             "in": "path",
             "name": "infohash",

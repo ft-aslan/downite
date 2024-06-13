@@ -11,6 +11,7 @@ func GetTorrents() ([]types.Torrent, error) {
 SELECT
 	infohash,
 	name,
+	queue_number,
 	save_path,
 	status,
 	time_active,
@@ -41,6 +42,7 @@ func GetTorrent(torrentHash string) (*types.Torrent, error) {
 SELECT
 	infohash,
 	name,
+	queue_number,
 	save_path,
 	status,
 	time_active,
@@ -65,9 +67,9 @@ WHERE
 
 func InsertTorrent(torrent *types.Torrent) error {
 	_, err := DB.NamedExec(`INSERT INTO torrents
-	(infohash, name, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
+	(infohash, name, queue_number, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
 	VALUES
-	(:infohash, :name, :save_path, :status, :time_active, :downloaded, :uploaded, :total_size, :size_of_wanted, :comment, :category_id, :created_at, :started_at)
+	(:infohash, :name, :queue_number, :save_path, :status, :time_active, :downloaded, :uploaded, :total_size, :size_of_wanted, :comment, :category_id, :created_at, :started_at)
 	`, torrent)
 	return err
 }
@@ -77,6 +79,7 @@ func UpdateTorrent(torrent *types.Torrent) error {
 	UPDATE torrents
 	SET
 		name = :name,
+		queue_number = :queue_number,
 		save_path = :save_path,
 		status = :status,
 		time_active = :time_active,

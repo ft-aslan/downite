@@ -65,6 +65,7 @@ type TorrentMeta struct {
 type Torrent struct {
 	Name          string                 `json:"name"`
 	Infohash      string                 `json:"infohash"`
+	QueueNumber   int                    `json:"queueNumber" db:"queue_number"`
 	Files         []*TorrentFileTreeNode `json:"files"`
 	TotalSize     int64                  `json:"totalSize" db:"total_size"`
 	SizeOfWanted  int64                  `json:"sizeOfWanted" db:"size_of_wanted"`

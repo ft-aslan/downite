@@ -13,6 +13,7 @@ create table
         created_at timestamp default current_timestamp,
         started_at timestamp,
         name text not null,
+        queue_number int not null,
         save_path text not null,
         status int not null,
         time_active timestamp,

@@ -124,6 +124,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/torrent/speed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get torrent speed */
+        get: operations["get-torrent-speed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/torrent/{infohash}": {
         parameters: {
             query?: never;
@@ -260,6 +277,8 @@ export interface components {
             pieceProgress: components["schemas"]["PieceProgress"][];
             /** Format: float */
             progress: number;
+            /** Format: int64 */
+            queueNumber: number;
             /** Format: float */
             ratio: number;
             savePath: string;
@@ -326,6 +345,18 @@ export interface components {
             name: string;
             /** Format: int64 */
             totalSize: number;
+        };
+        TorrentsTotalSpeedData: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            /** Format: float */
+            downloadSpeed: number;
+            time: string;
+            /** Format: float */
+            uploadSpeed: number;
         };
         Tracker: {
             /** Format: int64 */
@@ -612,12 +643,44 @@ export interface operations {
             };
         };
     };
+    "get-torrent-speed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TorrentsTotalSpeedData"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-torrent-by-infohash": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @example 2b66980093bc11806fab50cb3cb41835b95a0362 */
+                /**
+                 * @description Infohash of the torrent
+                 * @example 2b66980093bc11806fab50cb3cb41835b95a0362
+                 */
                 infohash: string;
             };
             cookie?: never;

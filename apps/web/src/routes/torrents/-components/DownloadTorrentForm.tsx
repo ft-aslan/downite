@@ -138,11 +138,7 @@ export default function DownloadTorrentForm({
       return
     }
 
-    if (torrentFile) {
-      data.torrentFile = await torrentFile.text()
-    } else {
-      data.magnet = torrentMeta.magnet
-    }
+    data.magnet = torrentMeta.magnet
 
     torrentDownloadFormMutation.mutate(data)
   }
