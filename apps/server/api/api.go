@@ -57,8 +57,10 @@ func ApiInit() {
 		api := humago.NewWithPrefix(s, "/api", config)
 		// api.UseMiddleware(CorsMiddleware)
 
-		//register routes
-		AddRoutes(api)
+		//register torrent routes
+		AddTorrentRoutes(api)
+		//register download routes
+		AddDownloadRoutes(api)
 
 		//write api json to file
 		apiJson, err := json.Marshal(api.OpenAPI())
@@ -94,7 +96,7 @@ func ApiInit() {
 	// Run the CLI. When passed no commands, it starts the server.
 	cli.Run()
 }
-func AddRoutes(api huma.API) {
+func AddTorrentRoutes(api huma.API) {
 	//register api routes
 	huma.Register(api, huma.Operation{
 		OperationID: "get-all-torrents",
@@ -102,16 +104,69 @@ func AddRoutes(api huma.API) {
 		Path:        "/torrent",
 		Summary:     "Get all torrents",
 	}, handlers.GetTorrents)
-	huma.Post(api, "/torrent", handlers.DownloadTorrent)
-	huma.Get(api, "/torrent/{infohash}", handlers.GetTorrent)
-	huma.Post(api, "/torrent/pause", handlers.PauseTorrent)
-	huma.Post(api, "/torrent/resume", handlers.ResumeTorrent)
-	huma.Post(api, "/torrent/remove", handlers.RemoveTorrent)
-	huma.Post(api, "/torrent/delete", handlers.DeleteTorrent)
-	huma.Post(api, "/meta/magnet", handlers.GetMetaWithMagnet)
-	huma.Post(api, "/meta/file", handlers.GetMetaWithFile)
-	huma.Get(api, "/torrent/speed", handlers.GetTorrentsTotalSpeed)
+	huma.Register(api, huma.Operation{
+		OperationID: "download-torrent-with-file",
+		Method:      http.MethodPost,
+		Path:        "/torrent",
+		Summary:     "Download torrent with file",
+	}, handlers.DownloadTorrentWithFile)
+	huma.Register(api, huma.Operation{
+		OperationID: "download-torrent-with-magnet",
+		Method:      http.MethodPost,
+		Path:        "/magnet",
+		Summary:     "Download torrent with magnet",
+	}, handlers.DownloadTorrent)
+	huma.Register(api, huma.Operation{
+		OperationID: "get-torrent",
+		Method:      http.MethodGet,
+		Path:        "/torrent/{infohash}",
+		Summary:     "Get torrent",
+	}, handlers.GetTorrent)
+	huma.Register(api, huma.Operation{
+		OperationID: "pause-torrent",
+		Method:      http.MethodPost,
+		Path:        "/torrent/pause",
+		Summary:     "Pause torrent",
+	}, handlers.PauseTorrent)
+	huma.Register(api, huma.Operation{
+		OperationID: "resume-torrent",
+		Method:      http.MethodPost,
+		Path:        "/torrent/resume",
+		Summary:     "Resume torrent",
+	}, handlers.ResumeTorrent)
+	huma.Register(api, huma.Operation{
+		OperationID: "remove-torrent",
+		Method:      http.MethodPost,
+		Path:        "/torrent/remove",
+		Summary:     "Remove torrent",
+	}, handlers.RemoveTorrent)
+	huma.Register(api, huma.Operation{
+		OperationID: "delete-torrent",
+		Method:      http.MethodPost,
+		Path:        "/torrent/delete",
+		Summary:     "Delete torrent",
+	}, handlers.DeleteTorrent)
+	huma.Register(api, huma.Operation{
+		OperationID: "get-torrent-meta-info-with-magnet",
+		Method:      http.MethodPost,
+		Path:        "/meta/magnet",
+		Summary:     "Get torrent meta info with magnet",
+	}, handlers.GetMetaWithMagnet)
+	huma.Register(api, huma.Operation{
+		OperationID: "get-torrent-meta-info-with-file",
+		Method:      http.MethodPost,
+		Path:        "/meta/file",
+		Summary:     "Get torrent meta info with file",
+	}, handlers.GetMetaWithFile)
+	huma.Register(api, huma.Operation{
+		OperationID: "get-torrents-total-speed",
+		Method:      http.MethodGet,
+		Path:        "/torrent/speed",
+		Summary:     "Get torrents total speed",
+	}, handlers.GetTorrentsTotalSpeed)
 
+}
+func AddDownloadRoutes(api huma.API) {
 }
 
 // Create a custom middleware handler to disable CORS

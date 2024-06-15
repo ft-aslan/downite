@@ -142,13 +142,13 @@ function TorrentRoot() {
           <div>
             <div className="font-semibold">Download Speed</div>
             <span className="text-muted-foreground">
-              {torrent.downloadSpeed / 1024 / 1024 + " MB/s"}
+              {torrent.downloadSpeed / 1024 + " MB/s"}
             </span>
           </div>
           <div>
             <div className="font-semibold">Upload Speed</div>
             <span className="text-muted-foreground">
-              {torrent.uploadSpeed / 1024 / 1024 + " MB/s"}
+              {torrent.uploadSpeed / 1024 + " MB/s"}
             </span>
           </div>
           <div>

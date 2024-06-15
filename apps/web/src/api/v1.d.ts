@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/magnet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Download torrent with magnet */
+        post: operations["download-torrent-with-magnet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meta/file": {
         parameters: {
             query?: never;
@@ -13,8 +30,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post meta file */
-        post: operations["post-meta-file"];
+        /** Get torrent meta info with file */
+        post: operations["get-torrent-meta-info-with-file"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30,8 +47,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post meta magnet */
-        post: operations["post-meta-magnet"];
+        /** Get torrent meta info with magnet */
+        post: operations["get-torrent-meta-info-with-magnet"];
         delete?: never;
         options?: never;
         head?: never;
@@ -48,8 +65,8 @@ export interface paths {
         /** Get all torrents */
         get: operations["get-all-torrents"];
         put?: never;
-        /** Post torrent */
-        post: operations["post-torrent"];
+        /** Download torrent with file */
+        post: operations["download-torrent-with-file"];
         delete?: never;
         options?: never;
         head?: never;
@@ -65,8 +82,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post torrent delete */
-        post: operations["post-torrent-delete"];
+        /** Delete torrent */
+        post: operations["delete-torrent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -82,8 +99,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post torrent pause */
-        post: operations["post-torrent-pause"];
+        /** Pause torrent */
+        post: operations["pause-torrent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -99,8 +116,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post torrent remove */
-        post: operations["post-torrent-remove"];
+        /** Remove torrent */
+        post: operations["remove-torrent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -116,8 +133,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post torrent resume */
-        post: operations["post-torrent-resume"];
+        /** Resume torrent */
+        post: operations["resume-torrent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -131,8 +148,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get torrent speed */
-        get: operations["get-torrent-speed"];
+        /** Get torrents total speed */
+        get: operations["get-torrents-total-speed"];
         put?: never;
         post?: never;
         delete?: never;
@@ -148,8 +165,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get torrent by infohash */
-        get: operations["get-torrent-by-infohash"];
+        /** Get torrent */
+        get: operations["get-torrent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -176,12 +193,11 @@ export interface components {
             files: components["schemas"]["TorrentFileFlatTreeNode"][];
             incompleteSavePath?: string;
             isIncompleteSavePathEnabled: boolean;
-            magnet?: string;
+            magnet: string;
             savePath: string;
             skipHashCheck: boolean;
             startTorrent: boolean;
             tags?: string[];
-            torrentFile?: string;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -375,7 +391,40 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    "post-meta-file": {
+    "download-torrent-with-magnet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadTorrentReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Torrent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-torrent-meta-info-with-file": {
         parameters: {
             query?: never;
             header?: never;
@@ -416,7 +465,7 @@ export interface operations {
             };
         };
     };
-    "post-meta-magnet": {
+    "get-torrent-meta-info-with-magnet": {
         parameters: {
             query?: never;
             header?: never;
@@ -478,16 +527,16 @@ export interface operations {
             };
         };
     };
-    "post-torrent": {
+    "download-torrent-with-file": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["DownloadTorrentReqBody"];
+                "multipart/form-data": Record<string, never>;
             };
         };
         responses: {
@@ -511,7 +560,7 @@ export interface operations {
             };
         };
     };
-    "post-torrent-delete": {
+    "delete-torrent": {
         parameters: {
             query?: never;
             header?: never;
@@ -544,7 +593,7 @@ export interface operations {
             };
         };
     };
-    "post-torrent-pause": {
+    "pause-torrent": {
         parameters: {
             query?: never;
             header?: never;
@@ -577,7 +626,7 @@ export interface operations {
             };
         };
     };
-    "post-torrent-remove": {
+    "remove-torrent": {
         parameters: {
             query?: never;
             header?: never;
@@ -610,7 +659,7 @@ export interface operations {
             };
         };
     };
-    "post-torrent-resume": {
+    "resume-torrent": {
         parameters: {
             query?: never;
             header?: never;
@@ -643,7 +692,7 @@ export interface operations {
             };
         };
     };
-    "get-torrent-speed": {
+    "get-torrents-total-speed": {
         parameters: {
             query?: never;
             header?: never;
@@ -672,7 +721,7 @@ export interface operations {
             };
         };
     };
-    "get-torrent-by-infohash": {
+    "get-torrent": {
         parameters: {
             query?: never;
             header?: never;

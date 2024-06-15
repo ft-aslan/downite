@@ -1,4 +1,4 @@
-package directdownload
+package download
 
 import (
 	"fmt"
@@ -11,6 +11,19 @@ import (
 	"strings"
 )
 
+type Client struct {
+	// config *ClientConfig
+	// logger log.Logger
+
+	// defaultStorage *storage.Client
+	onClose []func()
+
+	// All Torrents once.
+	downloads  map[*Download]struct{}
+	httpClient *http.Client
+}
+type Download struct {
+}
 type partProcess struct {
 	PartId         uint32
 	startByteIndex uint32
@@ -18,9 +31,11 @@ type partProcess struct {
 	Buffer         []byte
 }
 
-func DownloadFromUrl(url string, partCount uint32, fileDownloadPath string) error {
-	// Create a new HTTP client
-	client := &http.Client{}
+func CraeteDownloadClient() *Client {
+	return &Client{}
+}
+
+func (client *Client) DownloadFromUrl(url string, partCount uint32, fileDownloadPath string) error {
 
 	req, err := http.NewRequest("HEAD", url, nil)
 
@@ -28,7 +43,7 @@ func DownloadFromUrl(url string, partCount uint32, fileDownloadPath string) erro
 		return fmt.Errorf("while creating request:", err)
 	}
 
-	res, err := client.Do(req)
+	res, err := client.httpClient.Do(req)
 
 	if err != nil {
 		return fmt.Errorf("while head request:", err)

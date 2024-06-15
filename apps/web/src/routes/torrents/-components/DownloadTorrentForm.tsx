@@ -107,11 +107,22 @@ export default function DownloadTorrentForm({
     false
   )
   const torrentDownloadFormMutation = useMutation({
-    mutationFn: async (
-      data: components["schemas"]["DownloadTorrentReqBody"]
-    ) => {
+    mutationFn: async (data: MultipartFormData) => {
       const res = await client.POST("/torrent", {
         body: data,
+        bodySerializer(body) {
+          //turn it into multipart/form-data by bypassing json serialization
+          const fd = new FormData()
+          for (const name in body) {
+            const field: any = body[name]
+            if (Array.isArray(field)) {
+              fd.append(name, JSON.stringify(field))
+            } else {
+              fd.append(name, field)
+            }
+          }
+          return fd
+        },
       })
       return res
     },
@@ -125,9 +136,7 @@ export default function DownloadTorrentForm({
       }
     },
   })
-  async function onSubmit(
-    data: components["schemas"]["DownloadTorrentReqBody"]
-  ) {
+  async function onSubmit(data) {
     data.files = fileTree.map((file) => ({
       name: file.name,
       path: file.path,
@@ -138,7 +147,11 @@ export default function DownloadTorrentForm({
       return
     }
 
-    data.magnet = torrentMeta.magnet
+    if (torrentFile) {
+      data.torrentFile = torrentFile
+    } else {
+      data.magnet = torrentMeta.magnet
+    }
 
     torrentDownloadFormMutation.mutate(data)
   }

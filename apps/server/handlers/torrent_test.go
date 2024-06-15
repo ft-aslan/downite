@@ -15,7 +15,7 @@ const testMagnetLink = "magnet:?xt=urn:btih:2b66980093bc11806fab50cb3cb41835b95a
 func TestTorrentDownload(t *testing.T) {
 	_, api := humatest.New(t)
 
-	downiteapi.AddRoutes(api)
+	downiteapi.AddTorrentRoutes(api)
 
 	req := handlers.DownloadTorrentReq{}
 	req.Body.Magnet = testMagnetLink

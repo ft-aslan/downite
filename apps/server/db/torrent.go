@@ -106,6 +106,16 @@ func UpdateTorrentStatus(torrent *types.Torrent) error {
 	`, torrent)
 	return err
 }
+func UpdateSizeOfWanted(torrent *types.Torrent) error {
+	_, err := DB.NamedExec(`
+	UPDATE torrents
+	SET
+		size_of_wanted = :size_of_wanted
+	WHERE
+		infohash = :infohash
+	`, torrent)
+	return err
+}
 
 func DeleteTorrent(torrentHash string) error {
 	_, err := DB.Exec(`DELETE FROM torrents WHERE infohash = ?`, torrentHash)

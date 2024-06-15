@@ -3,7 +3,9 @@ package torr
 import (
 	"downite/db"
 	"downite/types"
+	"downite/utils"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
+	gotorrenttypes "github.com/anacrolix/torrent/types"
 	"github.com/anacrolix/torrent/types/infohash"
 )
 
@@ -112,6 +115,58 @@ func updateTorrentSpeeds() {
 	}
 
 }
+func RegisterTorrent(infohash string,
+	name string,
+	savePath string,
+	specTrackers [][]string) (*types.Torrent, error) {
+
+	var err error
+
+	// if save path empty use default path
+	if savePath == "" {
+		savePath = TorrentClientConfig.DownloadPath
+	} else {
+		if err = utils.CheckDirectoryExists(savePath); err != nil {
+			return nil, err
+		}
+	}
+
+	dbTorrent := types.Torrent{
+		Infohash: infohash,
+		Name:     name,
+		SavePath: savePath,
+		Status:   types.TorrentStatusStringMap[types.TorrentStatusMetadata],
+		Trackers: []types.Tracker{},
+	}
+
+	for tierIndex, trackersOfTier := range specTrackers {
+		for _, tracker := range trackersOfTier {
+			//validate url
+			trackerUrl, err := url.Parse(tracker)
+			if err != nil {
+				return nil, err
+			}
+			dbTorrent.Trackers = append(dbTorrent.Trackers, types.Tracker{
+				Url:  trackerUrl.String(),
+				Tier: tierIndex,
+			})
+		}
+	}
+
+	// Insert torrent
+	err = db.InsertTorrent(&dbTorrent)
+	if err != nil {
+		return nil, err
+	}
+
+	// Insert trackers
+	for _, dbTracker := range dbTorrent.Trackers {
+		if err = db.InsertTracker(&dbTracker, dbTorrent.Infohash); err != nil {
+			return nil, err
+		}
+	}
+	return &dbTorrent, nil
+}
 
 func AddTorrent(hash string, trackers []types.Tracker, savePath string, verifyFiles bool) (*gotorrent.Torrent, error) {
 	torrentSpec := gotorrent.TorrentSpec{
@@ -168,7 +223,40 @@ func AddTorrent(hash string, trackers []types.Tracker, savePath string, verifyFi
 
 	return torrent, nil
 }
+func RegisterFiles(dbTorrent *types.Torrent, torrent *gotorrent.Torrent, inputFiles *[]types.TorrentFileFlatTreeNode) (*types.Torrent, error) {
+	// Insert download priorities of the files
+	for _, file := range torrent.Files() {
+		for _, clientFile := range *inputFiles {
+			if file.DisplayPath() == clientFile.Path {
+				priority, ok := types.PiecePriorityStringMap[clientFile.Priority]
+				if !ok {
+					return nil, fmt.Errorf("invalid download priority: %s", clientFile.Priority)
+				}
 
+				if priority != gotorrenttypes.PiecePriorityNone {
+					dbTorrent.SizeOfWanted += file.Length()
+				}
+
+				var fileName string
+				//if its not multi file torrentt path array gonna be empty. use display path instead
+				if len(file.FileInfo().Path) == 0 {
+					fileName = file.DisplayPath()
+				} else {
+					fileName = file.FileInfo().Path[len(file.FileInfo().Path)-1]
+				}
+				db.InsertTorrentFile(&types.TorrentFileTreeNode{
+					Path:     file.Path(),
+					Priority: clientFile.Priority,
+					Name:     fileName,
+				}, dbTorrent.Infohash)
+			}
+		}
+
+	}
+	db.UpdateSizeOfWanted(dbTorrent)
+	dbTorrent.Files = CreateFileTreeFromMeta(*torrent.Info())
+	return dbTorrent, nil
+}
 func StartTorrent(torrent *gotorrent.Torrent) (*gotorrent.Torrent, error) {
 	// set torrent file priorities
 	// TODO(fatih): in the future we can make this a hashmap for faster search

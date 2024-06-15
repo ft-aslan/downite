@@ -30,10 +30,10 @@
           "savePath": { "type": "string" },
           "skipHashCheck": { "type": "boolean" },
           "startTorrent": { "type": "boolean" },
-          "tags": { "items": { "type": "string" }, "type": "array" },
-          "torrentFile": { "type": "string" }
+          "tags": { "items": { "type": "string" }, "type": "array" }
         },
         "required": [
+          "magnet",
           "savePath",
           "isIncompleteSavePathEnabled",
           "startTorrent",
@@ -382,9 +382,43 @@
   "info": { "title": "Downite API", "version": "0.0.1" },
   "openapi": "3.1.0",
   "paths": {
+    "/magnet": {
+      "post": {
+        "operationId": "download-torrent-with-magnet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadTorrentReqBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Torrent" }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Download torrent with magnet"
+      }
+    },
     "/meta/file": {
       "post": {
-        "operationId": "post-meta-file",
+        "operationId": "get-torrent-meta-info-with-file",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -425,12 +459,12 @@
             "description": "Error"
           }
         },
-        "summary": "Post meta file"
+        "summary": "Get torrent meta info with file"
       }
     },
     "/meta/magnet": {
       "post": {
-        "operationId": "post-meta-magnet",
+        "operationId": "get-torrent-meta-info-with-magnet",
         "requestBody": {
           "content": {
             "application/json": {
@@ -459,7 +493,7 @@
             "description": "Error"
           }
         },
-        "summary": "Post meta magnet"
+        "summary": "Get torrent meta info with magnet"
       }
     },
     "/torrent": {
@@ -486,16 +520,16 @@
         "summary": "Get all torrents"
       },
       "post": {
-        "operationId": "post-torrent",
+        "operationId": "download-torrent-with-file",
         "requestBody": {
           "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DownloadTorrentReqBody"
-              }
+            "multipart/form-data": {
+              "encoding": {
+                "TorrentFile": { "contentType": "application/octet-stream" }
+              },
+              "schema": { "required": [""], "type": "object" }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -515,12 +549,12 @@
             "description": "Error"
           }
         },
-        "summary": "Post torrent"
+        "summary": "Download torrent with file"
       }
     },
     "/torrent/delete": {
       "post": {
-        "operationId": "post-torrent-delete",
+        "operationId": "delete-torrent",
         "requestBody": {
           "content": {
             "application/json": {
@@ -549,12 +583,12 @@
             "description": "Error"
           }
         },
-        "summary": "Post torrent delete"
+        "summary": "Delete torrent"
       }
     },
     "/torrent/pause": {
       "post": {
-        "operationId": "post-torrent-pause",
+        "operationId": "pause-torrent",
         "requestBody": {
           "content": {
             "application/json": {
@@ -583,12 +617,12 @@
             "description": "Error"
           }
         },
-        "summary": "Post torrent pause"
+        "summary": "Pause torrent"
       }
     },
     "/torrent/remove": {
       "post": {
-        "operationId": "post-torrent-remove",
+        "operationId": "remove-torrent",
         "requestBody": {
           "content": {
             "application/json": {
@@ -617,12 +651,12 @@
             "description": "Error"
           }
         },
-        "summary": "Post torrent remove"
+        "summary": "Remove torrent"
       }
     },
     "/torrent/resume": {
       "post": {
-        "operationId": "post-torrent-resume",
+        "operationId": "resume-torrent",
         "requestBody": {
           "content": {
             "application/json": {
@@ -651,12 +685,12 @@
             "description": "Error"
           }
         },
-        "summary": "Post torrent resume"
+        "summary": "Resume torrent"
       }
     },
     "/torrent/speed": {
       "get": {
-        "operationId": "get-torrent-speed",
+        "operationId": "get-torrents-total-speed",
         "responses": {
           "200": {
             "content": {
@@ -677,12 +711,12 @@
             "description": "Error"
           }
         },
-        "summary": "Get torrent speed"
+        "summary": "Get torrents total speed"
       }
     },
     "/torrent/{infohash}": {
       "get": {
-        "operationId": "get-torrent-by-infohash",
+        "operationId": "get-torrent",
         "parameters": [
           {
             "description": "Infohash of the torrent",
@@ -716,7 +750,7 @@
             "description": "Error"
           }
         },
-        "summary": "Get torrent by infohash"
+        "summary": "Get torrent"
       }
     }
   },
