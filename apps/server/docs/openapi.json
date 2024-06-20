@@ -1,13 +1,13 @@
 {
   "components": {
     "schemas": {
-      "DownloadTorrentReqBody": {
+      "DownloadTorrentWithMagnetReqBody": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "http://localhost:9999/api/schemas/DownloadTorrentReqBody.json"
+              "http://localhost:9999/api/schemas/DownloadTorrentWithMagnetReqBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -389,7 +389,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DownloadTorrentReqBody"
+                "$ref": "#/components/schemas/DownloadTorrentWithMagnetReqBody"
               }
             }
           },
@@ -520,7 +520,7 @@
         "summary": "Get all torrents"
       },
       "post": {
-        "operationId": "download-torrent-with-file",
+        "operationId": "download-torrent",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -549,7 +549,7 @@
             "description": "Error"
           }
         },
-        "summary": "Download torrent with file"
+        "summary": "Download torrent"
       }
     },
     "/torrent/delete": {

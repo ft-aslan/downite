@@ -65,8 +65,8 @@ export interface paths {
         /** Get all torrents */
         get: operations["get-all-torrents"];
         put?: never;
-        /** Download torrent with file */
-        post: operations["download-torrent-with-file"];
+        /** Download torrent */
+        post: operations["download-torrent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -179,7 +179,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        DownloadTorrentReqBody: {
+        DownloadTorrentWithMagnetReqBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -400,7 +400,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DownloadTorrentReqBody"];
+                "application/json": components["schemas"]["DownloadTorrentWithMagnetReqBody"];
             };
         };
         responses: {
@@ -527,7 +527,7 @@ export interface operations {
             };
         };
     };
-    "download-torrent-with-file": {
+    "download-torrent": {
         parameters: {
             query?: never;
             header?: never;

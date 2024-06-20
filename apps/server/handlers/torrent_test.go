@@ -17,7 +17,7 @@ func TestTorrentDownload(t *testing.T) {
 
 	downiteapi.AddTorrentRoutes(api)
 
-	req := handlers.DownloadTorrentReq{}
+	req := handlers.DownloadTorrentWithMagnetReq{}
 	req.Body.Magnet = testMagnetLink
 	req.Body.TorrentFile = ""
 	req.Body.SavePath = ""

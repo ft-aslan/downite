@@ -88,7 +88,9 @@ export default function DownloadTorrentForm({
   const [fileTree, setFileTree] = React.useState(
     torrentMeta.files.map(createFlatFileTree)
   )
-  const form = useForm<components["schemas"]["DownloadTorrentReqBody"]>({
+  const form = useForm<
+    components["schemas"]["DownloadTorrentWithMagnetReqBody"]
+  >({
     defaultValues: {
       savePath: "",
       startTorrent: true,

@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	gotorrent "github.com/anacrolix/torrent"
@@ -56,6 +57,9 @@ func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) 
 		torrentsRes = append(torrentsRes, *dbTorrent)
 	}
 
+	sort.Slice(torrentsRes, func(i, j int) bool {
+		return torrentsRes[i].QueueNumber < torrentsRes[j].QueueNumber
+	})
 	res.Body.Torrents = torrentsRes
 	return res, nil
 }
@@ -155,6 +159,7 @@ func RemoveTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 	for _, foundTorrent := range foundTorrents {
 		// TODO(fatih): check if torrent is already started
 		if foundTorrent.Info() != nil {
+			foundTorrent.SetMaxEstablishedConns(0)
 			foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
 			foundTorrent.Drop()
 			sqlx.MustExec(db.DB, "DELETE FROM torrents WHERE infohash = ?", foundTorrent.InfoHash().String())
@@ -179,6 +184,7 @@ func DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 		if foundTorrent.Info() == nil {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
 		}
+		foundTorrent.SetMaxEstablishedConns(0)
 		foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
 		foundTorrent.Drop()
 
@@ -194,29 +200,85 @@ func DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 	return res, nil
 }
 
-type DownloadTorrentWithFileData struct {
-	TorrentFile multipart.File `form-data:"torrentFile" content-type:"application/x-bittorrent" required:"true"`
+type DownloadTorrentData struct {
+	TorrentFile multipart.File `form-data:"torrentFile" content-type:"application/x-bittorrent" required:"false"`
 }
-type DownloadTorrentWithFileReq struct {
-	RawBody huma.MultipartFormFiles[DownloadTorrentWithFileData]
+type DownloadTorrentReq struct {
+	RawBody huma.MultipartFormFiles[DownloadTorrentData]
+}
+type DownloadTorrentRes struct {
+	Body types.Torrent
 }
 
-func DownloadTorrentWithFile(ctx context.Context, input *DownloadTorrentWithFileReq) (*DownloadTorrentRes, error) {
+func (input *DownloadTorrentReq) Resolve(ctx huma.Context, prefix *huma.PathBuffer) []error {
+	form := input.RawBody.Form
+	requiredFields := []string{
+		"savePath",
+		"isIncompleteSavePathEnabled",
+		"startTorrent",
+		"addTopOfQueue",
+		"downloadSequentially",
+		"skipHashCheck",
+		"contentLayout",
+		"files",
+	}
+	var errors []error
+	if form.File["torrentFile"] == nil && form.Value["magnet"] == nil {
+		errors = append(errors, &huma.ErrorDetail{
+			Location: prefix.String(),
+			Message:  "either torrentFile or magnet is required",
+			Value:    input,
+		})
+	}
+	for _, requiredField := range requiredFields {
+		if form.Value[requiredField] == nil {
+			errors = append(errors, &huma.ErrorDetail{
+				Location: prefix.String(),
+				Message:  fmt.Sprintf("%s is required", requiredField),
+				Value:    input,
+			})
+		}
+	}
+	if form.Value["magnet"] != nil {
+		// Validate magnet
+		if _, err := metainfo.ParseMagnetUri(input.RawBody.Form.Value["magnet"][0]); err != nil {
+			errors = append(errors, &huma.ErrorDetail{
+				Location: prefix.String(),
+				Message:  "invalid magnet",
+				Value:    input,
+			})
+		}
+	}
+	return errors
+}
+
+func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadTorrentRes, error) {
 	res := &DownloadTorrentRes{}
 
 	var torrent *gotorrent.Torrent
+	var torrentSpec *gotorrent.TorrentSpec
+	var err error
 
-	// fileData := input.RawBody.Data()
-	torrentFile, err := input.RawBody.Form.File["torrentFile"][0].Open()
-	if err != nil {
-		return nil, err
+	if input.RawBody.Form.File["torrentFile"] != nil {
+		// fileData := input.RawBody.Data()
+		torrentFile, err := input.RawBody.Form.File["torrentFile"][0].Open()
+		if err != nil {
+			return nil, err
+		}
+		// Load the torrent file
+		torrentMeta, err := metainfo.Load(torrentFile)
+		if err != nil {
+			return nil, err
+		}
+		torrentSpec = gotorrent.TorrentSpecFromMetaInfo(torrentMeta)
+	} else {
+		// Load from a magnet link
+		torrentSpec, err = gotorrent.TorrentSpecFromMagnetUri(input.RawBody.Form.Value["magnet"][0])
+		if err != nil {
+			return nil, err
+		}
 	}
-	// Load the torrent file
-	torrentMeta, err := metainfo.Load(torrentFile)
-	if err != nil {
-		return nil, err
-	}
-	torrentSpec := gotorrent.TorrentSpecFromMetaInfo(torrentMeta)
+
 	// Register Torrent To DB
 	dbTorrent, err := torr.RegisterTorrent(torrentSpec.InfoHash.String(), torrentSpec.DisplayName, input.RawBody.Form.Value["savePath"][0], torrentSpec.Trackers)
 	if err != nil {
@@ -262,7 +324,7 @@ func DownloadTorrentWithFile(ctx context.Context, input *DownloadTorrentWithFile
 	return res, nil
 }
 
-type DownloadTorrentReqBody struct {
+type DownloadTorrentWithMagnetReqBody struct {
 	Magnet                      string                          `json:"magnet"`
 	SavePath                    string                          `json:"savePath" validate:"required, dir"`
 	IsIncompleteSavePathEnabled bool                            `json:"isIncompleteSavePathEnabled"`
@@ -277,14 +339,11 @@ type DownloadTorrentReqBody struct {
 	Files                       []types.TorrentFileFlatTreeNode `json:"files"`
 }
 
-type DownloadTorrentReq struct {
-	Body DownloadTorrentReqBody
-}
-type DownloadTorrentRes struct {
-	Body types.Torrent
+type DownloadTorrentWithMagnetReq struct {
+	Body DownloadTorrentWithMagnetReqBody
 }
 
-func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadTorrentRes, error) {
+func DownloadTorrentWithMagnet(ctx context.Context, input *DownloadTorrentWithMagnetReq) (*DownloadTorrentRes, error) {
 	res := &DownloadTorrentRes{}
 	var torrent *gotorrent.Torrent
 
@@ -362,7 +421,7 @@ func GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWi
 
 	var info metainfo.Info
 	var infohash string
-	var magnet string
+	var magnetLink string
 
 	// Load the torrent file
 	torrentFile, err := torrentFiles[0].Open()
@@ -376,9 +435,15 @@ func GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWi
 		return nil, err
 	}
 	info, err = torrentMeta.UnmarshalInfo()
+	if err != nil {
+		return nil, err
+	}
 	infohash = torrentMeta.HashInfoBytes().String()
-	magnetInfo := torrentMeta.Magnet(nil, &info)
-	magnet = magnetInfo.String()
+	magnet, err := torrentMeta.MagnetV2()
+	if err != nil {
+		return nil, err
+	}
+	magnetLink = magnet.String()
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +455,7 @@ func GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWi
 		Files:     fileTree,
 		Name:      info.Name,
 		Infohash:  infohash,
-		Magnet:    magnet,
+		Magnet:    magnetLink,
 	}
 	return res, nil
 }

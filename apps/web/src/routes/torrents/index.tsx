@@ -16,19 +16,21 @@ import React from "react"
 const getTorrentsQueryOptions = () =>
   queryOptions({
     queryKey: ["torrents"],
-    queryFn: () => client.GET("/torrent"),
+    queryFn: async () => {
+      try {
+        const { data } = await client.GET("/torrent")
+        return data
+      } catch (error) {
+        return { torrents: [] }
+      }
+    },
   })
 function TorrentsPage() {
-  const {
-    data: { data },
-    refetch,
-  } = useSuspenseQuery(getTorrentsQueryOptions())
+  const { data, refetch } = useSuspenseQuery(getTorrentsQueryOptions())
   React.useEffect(() => {
     const tableUpdateInterval = setInterval(() => refetch(), 1000)
     return () => clearInterval(tableUpdateInterval)
   }, [])
-
-  if (!data) return null
 
   return (
     <div>
@@ -46,7 +48,7 @@ function TorrentsPage() {
           </Button>
         </AddTorrentDialog>
       </div>
-      <TorrentsTable torrents={data?.torrents} />
+      <TorrentsTable torrents={data?.torrents || []} />
     </div>
   )
 }

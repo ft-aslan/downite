@@ -17,6 +17,7 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	gotorrenttypes "github.com/anacrolix/torrent/types"
 	"github.com/anacrolix/torrent/types/infohash"
+	"modernc.org/sqlite"
 )
 
 var Client *gotorrent.Client
@@ -162,7 +163,10 @@ func RegisterTorrent(infohash string,
 	// Insert trackers
 	for _, dbTracker := range dbTorrent.Trackers {
 		if err = db.InsertTracker(&dbTracker, dbTorrent.Infohash); err != nil {
-			return nil, err
+			// if error is not 2067 (duplicate key) then return
+			if sqliteErr, ok := err.(*sqlite.Error); ok && sqliteErr.Code() != 2067 {
+				return nil, err
+			}
 		}
 	}
 	return &dbTorrent, nil

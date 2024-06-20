@@ -105,17 +105,17 @@ func AddTorrentRoutes(api huma.API) {
 		Summary:     "Get all torrents",
 	}, handlers.GetTorrents)
 	huma.Register(api, huma.Operation{
-		OperationID: "download-torrent-with-file",
+		OperationID: "download-torrent",
 		Method:      http.MethodPost,
 		Path:        "/torrent",
-		Summary:     "Download torrent with file",
-	}, handlers.DownloadTorrentWithFile)
+		Summary:     "Download torrent",
+	}, handlers.DownloadTorrent)
 	huma.Register(api, huma.Operation{
 		OperationID: "download-torrent-with-magnet",
 		Method:      http.MethodPost,
 		Path:        "/magnet",
 		Summary:     "Download torrent with magnet",
-	}, handlers.DownloadTorrent)
+	}, handlers.DownloadTorrentWithMagnet)
 	huma.Register(api, huma.Operation{
 		OperationID: "get-torrent",
 		Method:      http.MethodGet,

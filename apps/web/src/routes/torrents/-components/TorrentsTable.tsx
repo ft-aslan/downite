@@ -66,6 +66,21 @@ function TorrentStatusIcon(props: { status: string }) {
       return null
   }
 }
+function toggleTorrentState(infohash: string, status: string) {
+  if (status === "downloading") {
+    client.POST("/torrent/pause", {
+      body: {
+        infoHashes: [infohash],
+      },
+    })
+  } else if (status === "paused") {
+    client.POST("/torrent/resume", {
+      body: {
+        infoHashes: [infohash],
+      },
+    })
+  }
+}
 
 const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
   {
@@ -94,9 +109,14 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => (
-      <div>
+      <Button
+        variant="ghost"
+        onClick={() =>
+          toggleTorrentState(row.getValue("infohash"), row.getValue("status"))
+        }
+      >
         <TorrentStatusIcon status={row.getValue("status")} />
-      </div>
+      </Button>
     ),
   },
   {
@@ -222,7 +242,21 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     },
     cell: ({ row }) => <div>{row.getValue("uploadSpeed")}</div>,
   },
-
+  {
+    accessorKey: "infohash",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Infohash
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => <div>{row.getValue("infohash")}</div>,
+  },
   {
     id: "actions",
     enableHiding: false,
@@ -314,7 +348,9 @@ export function TorrentsTable({
     []
   )
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({})
+    React.useState<VisibilityState>({
+      infohash: false,
+    })
   const [rowSelection, setRowSelection] = React.useState({})
 
   const table = useReactTable({
@@ -348,7 +384,11 @@ export function TorrentsTable({
           className="max-w-sm"
         />
         <div className="ml-auto flex gap-2">
-          <ToggleGroup type="single" value={view} onValueChange={setView}>
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={(value: "table" | "grid") => setView(value)}
+          >
             <ToggleGroupItem value="table" aria-label="Toggle table view">
               <TableIcon className="h-5 w-5" />
             </ToggleGroupItem>
