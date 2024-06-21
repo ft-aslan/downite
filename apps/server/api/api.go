@@ -74,7 +74,7 @@ func ApiInit() {
 		}
 
 		//run prettier for openapi.json
-		err = exec.Command("prettier", "docs/openapi.json", "--write", "--parser", "json").Run()
+		err = exec.Command("bunx", "prettier", "docs/openapi.json", "--write", "--parser", "json").Run()
 		if err != nil {
 			fmt.Println("Error running prettier for openapi.json:", err)
 			return
