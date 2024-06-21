@@ -109,13 +109,35 @@ func AddTorrentRoutes(api huma.API) {
 		Method:      http.MethodPost,
 		Path:        "/torrent",
 		Summary:     "Download torrent",
+		/* RequestBody: &huma.RequestBody{
+			Content: map[string]*huma.MediaType{
+				"multipart/form-data": {
+					Schema: &huma.Schema{
+						Type: "object",
+						Properties: map[string]*huma.Schema{
+							"json": {
+								Type: huma.TypeObject,
+								// &huma.Schema{Ref: "#/components/schemas/DownloadTorrentReqBody"}
+							},
+							"file": {
+								Type:            huma.TypeString,
+								ContentEncoding: "base64",
+							},
+						},
+					},
+					Encoding: map[string]*huma.Encoding{
+						"json": {
+							ContentType: "application/json",
+						},
+						"file": {
+							ContentType: "application/x-bittorrent",
+						},
+					},
+				},
+			},
+		}, */
 	}, handlers.DownloadTorrent)
-	huma.Register(api, huma.Operation{
-		OperationID: "download-torrent-with-magnet",
-		Method:      http.MethodPost,
-		Path:        "/magnet",
-		Summary:     "Download torrent with magnet",
-	}, handlers.DownloadTorrentWithMagnet)
+
 	huma.Register(api, huma.Operation{
 		OperationID: "get-torrent",
 		Method:      http.MethodGet,

@@ -45,7 +45,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useMutation } from "@tanstack/react-query"
 import { components } from "@/api/v1"
 import { client } from "@/api"
 import { Progress } from "@/components/ui/progress"
@@ -158,7 +157,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     },
     cell: ({ row }) => (
       <div className="flex flex-col items-center gap-2">
-        <span>{row.getValue("progress").toFixed(2)}%</span>
+        <span>{(row.getValue("progress") as number).toFixed(2)}%</span>
         <Progress value={row.getValue("progress")} className="w-full" />
       </div>
     ),
@@ -178,7 +177,8 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     },
     cell: ({ row }) => (
       <div>
-        {(row.getValue("sizeOfWanted") / 1024 / 1024).toFixed(2) + " MB"}
+        {((row.getValue("sizeOfWanted") as number) / 1024 / 1024).toFixed(2) +
+          " MB"}
       </div>
     ),
   },

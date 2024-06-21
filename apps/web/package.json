@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev:web": "npm-run-all --parallel vite openapi-watch",
+    "dev": "npm-run-all --parallel vite openapi-watch",
     "vite": "vite",
     "openapi-watch": "nodemon --watch ../server/docs --exec \"bun run openapi-gen\"",
     "test": "vitest",

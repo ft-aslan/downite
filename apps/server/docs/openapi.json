@@ -1,13 +1,13 @@
 {
   "components": {
     "schemas": {
-      "DownloadTorrentWithMagnetReqBody": {
+      "DownloadTorrentReqBody": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "http://localhost:9999/api/schemas/DownloadTorrentWithMagnetReqBody.json"
+              "http://localhost:9999/api/schemas/DownloadTorrentReqBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -382,40 +382,6 @@
   "info": { "title": "Downite API", "version": "0.0.1" },
   "openapi": "3.1.0",
   "paths": {
-    "/magnet": {
-      "post": {
-        "operationId": "download-torrent-with-magnet",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DownloadTorrentWithMagnetReqBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Torrent" }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ErrorModel" }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Download torrent with magnet"
-      }
-    },
     "/meta/file": {
       "post": {
         "operationId": "get-torrent-meta-info-with-file",
@@ -523,6 +489,11 @@
         "operationId": "download-torrent",
         "requestBody": {
           "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadTorrentReqBody"
+              }
+            },
             "multipart/form-data": {
               "encoding": {
                 "TorrentFile": { "contentType": "application/octet-stream" }

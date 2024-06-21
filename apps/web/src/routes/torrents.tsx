@@ -1,7 +1,4 @@
-import { Button } from "@/components/ui/button"
-
 import { Outlet, createFileRoute } from "@tanstack/react-router"
-import { Share } from "lucide-react"
 
 export const Route = createFileRoute("/torrents")({
   component: () => TorrentsRoot(),

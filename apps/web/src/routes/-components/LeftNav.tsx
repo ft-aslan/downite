@@ -10,13 +10,11 @@ import {
 import { Link } from "@tanstack/react-router"
 
 import {
-  Triangle,
   Settings2,
   LifeBuoy,
   SquareUser,
   Download,
   Aperture,
-  Moon,
 } from "lucide-react"
 export default function LeftNav() {
   return (

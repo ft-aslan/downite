@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { capitalizeFirstLetter } from "@/lib/utils"
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query"
 import React from "react"
-import { z } from "zod"
 import { client } from "@/api"
 import TorrentFileTree, {
   createFlatFileTree,

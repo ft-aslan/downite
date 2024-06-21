@@ -1,18 +1,8 @@
 import { Toaster } from "@/components/ui/sonner"
-import {
-  Outlet,
-  createRootRoute,
-  createRootRouteWithContext,
-  useLoaderData,
-} from "@tanstack/react-router"
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router"
 import { TanStackRouterDevtools } from "@tanstack/router-devtools"
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 
-import {
-  QueryClient,
-  QueryClientProvider,
-  queryOptions,
-} from "@tanstack/react-query"
+import { QueryClient } from "@tanstack/react-query"
 import LeftNav from "./-components/LeftNav"
 import { client } from "@/api"
 import { CircleX } from "lucide-react"

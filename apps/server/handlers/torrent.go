@@ -203,8 +203,23 @@ func DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 type DownloadTorrentData struct {
 	TorrentFile multipart.File `form-data:"torrentFile" content-type:"application/x-bittorrent" required:"false"`
 }
+type DownloadTorrentReqBody struct {
+	Magnet                      string                          `json:"magnet"`
+	SavePath                    string                          `json:"savePath" validate:"required, dir"`
+	IsIncompleteSavePathEnabled bool                            `json:"isIncompleteSavePathEnabled"`
+	IncompleteSavePath          string                          `json:"incompleteSavePath,omitempty" validate:"dir"`
+	Category                    string                          `json:"category,omitempty"`
+	Tags                        []string                        `json:"tags,omitempty"`
+	StartTorrent                bool                            `json:"startTorrent"`
+	AddTopOfQueue               bool                            `json:"addTopOfQueue"`
+	DownloadSequentially        bool                            `json:"downloadSequentially"`
+	SkipHashCheck               bool                            `json:"skipHashCheck"`
+	ContentLayout               string                          `json:"contentLayout" enum:"Original,Create subfolder,Don't create subfolder"`
+	Files                       []types.TorrentFileFlatTreeNode `json:"files"`
+}
 type DownloadTorrentReq struct {
 	RawBody huma.MultipartFormFiles[DownloadTorrentData]
+	Body    DownloadTorrentReqBody
 }
 type DownloadTorrentRes struct {
 	Body types.Torrent
@@ -300,80 +315,6 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	torr.RegisterFiles(dbTorrent, torrent, &flatFileTree)
 
 	if input.RawBody.Form.Value["startTorrent"][0] == "true" {
-		torrent, err = torr.StartTorrent(torrent)
-		if err != nil {
-			return nil, err
-		}
-		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
-	} else {
-		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
-	}
-
-	dbTorrent.TotalSize = torrent.Length()
-	torrentMetaInfo := torrent.Metainfo()
-	magnetLink, err := torrentMetaInfo.MagnetV2()
-	if err != nil {
-		return nil, err
-	}
-	dbTorrent.Magnet = magnetLink.String()
-
-	db.UpdateTorrent(dbTorrent)
-
-	res.Body = *dbTorrent
-
-	return res, nil
-}
-
-type DownloadTorrentWithMagnetReqBody struct {
-	Magnet                      string                          `json:"magnet"`
-	SavePath                    string                          `json:"savePath" validate:"required, dir"`
-	IsIncompleteSavePathEnabled bool                            `json:"isIncompleteSavePathEnabled"`
-	IncompleteSavePath          string                          `json:"incompleteSavePath,omitempty" validate:"dir"`
-	Category                    string                          `json:"category,omitempty"`
-	Tags                        []string                        `json:"tags,omitempty"`
-	StartTorrent                bool                            `json:"startTorrent"`
-	AddTopOfQueue               bool                            `json:"addTopOfQueue"`
-	DownloadSequentially        bool                            `json:"downloadSequentially"`
-	SkipHashCheck               bool                            `json:"skipHashCheck"`
-	ContentLayout               string                          `json:"contentLayout" enum:"Original,Create subfolder,Don't create subfolder"`
-	Files                       []types.TorrentFileFlatTreeNode `json:"files"`
-}
-
-type DownloadTorrentWithMagnetReq struct {
-	Body DownloadTorrentWithMagnetReqBody
-}
-
-func DownloadTorrentWithMagnet(ctx context.Context, input *DownloadTorrentWithMagnetReq) (*DownloadTorrentRes, error) {
-	res := &DownloadTorrentRes{}
-	var torrent *gotorrent.Torrent
-
-	var err error
-	// Validate magnet
-	if _, err = metainfo.ParseMagnetUri(input.Body.Magnet); err != nil {
-		return nil, errors.New("invalid magnet")
-	}
-
-	// Load from a magnet link
-	torrentSpec, err := gotorrent.TorrentSpecFromMagnetUri(input.Body.Magnet)
-	if err != nil {
-		return nil, err
-	}
-
-	// Register Torrent To DB
-	dbTorrent, err := torr.RegisterTorrent(torrentSpec.InfoHash.String(), torrentSpec.DisplayName, input.Body.SavePath, torrentSpec.Trackers)
-	if err != nil {
-		return nil, err
-	}
-	// ADD TORRENT TO CLIENT
-	torrent, err = torr.AddTorrent(dbTorrent.Infohash, dbTorrent.Trackers, dbTorrent.SavePath, !input.Body.SkipHashCheck)
-	if err != nil {
-		return nil, err
-	}
-
-	// Register torrent files
-	torr.RegisterFiles(dbTorrent, torrent, &input.Body.Files)
-
-	if input.Body.StartTorrent {
 		torrent, err = torr.StartTorrent(torrent)
 		if err != nil {
 			return nil, err

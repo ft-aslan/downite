@@ -15,10 +15,9 @@ import { cn } from "@/lib/utils"
 import { useMutation } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { z } from "zod"
+// import { z } from "zod"
 
-import { zodResolver } from "@hookform/resolvers/zod"
-import { ChevronRight, File as FileIcon, Folder } from "lucide-react"
+// import { zodResolver } from "@hookform/resolvers/zod"
 import React from "react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -36,18 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Button } from "@/components/ui/button"
 import TorrentFileTree, {
   createFlatFileTree,
 } from "@/components/TorrentFileTree"
@@ -104,12 +92,31 @@ export default function DownloadTorrentForm({
       tags: [],
     },
   })
+  const onSubmit = form.handleSubmit((data) => {
+    data.files = fileTree.map((file) => ({
+      name: file.name,
+      path: file.path,
+      priority: file.priority,
+    }))
+    if (!torrentMeta.magnet && !torrentFile) {
+      // TODO(fatih): Show error to user. There is no torrent file or magnet
+      return
+    }
+
+    if (torrentFile) {
+      data.torrentFile = torrentFile
+    } else {
+      data.magnet = torrentMeta.magnet
+    }
+
+    torrentDownloadFormMutation.mutate(data)
+  })
   const watchIncompleteSavePath = form.watch(
     "isIncompleteSavePathEnabled",
     false
   )
   const torrentDownloadFormMutation = useMutation({
-    mutationFn: async (data: MultipartFormData) => {
+    mutationFn: async (data: any) => {
       const res = await client.POST("/torrent", {
         body: data,
         bodySerializer(body) {
@@ -138,25 +145,6 @@ export default function DownloadTorrentForm({
       }
     },
   })
-  async function onSubmit(data) {
-    data.files = fileTree.map((file) => ({
-      name: file.name,
-      path: file.path,
-      priority: file.priority,
-    }))
-    if (!torrentMeta.magnet && !torrentFile) {
-      // TODO(fatih): Show error to user. There is no torrent file or magnet
-      return
-    }
-
-    if (torrentFile) {
-      data.torrentFile = torrentFile
-    } else {
-      data.magnet = torrentMeta.magnet
-    }
-
-    torrentDownloadFormMutation.mutate(data)
-  }
 
   const [tab, setTab] = React.useState("config")
   const onTabChange = (value: string) => {
@@ -173,7 +161,7 @@ export default function DownloadTorrentForm({
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={onSubmit}
         className={cn("grid items-start gap-4", className)}
       >
         <div className="flex flex-col space-y-2 rounded-md border p-4">

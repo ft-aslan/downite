@@ -13,6 +13,10 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as TorrentsImport } from './routes/torrents'
 import { Route as TorrentImport } from './routes/torrent'
+import { Route as SettingsImport } from './routes/settings'
+import { Route as HelpImport } from './routes/help'
+import { Route as DownloadsImport } from './routes/downloads'
+import { Route as AccountImport } from './routes/account'
 import { Route as IndexImport } from './routes/index'
 import { Route as TorrentsIndexImport } from './routes/torrents/index'
 import { Route as TorrentInfohashImport } from './routes/torrent/$infohash'
@@ -26,6 +30,26 @@ const TorrentsRoute = TorrentsImport.update({
 
 const TorrentRoute = TorrentImport.update({
   path: '/torrent',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const SettingsRoute = SettingsImport.update({
+  path: '/settings',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const HelpRoute = HelpImport.update({
+  path: '/help',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DownloadsRoute = DownloadsImport.update({
+  path: '/downloads',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AccountRoute = AccountImport.update({
+  path: '/account',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -53,6 +77,34 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountImport
+      parentRoute: typeof rootRoute
+    }
+    '/downloads': {
+      id: '/downloads'
+      path: '/downloads'
+      fullPath: '/downloads'
+      preLoaderRoute: typeof DownloadsImport
+      parentRoute: typeof rootRoute
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpImport
+      parentRoute: typeof rootRoute
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsImport
       parentRoute: typeof rootRoute
     }
     '/torrent': {
@@ -90,6 +142,10 @@ declare module '@tanstack/react-router' {
 
 export const routeTree = rootRoute.addChildren({
   IndexRoute,
+  AccountRoute,
+  DownloadsRoute,
+  HelpRoute,
+  SettingsRoute,
   TorrentRoute: TorrentRoute.addChildren({ TorrentInfohashRoute }),
   TorrentsRoute: TorrentsRoute.addChildren({ TorrentsIndexRoute }),
 })
@@ -103,12 +159,28 @@ export const routeTree = rootRoute.addChildren({
       "filePath": "__root.tsx",
       "children": [
         "/",
+        "/account",
+        "/downloads",
+        "/help",
+        "/settings",
         "/torrent",
         "/torrents"
       ]
     },
     "/": {
       "filePath": "index.tsx"
+    },
+    "/account": {
+      "filePath": "account.tsx"
+    },
+    "/downloads": {
+      "filePath": "downloads.tsx"
+    },
+    "/help": {
+      "filePath": "help.tsx"
+    },
+    "/settings": {
+      "filePath": "settings.tsx"
     },
     "/torrent": {
       "filePath": "torrent.tsx",
