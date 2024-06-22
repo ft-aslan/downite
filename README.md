@@ -1,4 +1,9 @@
 # Downite Self-Hostable Torrent and URL Download Client
+![downite-torrents](https://github.com/ft-aslan/downite/assets/13184550/0ade4fc1-798b-4164-85e8-51f40f28ca20)
+
+
+
+![downite-home](https://github.com/ft-aslan/downite/assets/13184550/eb9184ed-ec40-4fb1-9dd3-e60ffa09148a)
 
 ## About
 
