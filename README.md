@@ -12,7 +12,7 @@
 
 This project is a self-hostable torrent and URL download client designed to run on the same server. It provides a robust solution for managing and downloading torrents and files directly from URLs, all from a unified interface. Future updates will include seamless integration with popular media management applications such as Sonarr and Radarr, allowing for automated media acquisition and organization.
 
-PROJECT IS UNDER HEAVY DEVALOPMENT. IT'S NOT READY FOR PRODUCTION !
+**PROJECT IS UNDER HEAVY DEVALOPMENT. IT'S NOT READY FOR PRODUCTION !**
 
 ## Features
 
