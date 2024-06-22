@@ -18,6 +18,89 @@ This project is a self-hostable torrent and URL download client designed to run 
 
 This project aims to provide a comprehensive, all-in-one solution for media downloading and management, making it an essential tool for any media enthusiast.
 
+## How To Install
+
+### Prerequisites for building from source code
+
+- [Bun](https://github.com/oven-sh/bun) package manager
+- [Go](https://go.dev/)
+
+### Installation
+
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/ft-aslan/downite.git
+   ```
+2. Navigate to the project directory:
+   ```sh
+   cd downite
+   ```
+3. Install dependencies:
+   ```sh
+   bun install
+   ```
+4. Build server:
+   ```sh
+   bun run build:server
+   ```
+5. Build web client:
+   ```sh
+   bun run build:web
+   ```
+6. Run server:
+   ```sh
+   bun run start:server
+   ```
+7. Run server:
+   ```sh
+   bun run start:web
+   ```
+
+- Web client is running on port 4173 by default. http://localhost:4173
+- Server is running on port 9999 by default. http://localhost:9999
+- Documentation link. http://localhost:9999/docs
+
+## How to Develop
+
+### Prerequisites for developing
+
+- [Goose](https://github.com/pressly/goose) database migration tool
+- [Bun](https://github.com/oven-sh/bun) package manager
+- [Go](https://go.dev/)
+- (Optional) [Air](https://github.com/air-verse/air) live reload tool
+
+### Running
+
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/ft-aslan/downite.git
+   ```
+2. Navigate to the project directory:
+   ```sh
+   cd downite
+   ```
+3. Install dependencies:
+   ```sh
+   bun install
+   ```
+4. Start the server in development mode with Air or without Air:
+   - air
+   ```sh
+   bun run dev:server
+   ```
+   - vanilla
+   ```sh
+   bun run dev:server:nohot
+   ```
+5. Start the web client in development mode:
+   ```sh
+   bun run dev:web
+   ```
+
+- Web client is running on port 4173 by default. http://localhost:4173
+- Server is running on port 9999 by default. http://localhost:9999
+- Documentation. http://localhost:9999/docs
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
