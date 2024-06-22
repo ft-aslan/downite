@@ -1,7 +1,10 @@
 # Downite Self-Hostable Torrent and URL Download Client
+
+<p align="center">
+<img src="https://github.com/ft-aslan/downite/assets/13184550/98437e77-a82c-42d6-b059-096bacad0ef0">
+</p>
+
 ![downite-torrents](https://github.com/ft-aslan/downite/assets/13184550/0ade4fc1-798b-4164-85e8-51f40f28ca20)
-
-
 
 ![downite-home](https://github.com/ft-aslan/downite/assets/13184550/eb9184ed-ec40-4fb1-9dd3-e60ffa09148a)
 
