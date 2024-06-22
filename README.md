@@ -101,6 +101,17 @@ This project aims to provide a comprehensive, all-in-one solution for media down
 - Server is running on port 9999 by default. http://localhost:9999
 - Documentation. http://localhost:9999/docs
 
+### Migrations
+
+- Migration down
+  ```sh
+  bun run db down
+  ```
+- Migration up
+  ```sh
+  bun run db up
+  ```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
