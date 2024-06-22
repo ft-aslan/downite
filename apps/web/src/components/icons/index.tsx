@@ -1,4 +1,5 @@
 import type { SVGProps } from "react"
+import LogoIco from "@/assets/logo-icon.svg?react"
 
 export function PhMagnetStraight(props: SVGProps<SVGSVGElement>) {
   return (
@@ -15,4 +16,7 @@ export function PhMagnetStraight(props: SVGProps<SVGSVGElement>) {
       ></path>
     </svg>
   )
+}
+export function LogoIcon(props: SVGProps<SVGSVGElement>) {
+  return <LogoIco {...props} />
 }

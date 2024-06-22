@@ -11,7 +11,8 @@
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "openapi-gen": "bun x openapi-typescript ../server/docs/openapi.json -o ./src/api/v1.d.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.6.0",
@@ -83,6 +84,7 @@
     "prettier-plugin-tailwindcss": "^0.6.2",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.4.5",
-    "vite": "^5.2.13"
+    "vite": "^5.2.13",
+    "vite-plugin-svgr": "^4.2.0"
   }
 }

@@ -42,14 +42,14 @@ interface WithFileProps {
 function WithFile({ onTorrentMetaChange }: WithFileProps) {
   const form = useForm({})
   const torrentMetaFormMutation = useMutation({
-    mutationFn: async (data: MultipartFormData) => {
+    mutationFn: async (data: any) => {
       const res = await client.POST("/meta/file", {
         body: data,
         bodySerializer(body) {
           //turn it into multipart/form-data by bypassing json serialization
           const fd = new FormData()
           for (const name in body) {
-            const field = body[name]
+            const field = (body as any)[name]
             if (field) {
               fd.append(name, field)
             }
@@ -68,7 +68,7 @@ function WithFile({ onTorrentMetaChange }: WithFileProps) {
       }
     },
   })
-  async function onSubmit(data) {
+  async function onSubmit(data: MultipartFormData) {
     torrentMetaFormMutation.mutate(data)
   }
   return (

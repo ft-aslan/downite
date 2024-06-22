@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"reflect"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -98,46 +99,32 @@ func ApiInit() {
 }
 func AddTorrentRoutes(api huma.API) {
 	//register api routes
+	// registering the download torrent route manually because it's a multipart/form-data request
+	schema := api.OpenAPI().Components.Schemas.Schema(reflect.TypeOf(handlers.DownloadTorrentReqBody{}), true, "DownloadTorrentReqBodyStruct")
+	huma.Register(api, huma.Operation{
+		OperationID: "download-torrent",
+		Method:      http.MethodPost,
+		Path:        "/torrent",
+		Summary:     "Download torrent",
+		RequestBody: &huma.RequestBody{
+			Content: map[string]*huma.MediaType{
+				"multipart/form-data": {
+					Schema: schema,
+					Encoding: map[string]*huma.Encoding{
+						"torrentFile": {
+							ContentType: "application/x-bittorrent",
+						},
+					},
+				},
+			},
+		},
+	}, handlers.DownloadTorrent)
 	huma.Register(api, huma.Operation{
 		OperationID: "get-all-torrents",
 		Method:      http.MethodGet,
 		Path:        "/torrent",
 		Summary:     "Get all torrents",
 	}, handlers.GetTorrents)
-	huma.Register(api, huma.Operation{
-		OperationID: "download-torrent",
-		Method:      http.MethodPost,
-		Path:        "/torrent",
-		Summary:     "Download torrent",
-		/* RequestBody: &huma.RequestBody{
-			Content: map[string]*huma.MediaType{
-				"multipart/form-data": {
-					Schema: &huma.Schema{
-						Type: "object",
-						Properties: map[string]*huma.Schema{
-							"json": {
-								Type: huma.TypeObject,
-								// &huma.Schema{Ref: "#/components/schemas/DownloadTorrentReqBody"}
-							},
-							"file": {
-								Type:            huma.TypeString,
-								ContentEncoding: "base64",
-							},
-						},
-					},
-					Encoding: map[string]*huma.Encoding{
-						"json": {
-							ContentType: "application/json",
-						},
-						"file": {
-							ContentType: "application/x-bittorrent",
-						},
-					},
-				},
-			},
-		}, */
-	}, handlers.DownloadTorrent)
-
 	huma.Register(api, huma.Operation{
 		OperationID: "get-torrent",
 		Method:      http.MethodGet,

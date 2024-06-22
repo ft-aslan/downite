@@ -1,4 +1,4 @@
-import { PhMagnetStraight } from "@/components/icons"
+import { LogoIcon, PhMagnetStraight } from "@/components/icons"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,20 +9,14 @@ import {
 } from "@/components/ui/tooltip"
 import { Link } from "@tanstack/react-router"
 
-import {
-  Settings2,
-  LifeBuoy,
-  SquareUser,
-  Download,
-  Aperture,
-} from "lucide-react"
+import { Settings2, LifeBuoy, SquareUser, Download } from "lucide-react"
 export default function LeftNav() {
   return (
     <aside className="inset-y fixed left-0 z-20 flex h-full flex-col border-r">
       <div className="border-b p-2">
         <Button asChild variant="outline" size="icon" aria-label="Home">
           <Link to="/" activeProps={{ className: "bg-muted" }}>
-            <Aperture className="size-5" />
+            <LogoIcon className="size-5" />
           </Link>
         </Button>
       </div>

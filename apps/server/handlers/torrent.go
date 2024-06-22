@@ -6,7 +6,6 @@ import (
 	"downite/download/torr"
 	"downite/types"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"mime/multipart"
 	"os"
@@ -216,6 +215,7 @@ type DownloadTorrentReqBody struct {
 	SkipHashCheck               bool                            `json:"skipHashCheck"`
 	ContentLayout               string                          `json:"contentLayout" enum:"Original,Create subfolder,Don't create subfolder"`
 	Files                       []types.TorrentFileFlatTreeNode `json:"files"`
+	TorrentFile                 multipart.File                  `json:"torrentFile" required:"false"`
 }
 type DownloadTorrentReq struct {
 	RawBody huma.MultipartFormFiles[DownloadTorrentData]
@@ -339,26 +339,46 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	return res, nil
 }
 
+type GetMetaWithFileData struct {
+	TorrentFile multipart.File `form-data:"torrentFile" content-type:"application/x-bittorrent" required:"true"`
+}
 type GetMetaWithFileReq struct {
-	RawBody multipart.Form
+	RawBody huma.MultipartFormFiles[DownloadTorrentData]
 }
 
 type GetMetaWithFileRes struct {
 	Body types.TorrentMeta
 }
 
-func GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWithFileRes, error) {
-	// TODO(fatih): In the future, we should support multiple torrents
-	res := &GetMetaWithFileRes{}
-	torrentFiles := input.RawBody.File["torrentFile"]
+func (input *GetMetaWithFileReq) Resolve(ctx huma.Context, prefix *huma.PathBuffer) []error {
+	torrentFiles := input.RawBody.Form.File["torrentFile"]
 
 	// Form validation
 	if len(torrentFiles) == 0 {
-		return nil, errors.New("no torrent file provided")
+		return []error{
+			&huma.ErrorDetail{
+				Location: prefix.String(),
+				Message:  "no torrent file provided",
+				Value:    input,
+			},
+		}
 	}
 	if len(torrentFiles) > 1 {
-		return nil, errors.New("only one torrent file can be provided")
+		return []error{
+			&huma.ErrorDetail{
+				Location: prefix.String(),
+				Message:  "only one torrent file can be provided",
+				Value:    input,
+			},
+		}
 	}
+	return nil
+}
+
+func GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWithFileRes, error) {
+	// TODO(fatih): In the future, we should support multiple torrents
+	res := &GetMetaWithFileRes{}
+	torrentFiles := input.RawBody.Form.File["torrentFile"]
 
 	var info metainfo.Info
 	var infohash string

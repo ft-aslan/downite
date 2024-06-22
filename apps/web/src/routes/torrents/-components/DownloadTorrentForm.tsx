@@ -76,9 +76,10 @@ export default function DownloadTorrentForm({
   const [fileTree, setFileTree] = React.useState(
     torrentMeta.files.map(createFlatFileTree)
   )
-  const form = useForm<
-    components["schemas"]["DownloadTorrentWithMagnetReqBody"]
-  >({
+  // components["schemas"]["DownloadTorrentWithMagnetReqBody"]
+
+  //TODO(fatih): dont use any as type. fegure out how we can type form for multipart form
+  const form = useForm<components["schemas"]["DownloadTorrentReqBody"]>({
     defaultValues: {
       savePath: "",
       startTorrent: true,
@@ -92,6 +93,7 @@ export default function DownloadTorrentForm({
       tags: [],
     },
   })
+  //TODO(fatih): dont use any as type. fegure out how we can type form for multipart form
   const onSubmit = form.handleSubmit((data) => {
     data.files = fileTree.map((file) => ({
       name: file.name,
@@ -116,14 +118,16 @@ export default function DownloadTorrentForm({
     false
   )
   const torrentDownloadFormMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (
+      data: components["schemas"]["DownloadTorrentReqBody"]
+    ) => {
       const res = await client.POST("/torrent", {
         body: data,
         bodySerializer(body) {
           //turn it into multipart/form-data by bypassing json serialization
           const fd = new FormData()
           for (const name in body) {
-            const field: any = body[name]
+            const field = (body as any)[name]
             if (Array.isArray(field)) {
               fd.append(name, JSON.stringify(field))
             } else {

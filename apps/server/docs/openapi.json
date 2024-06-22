@@ -30,7 +30,8 @@
           "savePath": { "type": "string" },
           "skipHashCheck": { "type": "boolean" },
           "startTorrent": { "type": "boolean" },
-          "tags": { "items": { "type": "string" }, "type": "array" }
+          "tags": { "items": { "type": "string" }, "type": "array" },
+          "torrentFile": {}
         },
         "required": [
           "magnet",
@@ -388,24 +389,12 @@
         "requestBody": {
           "content": {
             "multipart/form-data": {
-              "schema": {
-                "properties": {
-                  "filename": {
-                    "contentMediaType": "application/octet-stream",
-                    "description": "filename of the file being uploaded",
-                    "format": "binary",
-                    "type": "string"
-                  },
-                  "name": {
-                    "description": "general purpose name for multipart form value",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
+              "encoding": {
+                "TorrentFile": { "contentType": "application/octet-stream" }
+              },
+              "schema": { "required": [""], "type": "object" }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -489,16 +478,13 @@
         "operationId": "download-torrent",
         "requestBody": {
           "content": {
-            "application/json": {
+            "multipart/form-data": {
+              "encoding": {
+                "torrentFile": { "contentType": "application/x-bittorrent" }
+              },
               "schema": {
                 "$ref": "#/components/schemas/DownloadTorrentReqBody"
               }
-            },
-            "multipart/form-data": {
-              "encoding": {
-                "TorrentFile": { "contentType": "application/octet-stream" }
-              },
-              "schema": { "required": [""], "type": "object" }
             }
           }
         },

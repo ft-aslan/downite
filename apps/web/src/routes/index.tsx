@@ -85,6 +85,12 @@ export default function HomePage() {
           <header className="border-b pb-2">
             <h2 className="text-xl font-semibold">Downloads</h2>
           </header>
+          <AreaChart
+            className="h-80"
+            data={[{ downloadSpeed: 0, time: "" }]}
+            index="time"
+            categories={["downloadSpeed"]}
+          />
         </div>
       </div>
     </div>
