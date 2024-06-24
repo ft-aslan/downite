@@ -1,4 +1,4 @@
-# Downite Self-Hostable Torrent and URL Download Client
+# Downite Self-Hostable Torrent and HTTP Download Client
 
 <p align="center">
 <img src="https://github.com/ft-aslan/downite/assets/13184550/98437e77-a82c-42d6-b059-096bacad0ef0">
@@ -10,15 +10,15 @@
 
 ## About
 
-This project is a self-hostable torrent and URL download client designed to run on the same server. It provides a robust solution for managing and downloading torrents and files directly from URLs, all from a unified interface. Future updates will include seamless integration with popular media management applications such as Sonarr and Radarr, allowing for automated media acquisition and organization.
+This project is a self-hostable torrent and HTTP download client designed to run on the same server. It provides a robust solution for managing and downloading torrents and files, all from a unified interface. Future updates will include seamless integration with popular media management applications such as Sonarr and Radarr, allowing for automated media acquisition and organization.
 
 **PROJECT IS UNDER HEAVY DEVALOPMENT. IT'S NOT READY FOR PRODUCTION !**
 
 ## Features
 
 - **Torrent Client**: Efficiently download and manage torrents.
-- **URL Download Client**: Directly download files from URLs.
-- **Unified Interface**: Manage both torrents and URL downloads from a single interface.
+- **HTTP Download Client**: Directly download files with HTTP.
+- **Unified Interface**: Manage both torrents and HTTP downloads from a single interface.
 - **Future Integration**: Planned support for Sonarr and Radarr to automate and streamline media management.
 
 ## Planned Integrations
