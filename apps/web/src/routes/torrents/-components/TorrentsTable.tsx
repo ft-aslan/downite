@@ -53,7 +53,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 function TorrentStatusIcon(props: { status: string }) {
   switch (props.status) {
-    case "loading":
+    case "metadata":
       return <RefreshCw className="h-4 w-4" />
     case "paused":
       return <Pause className="h-4 w-4" />

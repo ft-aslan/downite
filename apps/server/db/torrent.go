@@ -96,14 +96,14 @@ func UpdateTorrent(torrent *types.Torrent) error {
 	`, torrent)
 	return err
 }
-func UpdateTorrentStatus(torrent *types.Torrent) error {
-	_, err := DB.NamedExec(`
+func UpdateTorrentStatus(infohash string, status types.TorrentStatus) error {
+	_, err := DB.Exec(`
 	UPDATE torrents
 	SET
-		status = :status
+		status = $1 
 	WHERE
-		infohash = :infohash
-	`, torrent)
+		infohash = $2 
+	`, status.String(), infohash)
 	return err
 }
 func UpdateSizeOfWanted(torrent *types.Torrent) error {

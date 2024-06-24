@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"downite/db"
-	"downite/download/torr"
+	"downite/download/protocol/torr"
 	"downite/types"
 	"encoding/json"
 	"fmt"
@@ -19,6 +19,12 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jmoiron/sqlx"
 )
+
+/* type TorrentHandler struct {
+	Db     *sqlx.DB
+	Client *gotorrent.Client
+}
+*/
 
 type TorrentsTotalSpeedData struct {
 	DownloadSpeed float32 `json:"downloadSpeed"`
@@ -112,7 +118,7 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 				return nil, err
 			}
 			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
-			db.UpdateTorrentStatus(torrent)
+			db.UpdateTorrentStatus(torrent.Infohash, types.TorrentStatusPaused)
 
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
@@ -139,7 +145,7 @@ func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 				return nil, err
 			}
 			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
-			db.UpdateTorrentStatus(torrent)
+			db.UpdateTorrentStatus(torrent.Infohash, types.TorrentStatusDownloading)
 
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")

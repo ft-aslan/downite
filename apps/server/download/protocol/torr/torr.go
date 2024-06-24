@@ -82,8 +82,39 @@ func InitTorrents() error {
 	}
 	// Start a goroutine to update download speed
 	go updateTorrentSpeeds()
-
+	// Start a goroutine to check completed torrents
+	go checkCompletedTorrents()
 	return nil
+}
+func checkCompletedTorrents() {
+	for {
+		torrents := Client.Torrents()
+		for _, torrent := range torrents {
+			dbTorrent, err := db.GetTorrent(torrent.InfoHash().String())
+			if err != nil {
+				fmt.Printf("Error while getting torrent from db %s", err)
+				return
+			}
+			if dbTorrent.Status != types.TorrentStatusDownloading.String() {
+				continue
+			}
+
+			done := false
+			for _, file := range torrent.Files() {
+				if file.Priority() == gotorrenttypes.PiecePriorityNone {
+					done = true
+					continue
+				}
+				if file.BytesCompleted() == file.Length() {
+					done = true
+				}
+			}
+			if done {
+				db.UpdateTorrentStatus(torrent.InfoHash().String(), types.TorrentStatusCompleted)
+			}
+		}
+		time.Sleep(time.Second / 2)
+	}
 }
 func updateTorrentSpeeds() {
 	for {
