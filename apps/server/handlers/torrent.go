@@ -318,7 +318,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		return nil, err
 	}
 	// Register torrent files
-	torr.RegisterFiles(dbTorrent, torrent, &flatFileTree)
+	torr.RegisterFiles(torrent.InfoHash(), &flatFileTree)
 
 	if input.RawBody.Form.Value["startTorrent"][0] == "true" {
 		torrent, err = torr.StartTorrent(torrent)

@@ -11,8 +11,6 @@ import (
 	"strings"
 )
 
-var Cl *Client
-
 // HTTP DOWNLOAD CLIENT
 type Client struct {
 	// config *ClientConfig

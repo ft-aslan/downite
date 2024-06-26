@@ -10,23 +10,23 @@ import (
 
 var DB *sqlx.DB
 
-func DbInit() error {
+func DbInit() (*sqlx.DB, error) {
 	var err error
-	DB, err = sqlx.Connect("sqlite", filepath.Join(".", "bin", "downite.db"))
+	db, err := sqlx.Connect("sqlite", filepath.Join(".", "bin", "downite.db"))
 	if err != nil {
 		panic(err)
 	}
 
-	err = DB.Ping()
+	err = db.Ping()
 	if err != nil {
 		panic(err)
 	}
 	migrationsDir := filepath.Join(".", "db", "migrations")
 
-	err = migrations.Migrate(DB, migrationsDir)
+	err = migrations.Migrate(db, migrationsDir)
 	if err != nil {
 		panic(err)
 	}
-
-	return nil
+	DB = db
+	return db, nil
 }
