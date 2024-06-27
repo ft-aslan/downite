@@ -4,10 +4,10 @@ import (
 	"downite/types"
 )
 
-func GetTorrents() ([]types.Torrent, error) {
+func (db Database) GetTorrents() ([]types.Torrent, error) {
 	var err error
 	var torrents []types.Torrent
-	err = DB.Select(&torrents, `
+	err = db.x.Select(&torrents, `
 SELECT
 	infohash,
 	name,
@@ -35,10 +35,10 @@ ORDER BY
 	return torrents, err
 }
 
-func GetTorrent(torrentHash string) (*types.Torrent, error) {
+func (db Database) GetTorrent(torrentHash string) (*types.Torrent, error) {
 	var err error
 	var torrent types.Torrent
-	err = DB.Get(&torrent, `
+	err = db.x.Get(&torrent, `
 SELECT
 	infohash,
 	name,
@@ -65,8 +65,8 @@ WHERE
 	return &torrent, err
 }
 
-func InsertTorrent(torrent *types.Torrent) error {
-	_, err := DB.NamedExec(`INSERT INTO torrents
+func (db Database) InsertTorrent(torrent *types.Torrent) error {
+	_, err := db.x.NamedExec(`INSERT INTO torrents
 	(infohash, name, queue_number, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
 	VALUES
 	(:infohash, :name, :queue_number, :save_path, :status, :time_active, :downloaded, :uploaded, :total_size, :size_of_wanted, :comment, :category_id, :created_at, :started_at)
@@ -74,8 +74,8 @@ func InsertTorrent(torrent *types.Torrent) error {
 	return err
 }
 
-func UpdateTorrent(torrent *types.Torrent) error {
-	_, err := DB.NamedExec(`
+func (db Database) UpdateTorrent(torrent *types.Torrent) error {
+	_, err := db.x.NamedExec(`
 	UPDATE torrents
 	SET
 		name = :name,
@@ -96,8 +96,8 @@ func UpdateTorrent(torrent *types.Torrent) error {
 	`, torrent)
 	return err
 }
-func UpdateTorrentStatus(infohash string, status types.TorrentStatus) error {
-	_, err := DB.Exec(`
+func (db Database) UpdateTorrentStatus(infohash string, status types.TorrentStatus) error {
+	_, err := db.x.Exec(`
 	UPDATE torrents
 	SET
 		status = $1 
@@ -106,8 +106,8 @@ func UpdateTorrentStatus(infohash string, status types.TorrentStatus) error {
 	`, status.String(), infohash)
 	return err
 }
-func UpdateSizeOfWanted(torrent *types.Torrent) error {
-	_, err := DB.NamedExec(`
+func (db Database) UpdateSizeOfWanted(torrent *types.Torrent) error {
+	_, err := db.x.NamedExec(`
 	UPDATE torrents
 	SET
 		size_of_wanted = :size_of_wanted
@@ -117,7 +117,7 @@ func UpdateSizeOfWanted(torrent *types.Torrent) error {
 	return err
 }
 
-func DeleteTorrent(torrentHash string) error {
-	_, err := DB.Exec(`DELETE FROM torrents WHERE infohash = ?`, torrentHash)
+func (db Database) DeleteTorrent(torrentHash string) error {
+	_, err := db.x.Exec(`DELETE FROM torrents WHERE infohash = ?`, torrentHash)
 	return err
 }

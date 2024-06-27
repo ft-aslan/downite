@@ -8,25 +8,29 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var DB *sqlx.DB
+type Database struct {
+	x *sqlx.DB
+}
 
-func DbInit() (*sqlx.DB, error) {
+func DbInit() (*Database, error) {
 	var err error
-	db, err := sqlx.Connect("sqlite", filepath.Join(".", "bin", "downite.db"))
+	x, err := sqlx.Connect("sqlite", filepath.Join(".", "bin", "downite.db"))
 	if err != nil {
 		panic(err)
 	}
 
-	err = db.Ping()
+	err = x.Ping()
 	if err != nil {
 		panic(err)
 	}
 	migrationsDir := filepath.Join(".", "db", "migrations")
 
-	err = migrations.Migrate(db, migrationsDir)
+	err = migrations.Migrate(x, migrationsDir)
 	if err != nil {
 		panic(err)
 	}
-	DB = db
+	db := &Database{
+		x,
+	}
 	return db, nil
 }

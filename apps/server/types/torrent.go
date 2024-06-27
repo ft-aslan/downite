@@ -103,10 +103,6 @@ type Tracker struct {
 type Peer struct {
 	Url string `json:"url"`
 }
-type TorrentClientConfig struct {
-	PieceCompletionDbPath string
-	DownloadPath          string
-}
 type TorrentSpeedInfo struct {
 	DownloadSpeed float32
 	UploadSpeed   float32

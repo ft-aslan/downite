@@ -2,8 +2,14 @@ package handlers
 
 import (
 	"context"
+	"downite/db"
 	"downite/download/protocol/http"
 )
+
+type DownloadHandler struct {
+	Db     *db.Database
+	Client *http.Client
+}
 
 type GetDownloadFileInfoReq struct {
 	Body struct {
@@ -14,7 +20,7 @@ type GetDownloadFileInfoRes struct {
 	Body http.Download
 }
 
-func GetDownloadFileInfo(ctx context.Context, input *GetDownloadFileInfoReq) (*GetDownloadFileInfoRes, error) {
+func (downloadHandler *DownloadHandler) GetDownloadFileInfo(ctx context.Context, input *GetDownloadFileInfoReq) (*GetDownloadFileInfoRes, error) {
 	res := &GetDownloadFileInfoRes{}
 	return res, nil
 }
@@ -32,7 +38,7 @@ type DownloadRes struct {
 	Body http.Download
 }
 
-func Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
+func (downloadHandler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
 	res := &DownloadRes{}
 
 	return res, nil
@@ -45,7 +51,7 @@ type GetDownloadRes struct {
 	Body http.Download
 }
 
-func GetDownload(ctx context.Context, input *GetDownloadReq) (*GetDownloadRes, error) {
+func (downloadHandler *DownloadHandler) GetDownload(ctx context.Context, input *GetDownloadReq) (*GetDownloadRes, error) {
 	res := &GetDownloadRes{}
 
 	return res, nil

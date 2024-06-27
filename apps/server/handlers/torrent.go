@@ -17,14 +17,12 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/jmoiron/sqlx"
 )
 
-/* type TorrentHandler struct {
-	Db     *sqlx.DB
-	Client *gotorrent.Client
+type TorrentHandler struct {
+	Db     *db.Database
+	Engine *torr.TorrentEngine
 }
-*/
 
 type TorrentsTotalSpeedData struct {
 	DownloadSpeed float32 `json:"downloadSpeed"`
@@ -35,10 +33,10 @@ type GetTorrentsTotalSpeedRes struct {
 	Body TorrentsTotalSpeedData
 }
 
-func GetTorrentsTotalSpeed(ctx context.Context, input *struct{}) (*GetTorrentsTotalSpeedRes, error) {
+func (handler *TorrentHandler) GetTorrentsTotalSpeed(ctx context.Context, input *struct{}) (*GetTorrentsTotalSpeedRes, error) {
 	res := &GetTorrentsTotalSpeedRes{}
-	res.Body.DownloadSpeed = torr.GetTotalDownloadSpeed()
-	res.Body.UploadSpeed = torr.GetTotalUploadSpeed()
+	res.Body.DownloadSpeed = handler.Engine.GetTotalDownloadSpeed()
+	res.Body.UploadSpeed = handler.Engine.GetTotalUploadSpeed()
 	res.Body.Time = time.Now().Format("15:04:05")
 	return res, nil
 }
@@ -49,13 +47,13 @@ type GetTorrentsRes struct {
 	}
 }
 
-func GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) {
+func (handler *TorrentHandler) GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) {
 	res := &GetTorrentsRes{}
 	torrentsRes := []types.Torrent{}
 
-	torrents := torr.Client.Torrents()
+	torrents := handler.Engine.Client.Torrents()
 	for _, torrent := range torrents {
-		dbTorrent, err := torr.GetTorrentDetails(torrent)
+		dbTorrent, err := handler.Engine.GetTorrentDetails(torrent.InfoHash())
 		if err != nil {
 			return nil, err
 		}
@@ -76,13 +74,13 @@ type GetTorrentRes struct {
 	Body types.Torrent
 }
 
-func GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, error) {
+func (handler *TorrentHandler) GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, error) {
 	res := &GetTorrentRes{}
-	torrent, ok := torr.Client.Torrent(infohash.FromHexString(input.Infohash))
+	torrent, ok := handler.Engine.Client.Torrent(infohash.FromHexString(input.Infohash))
 	if !ok {
 		return nil, fmt.Errorf("torrent with hash %s not found", input.Infohash)
 	}
-	dbTorrent, err := torr.GetTorrentDetails(torrent)
+	dbTorrent, err := handler.Engine.GetTorrentDetails(torrent.InfoHash())
 	if err != nil {
 		return nil, err
 	}
@@ -103,9 +101,9 @@ type TorrentActionRes struct {
 	}
 }
 
-func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
+func (handler *TorrentHandler) PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
 	res := &TorrentActionRes{}
-	foundTorrents, err := torr.FindTorrents(input.Body.InfoHashes)
+	foundTorrents, err := handler.Engine.FindTorrents(input.Body.InfoHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -113,12 +111,12 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 		if foundTorrent.Info() != nil {
 			foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
 			foundTorrent.SetMaxEstablishedConns(0)
-			torrent, err := db.GetTorrent(foundTorrent.InfoHash().String())
+			torrent, err := handler.Db.GetTorrent(foundTorrent.InfoHash().String())
 			if err != nil {
 				return nil, err
 			}
 			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
-			db.UpdateTorrentStatus(torrent.Infohash, types.TorrentStatusPaused)
+			handler.Db.UpdateTorrentStatus(torrent.Infohash, types.TorrentStatusPaused)
 
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
@@ -128,9 +126,9 @@ func PauseTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionR
 
 	return res, nil
 }
-func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
+func (handler *TorrentHandler) ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
 	res := &TorrentActionRes{}
-	foundTorrents, err := torr.FindTorrents(input.Body.InfoHashes)
+	foundTorrents, err := handler.Engine.FindTorrents(input.Body.InfoHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -138,14 +136,14 @@ func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 		// TODO(fatih): check if torrent is already started
 		if foundTorrent.Info() != nil {
 			foundTorrent.SetMaxEstablishedConns(80)
-			torr.StartTorrent(foundTorrent)
+			handler.Engine.StartTorrent(foundTorrent)
 
-			torrent, err := db.GetTorrent(foundTorrent.InfoHash().String())
+			torrent, err := handler.Db.GetTorrent(foundTorrent.InfoHash().String())
 			if err != nil {
 				return nil, err
 			}
 			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
-			db.UpdateTorrentStatus(torrent.Infohash, types.TorrentStatusDownloading)
+			handler.Db.UpdateTorrentStatus(torrent.Infohash, types.TorrentStatusDownloading)
 
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
@@ -155,9 +153,9 @@ func ResumeTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 
 	return res, nil
 }
-func RemoveTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
+func (handler *TorrentHandler) RemoveTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
 	res := &TorrentActionRes{}
-	foundTorrents, err := torr.FindTorrents(input.Body.InfoHashes)
+	foundTorrents, err := handler.Engine.FindTorrents(input.Body.InfoHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +165,7 @@ func RemoveTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 			foundTorrent.SetMaxEstablishedConns(0)
 			foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
 			foundTorrent.Drop()
-			sqlx.MustExec(db.DB, "DELETE FROM torrents WHERE infohash = ?", foundTorrent.InfoHash().String())
+			handler.Db.DeleteTorrent(foundTorrent.InfoHash().String())
 		} else {
 			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
 		}
@@ -178,9 +176,9 @@ func RemoveTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 }
 
 // this is also deletes the torrent from disk
-func DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
+func (handler *TorrentHandler) DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentActionRes, error) {
 	res := &TorrentActionRes{}
-	foundTorrents, err := torr.FindTorrents(input.Body.InfoHashes)
+	foundTorrents, err := handler.Engine.FindTorrents(input.Body.InfoHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -193,9 +191,9 @@ func DeleteTorrent(ctx context.Context, input *TorrentActionReq) (*TorrentAction
 		foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
 		foundTorrent.Drop()
 
-		dbTorrent, err := db.GetTorrent(foundTorrent.InfoHash().String())
-		err = db.DeleteTorrent(foundTorrent.InfoHash().String())
-		err = db.DeleteTorrentFilesByInfohash(foundTorrent.InfoHash().String())
+		dbTorrent, err := handler.Db.GetTorrent(foundTorrent.InfoHash().String())
+		err = handler.Db.DeleteTorrent(foundTorrent.InfoHash().String())
+		err = handler.Db.DeleteTorrentFilesByInfohash(foundTorrent.InfoHash().String())
 		err = os.RemoveAll(filepath.Join(dbTorrent.SavePath, foundTorrent.Name()))
 		if err != nil {
 			return nil, err
@@ -273,7 +271,7 @@ func (input *DownloadTorrentReq) Resolve(ctx huma.Context, prefix *huma.PathBuff
 	return errors
 }
 
-func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadTorrentRes, error) {
+func (handler *TorrentHandler) DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadTorrentRes, error) {
 	res := &DownloadTorrentRes{}
 
 	var torrent *gotorrent.Torrent
@@ -301,12 +299,12 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	}
 
 	// Register Torrent To DB
-	dbTorrent, err := torr.RegisterTorrent(torrentSpec.InfoHash.String(), torrentSpec.DisplayName, input.RawBody.Form.Value["savePath"][0], torrentSpec.Trackers)
+	dbTorrent, err := handler.Engine.RegisterTorrent(torrentSpec.InfoHash.String(), torrentSpec.DisplayName, input.RawBody.Form.Value["savePath"][0], torrentSpec.Trackers)
 	if err != nil {
 		return nil, err
 	}
 	// ADD TORRENT TO CLIENT
-	torrent, err = torr.AddTorrent(dbTorrent.Infohash, dbTorrent.Trackers, dbTorrent.SavePath, input.RawBody.Form.Value["skipHashCheck"][0] != "true")
+	torrent, err = handler.Engine.AddTorrent(dbTorrent.Infohash, dbTorrent.Trackers, dbTorrent.SavePath, input.RawBody.Form.Value["skipHashCheck"][0] != "true")
 	if err != nil {
 		return nil, err
 	}
@@ -318,10 +316,10 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 		return nil, err
 	}
 	// Register torrent files
-	torr.RegisterFiles(torrent.InfoHash(), &flatFileTree)
+	handler.Engine.RegisterFiles(torrent.InfoHash(), &flatFileTree)
 
 	if input.RawBody.Form.Value["startTorrent"][0] == "true" {
-		torrent, err = torr.StartTorrent(torrent)
+		torrent, err = handler.Engine.StartTorrent(torrent)
 		if err != nil {
 			return nil, err
 		}
@@ -338,7 +336,7 @@ func DownloadTorrent(ctx context.Context, input *DownloadTorrentReq) (*DownloadT
 	}
 	dbTorrent.Magnet = magnetLink.String()
 
-	db.UpdateTorrent(dbTorrent)
+	handler.Db.UpdateTorrent(dbTorrent)
 
 	res.Body = *dbTorrent
 
@@ -381,7 +379,7 @@ func (input *GetMetaWithFileReq) Resolve(ctx huma.Context, prefix *huma.PathBuff
 	return nil
 }
 
-func GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWithFileRes, error) {
+func (handler *TorrentHandler) GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWithFileRes, error) {
 	// TODO(fatih): In the future, we should support multiple torrents
 	res := &GetMetaWithFileRes{}
 	torrentFiles := input.RawBody.Form.File["torrentFile"]
@@ -415,7 +413,7 @@ func GetMetaWithFile(ctx context.Context, input *GetMetaWithFileReq) (*GetMetaWi
 		return nil, err
 	}
 
-	fileTree := torr.CreateFileTreeFromMeta(info)
+	fileTree := handler.Engine.CreateFileTreeFromMeta(info)
 
 	res.Body = types.TorrentMeta{
 		TotalSize: info.TotalLength(),
@@ -437,7 +435,7 @@ type GetMetaWithMagnetRes struct {
 	Body types.TorrentMeta
 }
 
-func GetMetaWithMagnet(ctx context.Context, input *GetMetaWithMagnetReq) (*GetMetaWithMagnetRes, error) {
+func (handler *TorrentHandler) GetMetaWithMagnet(ctx context.Context, input *GetMetaWithMagnetReq) (*GetMetaWithMagnetRes, error) {
 	// TODO(fatih): In the future, we should support multiple torrents
 	res := &GetMetaWithMagnetRes{}
 
@@ -451,7 +449,7 @@ func GetMetaWithMagnet(ctx context.Context, input *GetMetaWithMagnetReq) (*GetMe
 	}
 	// Load from a magnet link
 
-	torrent, err := torr.Client.AddMagnet(magnet)
+	torrent, err := handler.Engine.Client.AddMagnet(magnet)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +459,7 @@ func GetMetaWithMagnet(ctx context.Context, input *GetMetaWithMagnetReq) (*GetMe
 	info = *torrent.Info()
 	infohash = torrent.InfoHash().String()
 
-	fileTree := torr.CreateFileTreeFromMeta(info)
+	fileTree := handler.Engine.CreateFileTreeFromMeta(info)
 
 	res.Body = types.TorrentMeta{
 		TotalSize: info.TotalLength(),

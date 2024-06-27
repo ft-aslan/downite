@@ -15,14 +15,19 @@ import (
 	"github.com/rs/cors"
 )
 
-// Options for the CLI.
-type Options struct {
+// ApiOptions for the CLI.
+type ApiOptions struct {
 	Port int `help:"Port to listen on" short:"p" default:"9999"`
 }
+type API struct {
+	humaApi huma.API
+	Options *ApiOptions
+}
 
-func ApiInit() {
+func ApiInit(options ApiOptions) *API {
+	api := &API{}
 	// Create a CLI app which takes a port option.
-	cli := humacli.New(func(hooks humacli.Hooks, options *Options) {
+	cli := humacli.New(func(hooks humacli.Hooks, options *ApiOptions) {
 		s := http.NewServeMux()
 
 		//initilize docs
@@ -55,31 +60,9 @@ func ApiInit() {
 		config.OpenAPIPath = "/openapi"
 		config.DocsPath = ""
 
-		api := humago.NewWithPrefix(s, "/api", config)
+		mainApi := humago.NewWithPrefix(s, "/api", config)
+		api.humaApi = mainApi
 		// api.UseMiddleware(CorsMiddleware)
-
-		//register torrent routes
-		AddTorrentRoutes(api)
-		//register download routes
-		AddDownloadRoutes(api)
-
-		//write api json to file
-		apiJson, err := json.Marshal(api.OpenAPI())
-		if err != nil {
-			panic(err)
-		}
-		err = os.WriteFile("docs/openapi.json", apiJson, 0644)
-		if err != nil {
-			fmt.Println("Error writing openapi to file:", err)
-			return
-		}
-
-		//run prettier for openapi.json
-		err = exec.Command("bunx", "prettier", "docs/openapi.json", "--write", "--parser", "json").Run()
-		if err != nil {
-			fmt.Println("Error running prettier for openapi.json:", err)
-			return
-		}
 
 		// Tell the CLI how to start your server.
 		hooks.OnStart(func() {
@@ -96,12 +79,33 @@ func ApiInit() {
 	})
 	// Run the CLI. When passed no commands, it starts the server.
 	cli.Run()
+	return api
 }
-func AddTorrentRoutes(api huma.API) {
+func (api *API) ExportOpenApi() {
+	//write api json to file
+	apiJson, err := json.Marshal(api.humaApi.OpenAPI())
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile("docs/openapi.json", apiJson, 0644)
+	if err != nil {
+		fmt.Println("Error writing openapi to file:", err)
+		return
+	}
+
+	//run prettier for openapi.json
+	err = exec.Command("bunx", "prettier", "docs/openapi.json", "--write", "--parser", "json").Run()
+	if err != nil {
+		fmt.Println("Error running prettier for openapi.json:", err)
+		return
+	}
+}
+func (api API) AddTorrentRoutes(handler handlers.TorrentHandler) {
+	humaApi := api.humaApi
 	//register api routes
 	// registering the download torrent route manually because it's a multipart/form-data request
-	schema := api.OpenAPI().Components.Schemas.Schema(reflect.TypeOf(handlers.DownloadTorrentReqBody{}), true, "DownloadTorrentReqBodyStruct")
-	huma.Register(api, huma.Operation{
+	schema := humaApi.OpenAPI().Components.Schemas.Schema(reflect.TypeOf(handlers.DownloadTorrentReqBody{}), true, "DownloadTorrentReqBodyStruct")
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "download-torrent",
 		Method:      http.MethodPost,
 		Path:        "/torrent",
@@ -118,64 +122,71 @@ func AddTorrentRoutes(api huma.API) {
 				},
 			},
 		},
-	}, handlers.DownloadTorrent)
-	huma.Register(api, huma.Operation{
+	}, handler.DownloadTorrent)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-all-torrents",
 		Method:      http.MethodGet,
 		Path:        "/torrent",
 		Summary:     "Get all torrents",
-	}, handlers.GetTorrents)
-	huma.Register(api, huma.Operation{
+	}, handler.GetTorrents)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-torrent",
 		Method:      http.MethodGet,
 		Path:        "/torrent/{infohash}",
 		Summary:     "Get torrent",
-	}, handlers.GetTorrent)
-	huma.Register(api, huma.Operation{
+	}, handler.GetTorrent)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "pause-torrent",
 		Method:      http.MethodPost,
 		Path:        "/torrent/pause",
 		Summary:     "Pause torrent",
-	}, handlers.PauseTorrent)
-	huma.Register(api, huma.Operation{
+	}, handler.PauseTorrent)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "resume-torrent",
 		Method:      http.MethodPost,
 		Path:        "/torrent/resume",
 		Summary:     "Resume torrent",
-	}, handlers.ResumeTorrent)
-	huma.Register(api, huma.Operation{
+	}, handler.ResumeTorrent)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "remove-torrent",
 		Method:      http.MethodPost,
 		Path:        "/torrent/remove",
 		Summary:     "Remove torrent",
-	}, handlers.RemoveTorrent)
-	huma.Register(api, huma.Operation{
+	}, handler.RemoveTorrent)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "delete-torrent",
 		Method:      http.MethodPost,
 		Path:        "/torrent/delete",
 		Summary:     "Delete torrent",
-	}, handlers.DeleteTorrent)
-	huma.Register(api, huma.Operation{
+	}, handler.DeleteTorrent)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-torrent-meta-info-with-magnet",
 		Method:      http.MethodPost,
 		Path:        "/meta/magnet",
 		Summary:     "Get torrent meta info with magnet",
-	}, handlers.GetMetaWithMagnet)
-	huma.Register(api, huma.Operation{
+	}, handler.GetMetaWithMagnet)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-torrent-meta-info-with-file",
 		Method:      http.MethodPost,
 		Path:        "/meta/file",
 		Summary:     "Get torrent meta info with file",
-	}, handlers.GetMetaWithFile)
-	huma.Register(api, huma.Operation{
+	}, handler.GetMetaWithFile)
+	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-torrents-total-speed",
 		Method:      http.MethodGet,
 		Path:        "/torrent/speed",
 		Summary:     "Get torrents total speed",
-	}, handlers.GetTorrentsTotalSpeed)
+	}, handler.GetTorrentsTotalSpeed)
 
 }
-func AddDownloadRoutes(api huma.API) {
+func (api API) AddDownloadRoutes(handler handlers.DownloadHandler) {
+	humaApi := api.humaApi
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-download-meta",
+		Method:      http.MethodPost,
+		Path:        "/download/meta",
+		Summary:     "Get meta data of download",
+	}, handler.GetDownloadFileInfo)
 }
 
 // Create a custom middleware handler to disable CORS

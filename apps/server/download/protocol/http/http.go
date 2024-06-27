@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+type DownloadClientConfig struct {
+	DownloadPath string
+}
+
 // HTTP DOWNLOAD CLIENT
 type Client struct {
 	// config *ClientConfig
@@ -21,6 +25,7 @@ type Client struct {
 
 	downloads  []*Download
 	httpClient *http.Client
+	Config     *DownloadClientConfig
 }
 type Download struct {
 	PartProcess []*PartProgress
@@ -39,8 +44,10 @@ type PartProgress struct {
 	Buffer         []byte
 }
 
-func CreateDownloadClient() *Client {
-	return &Client{}
+func CreateDownloadClient(config DownloadClientConfig) (*Client, error) {
+	return &Client{
+		Config: &config,
+	}, nil
 }
 
 func (client *Client) DownloadFromUrl(url string, partCount uint32, fileDownloadPath string) error {
