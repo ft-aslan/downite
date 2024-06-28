@@ -11,29 +11,26 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
-	"github.com/danielgtaylor/huma/v2/humacli"
 	"github.com/rs/cors"
 )
 
-// ApiOptions for the CLI.
 type ApiOptions struct {
 	Port int `help:"Port to listen on" short:"p" default:"9999"`
 }
 type API struct {
 	humaApi huma.API
+	handler *http.Handler
 	Options *ApiOptions
 }
 
 func ApiInit(options ApiOptions) *API {
 	api := &API{}
-	// Create a CLI app which takes a port option.
-	cli := humacli.New(func(hooks humacli.Hooks, options *ApiOptions) {
-		s := http.NewServeMux()
+	s := http.NewServeMux()
 
-		//initilize docs
-		s.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte(`
+	//initilize docs
+	s.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`
 			<!doctype html>
 			<html>
 			  <head>
@@ -51,35 +48,32 @@ func ApiInit(options ApiOptions) *API {
 			  </body>
 			</html>
 			`))
-		})
-
-		//initilize huma
-		config := huma.DefaultConfig("Downite API", "0.0.1")
-		config.Servers = []*huma.Server{{URL: "http://localhost:9999/api"}}
-
-		config.OpenAPIPath = "/openapi"
-		config.DocsPath = ""
-
-		mainApi := humago.NewWithPrefix(s, "/api", config)
-		api.humaApi = mainApi
-		// api.UseMiddleware(CorsMiddleware)
-
-		// Tell the CLI how to start your server.
-		hooks.OnStart(func() {
-			fmt.Printf("Starting server on port %d...\n", options.Port)
-
-			//disabled cors
-			s := cors.New(cors.Options{
-				AllowedOrigins: []string{"*"},
-				AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			}).Handler(s)
-
-			http.ListenAndServe(fmt.Sprintf("localhost:%d", options.Port), s)
-		})
 	})
-	// Run the CLI. When passed no commands, it starts the server.
-	cli.Run()
+
+	//initilize huma
+	config := huma.DefaultConfig("Downite API", "0.0.1")
+	config.Servers = []*huma.Server{{URL: "http://localhost:9999/api"}}
+
+	config.OpenAPIPath = "/openapi"
+	config.DocsPath = ""
+
+	humaApi := humago.NewWithPrefix(s, "/api", config)
+	api.humaApi = humaApi
+	// api.UseMiddleware(CorsMiddleware)
+
+	//disabled cors
+	cors := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	})
+	corsMux := cors.Handler(s)
+	api.handler = &corsMux
+	api.Options = &options
 	return api
+}
+func (api *API) Run() {
+	fmt.Printf("Starting server on port %d...\n", api.Options.Port)
+	http.ListenAndServe(fmt.Sprintf("localhost:%d", api.Options.Port), *api.handler)
 }
 func (api *API) ExportOpenApi() {
 	//write api json to file
@@ -100,7 +94,7 @@ func (api *API) ExportOpenApi() {
 		return
 	}
 }
-func (api API) AddTorrentRoutes(handler handlers.TorrentHandler) {
+func (api *API) AddTorrentRoutes(handler handlers.TorrentHandler) {
 	humaApi := api.humaApi
 	//register api routes
 	// registering the download torrent route manually because it's a multipart/form-data request

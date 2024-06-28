@@ -20,11 +20,13 @@ func main() {
 	if err != nil {
 		fmt.Printf("Cannot connect to db : %s", err)
 	}
-	humaApi := api.ApiInit(api.ApiOptions{})
+	humaApi := api.ApiInit(api.ApiOptions{
+		Port: 9999,
+	})
 
 	torrentEngine, err := torr.CreateTorrentEngine(torrentEngineConfig, db)
 	if err != nil {
-		fmt.Printf("Cannot torrent download client : %s", err)
+		fmt.Printf("Cannot create torrent engine : %s", err)
 	}
 	err = torrentEngine.InitTorrents()
 	if err != nil {
@@ -53,4 +55,6 @@ func main() {
 		Db:     db,
 		Client: downloadClient,
 	})
+	humaApi.ExportOpenApi()
+	humaApi.Run()
 }

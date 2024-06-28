@@ -44,6 +44,7 @@ func CreateTorrentEngine(config TorrentEngineConfig, db *db.Database) (*TorrentE
 		Config:             &config,
 		torrentPrevSizeMap: make(map[string]TorrentPrevSize),
 		TorrentQueue:       make([]string, 0),
+		Torrents:           make(map[string]*types.Torrent),
 		db:                 db,
 	}
 	// Create a new torrent client config
@@ -128,7 +129,7 @@ func (torrentEngine *TorrentEngine) checkCompletedTorrents() {
 			}
 			torrentEngine.mutexForTorrents.Unlock()
 		}
-		time.Sleep(time.Second / 2)
+		time.Sleep(time.Second)
 	}
 }
 func (torrentEngine *TorrentEngine) updateTorrentInfo() {
@@ -157,7 +158,7 @@ func (torrentEngine *TorrentEngine) updateTorrentInfo() {
 
 			torrentEngine.mutexForTorrents.Unlock()
 		}
-		time.Sleep(time.Second / 2)
+		time.Sleep(time.Second)
 	}
 }
 
@@ -314,7 +315,8 @@ func (torrentEngine *TorrentEngine) RegisterFiles(infohash metainfo.Hash, inputF
 		return nil, fmt.Errorf("cannot find torrent with %s this infohash", infohash)
 	}
 
-	torrentEngine.mutexForTorrents.Lock()
+	// torrentEngine.mutexForTorrents.Lock()
+	// defer torrentEngine.mutexForTorrents.Unlock()
 	dbTorrent := torrentEngine.Torrents[infohash.String()]
 	// Insert download priorities of the files
 	for _, file := range torrent.Files() {
@@ -347,7 +349,6 @@ func (torrentEngine *TorrentEngine) RegisterFiles(infohash metainfo.Hash, inputF
 	}
 	torrentEngine.db.UpdateSizeOfWanted(dbTorrent)
 	dbTorrent.Files = torrentEngine.CreateFileTreeFromMeta(*torrent.Info())
-	torrentEngine.mutexForTorrents.Unlock()
 
 	return dbTorrent, nil
 }

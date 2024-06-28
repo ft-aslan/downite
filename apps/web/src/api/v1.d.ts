@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/download/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Get meta data of download */
+        post: operations["get-download-meta"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meta/file": {
         parameters: {
             query?: never;
@@ -162,6 +179,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Download: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            Downloaded: number;
+            Finished: boolean;
+            Name: string;
+            /** Format: int32 */
+            PartCount: number;
+            PartProcess: components["schemas"]["PartProgress"][];
+            Path: string;
+            /** Format: int64 */
+            TotalSize: number;
+            Url: string;
+        };
         DownloadTorrentReqBody: {
             /**
              * Format: uri
@@ -220,6 +255,14 @@ export interface components {
              */
             type: string;
         };
+        GetDownloadFileInfoReqBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            url: string;
+        };
         GetMetaWithMagnetReqBody: {
             /**
              * Format: uri
@@ -235,6 +278,15 @@ export interface components {
              */
             readonly $schema?: string;
             torrents: components["schemas"]["Torrent"][];
+        };
+        PartProgress: {
+            Buffer: string;
+            /** Format: int32 */
+            EndByteIndex: number;
+            /** Format: int32 */
+            PartId: number;
+            /** Format: int32 */
+            StartByteIndex: number;
         };
         Peer: {
             url: string;
@@ -375,6 +427,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "get-download-meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GetDownloadFileInfoReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Download"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-torrent-meta-info-with-file": {
         parameters: {
             query?: never;

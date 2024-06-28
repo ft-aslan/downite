@@ -1,6 +1,40 @@
 {
   "components": {
     "schemas": {
+      "Download": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": ["http://localhost:9999/api/schemas/Download.json"],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "Downloaded": { "format": "int64", "type": "integer" },
+          "Finished": { "type": "boolean" },
+          "Name": { "type": "string" },
+          "PartCount": { "format": "int32", "type": "integer" },
+          "PartProcess": {
+            "items": { "$ref": "#/components/schemas/PartProgress" },
+            "type": "array"
+          },
+          "Path": { "type": "string" },
+          "TotalSize": { "format": "int64", "type": "integer" },
+          "Url": { "type": "string" }
+        },
+        "required": [
+          "PartProcess",
+          "Name",
+          "Path",
+          "PartCount",
+          "Url",
+          "TotalSize",
+          "Downloaded",
+          "Finished"
+        ],
+        "type": "object"
+      },
       "DownloadTorrentReqBody": {
         "additionalProperties": false,
         "properties": {
@@ -105,6 +139,23 @@
         },
         "type": "object"
       },
+      "GetDownloadFileInfoReqBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/GetDownloadFileInfoReqBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "url": { "minLength": 1, "type": "string" }
+        },
+        "required": ["url"],
+        "type": "object"
+      },
       "GetMetaWithMagnetReqBody": {
         "additionalProperties": false,
         "properties": {
@@ -140,6 +191,17 @@
           }
         },
         "required": ["torrents"],
+        "type": "object"
+      },
+      "PartProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "Buffer": { "contentEncoding": "base64", "type": "string" },
+          "EndByteIndex": { "format": "int32", "type": "integer" },
+          "PartId": { "format": "int32", "type": "integer" },
+          "StartByteIndex": { "format": "int32", "type": "integer" }
+        },
+        "required": ["PartId", "StartByteIndex", "EndByteIndex", "Buffer"],
         "type": "object"
       },
       "Peer": {
@@ -383,6 +445,40 @@
   "info": { "title": "Downite API", "version": "0.0.1" },
   "openapi": "3.1.0",
   "paths": {
+    "/download/meta": {
+      "post": {
+        "operationId": "get-download-meta",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetDownloadFileInfoReqBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Download" }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get meta data of download"
+      }
+    },
     "/meta/file": {
       "post": {
         "operationId": "get-torrent-meta-info-with-file",
