@@ -61,7 +61,9 @@ function WithFile({ onTorrentMetaChange }: WithFileProps) {
     },
     onSuccess(result) {
       if (result.data) {
-        toast("Form Submitted", { description: JSON.stringify(result.data) })
+        toast(
+          `Fetched torrent metadata from torrent file : ${result.data.name}`
+        )
         const { torrentFile: torrent } = form.getValues()
         form.reset()
         onTorrentMetaChange(result.data, torrent)
@@ -135,7 +137,7 @@ function WithMagnet({ onTorrentMetaChange }: WithMagnetProps) {
     },
     onSuccess(result) {
       if (result.data) {
-        toast("Form Submitted", { description: JSON.stringify(result.data) })
+        toast(`Fetched torrent metadata from magnet link : ${result.data.name}`)
         form.reset()
         onTorrentMetaChange(result.data, undefined)
       }

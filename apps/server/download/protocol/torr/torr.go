@@ -6,6 +6,7 @@ import (
 	"downite/utils"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -30,11 +31,11 @@ type TorrentEngineConfig struct {
 }
 
 type TorrentEngine struct {
-	Client             *gotorrent.Client
+	client             *gotorrent.Client
 	torrentPrevSizeMap map[string]TorrentPrevSize
 	TorrentQueue       []string
 	mutexForTorrents   sync.Mutex
-	Torrents           map[string]*types.Torrent
+	torrents           map[string]*types.Torrent
 	Config             *TorrentEngineConfig
 	db                 *db.Database
 }
@@ -44,7 +45,7 @@ func CreateTorrentEngine(config TorrentEngineConfig, db *db.Database) (*TorrentE
 		Config:             &config,
 		torrentPrevSizeMap: make(map[string]TorrentPrevSize),
 		TorrentQueue:       make([]string, 0),
-		Torrents:           make(map[string]*types.Torrent),
+		torrents:           make(map[string]*types.Torrent),
 		db:                 db,
 	}
 	// Create a new torrent client config
@@ -62,7 +63,7 @@ func CreateTorrentEngine(config TorrentEngineConfig, db *db.Database) (*TorrentE
 		fmt.Println("Error creating gotorrent client:", err)
 		return nil, err
 	}
-	torrentEngine.Client = client
+	torrentEngine.client = client
 	return torrentEngine, nil
 }
 func (torrentEngine *TorrentEngine) InitTorrents() error {
@@ -79,7 +80,7 @@ func (torrentEngine *TorrentEngine) InitTorrents() error {
 		dbTorrent.Trackers = trackers
 
 		torrentEngine.mutexForTorrents.Lock()
-		torrentEngine.Torrents[dbTorrent.Infohash] = &dbTorrent
+		torrentEngine.torrents[dbTorrent.Infohash] = &dbTorrent
 		torrentEngine.mutexForTorrents.Unlock()
 
 		go func() {
@@ -105,10 +106,10 @@ func (torrentEngine *TorrentEngine) InitTorrents() error {
 }
 func (torrentEngine *TorrentEngine) checkCompletedTorrents() {
 	for {
-		torrents := torrentEngine.Client.Torrents()
+		torrents := torrentEngine.client.Torrents()
+		torrentEngine.mutexForTorrents.Lock()
 		for _, torrent := range torrents {
-			torrentEngine.mutexForTorrents.Lock()
-			dbTorrent := torrentEngine.Torrents[torrent.InfoHash().String()]
+			dbTorrent := torrentEngine.torrents[torrent.InfoHash().String()]
 			if dbTorrent.Status != types.TorrentStatusDownloading.String() {
 				continue
 			}
@@ -127,17 +128,17 @@ func (torrentEngine *TorrentEngine) checkCompletedTorrents() {
 				torrentEngine.db.UpdateTorrentStatus(torrent.InfoHash().String(), types.TorrentStatusCompleted)
 				dbTorrent.Status = types.TorrentStatusCompleted.String()
 			}
-			torrentEngine.mutexForTorrents.Unlock()
 		}
-		time.Sleep(time.Second)
+		torrentEngine.mutexForTorrents.Unlock()
+		time.Sleep(time.Second / 2)
 	}
 }
 func (torrentEngine *TorrentEngine) updateTorrentInfo() {
 	for {
-		torrents := torrentEngine.Client.Torrents()
+		torrents := torrentEngine.client.Torrents()
+		torrentEngine.mutexForTorrents.Lock()
 		for _, torrent := range torrents {
-			torrentEngine.mutexForTorrents.Lock()
-			dbTorrent := torrentEngine.Torrents[torrent.InfoHash().String()]
+			dbTorrent := torrentEngine.torrents[torrent.InfoHash().String()]
 
 			//Update peers
 			torrentPeers := torrent.PeerConns()
@@ -156,15 +157,15 @@ func (torrentEngine *TorrentEngine) updateTorrentInfo() {
 			}
 			dbTorrent.Progress = progress
 
-			torrentEngine.mutexForTorrents.Unlock()
 		}
+		torrentEngine.mutexForTorrents.Unlock()
 		time.Sleep(time.Second)
 	}
 }
 
 func (torrentEngine *TorrentEngine) updateTorrentSpeeds() {
 	for {
-		torrents := torrentEngine.Client.Torrents()
+		torrents := torrentEngine.client.Torrents()
 		for _, torrent := range torrents {
 			// calculate torrent speed based on written bytes per sec
 			prevDownloadedTotalLength := torrentEngine.torrentPrevSizeMap[torrent.InfoHash().HexString()].DownloadedBytes
@@ -184,7 +185,7 @@ func (torrentEngine *TorrentEngine) updateTorrentSpeeds() {
 
 			// set torrent speed info
 			torrentEngine.mutexForTorrents.Lock()
-			dbTorrent := torrentEngine.Torrents[torrent.InfoHash().HexString()]
+			dbTorrent := torrentEngine.torrents[torrent.InfoHash().HexString()]
 			dbTorrent.DownloadSpeed = downloadSpeed
 			dbTorrent.UploadSpeed = uploadSpeed
 			torrentEngine.mutexForTorrents.Unlock()
@@ -193,10 +194,30 @@ func (torrentEngine *TorrentEngine) updateTorrentSpeeds() {
 	}
 
 }
+func (torrentEngine *TorrentEngine) GetTorrents() []*types.Torrent {
+	torrentEngine.mutexForTorrents.Lock()
+	defer torrentEngine.mutexForTorrents.Unlock()
+	return torrentEngine.torrentsAsSlice()
+}
+func (torrentEngine *TorrentEngine) torrentsAsSlice() (torrents []*types.Torrent) {
+	for _, torrent := range torrentEngine.torrents {
+		torrents = append(torrents, torrent)
+	}
+	return
+}
+func (torrentEngine *TorrentEngine) GetTorrent(infohash string) (*types.Torrent, error) {
+	torrentEngine.mutexForTorrents.Lock()
+	defer torrentEngine.mutexForTorrents.Unlock()
+	torrent, ok := torrentEngine.torrents[infohash]
+	if !ok {
+		return nil, fmt.Errorf("torrent with infohash %s not found", infohash)
+	}
+	return torrent, nil
+}
 func (torrentEngine *TorrentEngine) RegisterTorrent(infohash string,
 	name string,
 	savePath string,
-	specTrackers [][]string) (*types.Torrent, error) {
+	specTrackers [][]string, addTopOfQueue bool) (*types.Torrent, error) {
 
 	var err error
 
@@ -209,14 +230,8 @@ func (torrentEngine *TorrentEngine) RegisterTorrent(infohash string,
 		}
 	}
 
-	dbTorrent := types.Torrent{
-		Infohash: infohash,
-		Name:     name,
-		SavePath: savePath,
-		Status:   types.TorrentStatusStringMap[types.TorrentStatusMetadata],
-		Trackers: []types.Tracker{},
-	}
-
+	// Add trackers
+	trackers := []types.Tracker{}
 	for tierIndex, trackersOfTier := range specTrackers {
 		for _, tracker := range trackersOfTier {
 			//validate url
@@ -224,15 +239,36 @@ func (torrentEngine *TorrentEngine) RegisterTorrent(infohash string,
 			if err != nil {
 				return nil, err
 			}
-			dbTorrent.Trackers = append(dbTorrent.Trackers, types.Tracker{
-				Url:  trackerUrl.String(),
-				Tier: tierIndex,
+			trackers = append(trackers, types.Tracker{
+				Url:   trackerUrl.String(),
+				Peers: []types.Peer{},
+				Tier:  tierIndex,
 			})
 		}
 	}
 
+	dbTorrent := types.Torrent{
+		Infohash: infohash,
+		Name:     name,
+		SavePath: savePath,
+		Status:   types.TorrentStatusStringMap[types.TorrentStatusMetadata],
+		Trackers: trackers,
+	}
+	if addTopOfQueue {
+		dbTorrent.QueueNumber = 1
+	} else {
+		if len(torrentEngine.torrents) == 0 {
+			dbTorrent.QueueNumber = 1
+		} else {
+			lastQueueNumber, err := torrentEngine.db.GetLastQueueNumber()
+			if err != nil {
+				return nil, err
+			}
+			dbTorrent.QueueNumber = lastQueueNumber + 1
+		}
+	}
 	// Insert torrent
-	err = torrentEngine.db.InsertTorrent(&dbTorrent)
+	err = torrentEngine.db.InsertTorrent(&dbTorrent, addTopOfQueue)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +284,7 @@ func (torrentEngine *TorrentEngine) RegisterTorrent(infohash string,
 	}
 
 	torrentEngine.mutexForTorrents.Lock()
-	torrentEngine.Torrents[dbTorrent.Infohash] = &dbTorrent
+	torrentEngine.torrents[dbTorrent.Infohash] = &dbTorrent
 	torrentEngine.mutexForTorrents.Unlock()
 
 	return &dbTorrent, nil
@@ -272,7 +308,7 @@ func (torrentEngine *TorrentEngine) AddTorrent(hash string, trackers []types.Tra
 		},
 		PieceCompletion: pieceCompletion,
 	})
-	torrent, new, err := torrentEngine.Client.AddTorrentSpec(&torrentSpec)
+	torrent, new, err := torrentEngine.client.AddTorrentSpec(&torrentSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -310,14 +346,14 @@ func (torrentEngine *TorrentEngine) AddTorrent(hash string, trackers []types.Tra
 	return torrent, nil
 }
 func (torrentEngine *TorrentEngine) RegisterFiles(infohash metainfo.Hash, inputFiles *[]types.TorrentFileFlatTreeNode) (*types.Torrent, error) {
-	torrent, ok := torrentEngine.Client.Torrent(infohash)
+	torrent, ok := torrentEngine.client.Torrent(infohash)
 	if !ok {
 		return nil, fmt.Errorf("cannot find torrent with %s this infohash", infohash)
 	}
 
 	// torrentEngine.mutexForTorrents.Lock()
 	// defer torrentEngine.mutexForTorrents.Unlock()
-	dbTorrent := torrentEngine.Torrents[infohash.String()]
+	dbTorrent := torrentEngine.torrents[infohash.String()]
 	// Insert download priorities of the files
 	for _, file := range torrent.Files() {
 		for _, clientFile := range *inputFiles {
@@ -377,24 +413,101 @@ func (torrentEngine *TorrentEngine) StartTorrent(torrent *gotorrent.Torrent) (*g
 
 	return torrent, nil
 }
-func (torrentEngine *TorrentEngine) FindTorrents(hashes []string) ([]*gotorrent.Torrent, error) {
-	foundTorrents := []*gotorrent.Torrent{}
+func (torrentEngine *TorrentEngine) FindTorrents(hashes []string) ([]*types.Torrent, error) {
+	foundTorrents := []*types.Torrent{}
 	for _, hash := range hashes {
-		torrent, ok := torrentEngine.Client.Torrent(infohash.FromHexString(hash))
-		if !ok {
+		torrent, err := torrentEngine.GetTorrent(hash)
+		if err != nil {
 			return nil, fmt.Errorf("torrent with hash %s not found", hash)
 		}
-
 		foundTorrents = append(foundTorrents, torrent)
 	}
 	return foundTorrents, nil
 }
+func (torrentEngine *TorrentEngine) ResumeTorrent(hash string) error {
+	clientTorrent, err := torrentEngine.getActiveClientTorrent(hash)
+	if err != nil {
+		return err
+	}
+	clientTorrent.SetMaxEstablishedConns(80)
 
+	torrentEngine.UpdateTorrentStatus(hash, types.TorrentStatusDownloading)
+	return nil
+}
+func (torrentEngine *TorrentEngine) PauseTorrent(hash string) error {
+	clientTorrent, err := torrentEngine.getActiveClientTorrent(hash)
+	if err != nil {
+		return err
+	}
+
+	clientTorrent.CancelPieces(0, clientTorrent.NumPieces())
+	clientTorrent.SetMaxEstablishedConns(0)
+
+	torrentEngine.UpdateTorrentStatus(hash, types.TorrentStatusPaused)
+	return nil
+}
+func (torrentEngine *TorrentEngine) RemoveTorrent(hash string) error {
+	clientTorrent, err := torrentEngine.getActiveClientTorrent(hash)
+	if err != nil {
+		return err
+	}
+
+	torrentEngine.PauseTorrent(hash)
+	clientTorrent.Drop()
+	torrentEngine.db.DeleteTorrent(hash)
+
+	return nil
+}
+func (torrentEngine *TorrentEngine) DeleteTorrent(hash string) error {
+	clientTorrent, err := torrentEngine.getActiveClientTorrent(hash)
+	if err != nil {
+		return err
+	}
+	err = torrentEngine.RemoveTorrent(hash)
+	if err != nil {
+		return err
+	}
+
+	err = torrentEngine.db.DeleteTorrent(hash)
+	if err != nil {
+		return err
+	}
+	err = torrentEngine.db.DeleteTorrentFilesByInfohash(hash)
+	if err != nil {
+		return err
+	}
+	torrentEngine.mutexForTorrents.Lock()
+	defer torrentEngine.mutexForTorrents.Unlock()
+	dbTorrent := torrentEngine.torrents[hash]
+	err = os.RemoveAll(filepath.Join(dbTorrent.SavePath, clientTorrent.Name()))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (torrentEngine *TorrentEngine) getActiveClientTorrent(hash string) (*gotorrent.Torrent, error) {
+	clientTorrent, ok := torrentEngine.client.Torrent(infohash.FromHexString(hash))
+	if !ok {
+		return nil, fmt.Errorf("cannot find torrent with %s this infohash", hash)
+	}
+	if clientTorrent.Info() == nil {
+		return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
+	}
+	return clientTorrent, nil
+}
+func (torrentEngine *TorrentEngine) UpdateTorrentStatus(hash string, status types.TorrentStatus) error {
+	torrentEngine.mutexForTorrents.Lock()
+	defer torrentEngine.mutexForTorrents.Unlock()
+
+	torrentEngine.torrents[hash].Status = status.String()
+	torrentEngine.db.UpdateTorrentStatus(hash, status)
+	return nil
+}
 func (torrentEngine *TorrentEngine) GetTorrentDetails(infohash metainfo.Hash) (*types.Torrent, error) {
 	torrentEngine.mutexForTorrents.Lock()
 	defer torrentEngine.mutexForTorrents.Unlock()
 
-	dbTorrent, ok := torrentEngine.Torrents[infohash.String()]
+	dbTorrent, ok := torrentEngine.torrents[infohash.String()]
 	if !ok {
 		return nil, fmt.Errorf("torrent with infohash %s not found", infohash)
 	}
@@ -468,7 +581,7 @@ func (torrentEngine *TorrentEngine) GetTotalDownloadSpeed() float32 {
 	torrentEngine.mutexForTorrents.Lock()
 	defer torrentEngine.mutexForTorrents.Unlock()
 	var totalDownloadSpeed float32
-	for _, torrent := range torrentEngine.Torrents {
+	for _, torrent := range torrentEngine.torrents {
 		totalDownloadSpeed += torrent.DownloadSpeed
 	}
 	return totalDownloadSpeed
@@ -477,8 +590,23 @@ func (torrentEngine *TorrentEngine) GetTotalUploadSpeed() float32 {
 	torrentEngine.mutexForTorrents.Lock()
 	defer torrentEngine.mutexForTorrents.Unlock()
 	var totalUploadSpeed float32
-	for _, torrent := range torrentEngine.Torrents {
+	for _, torrent := range torrentEngine.torrents {
 		totalUploadSpeed += torrent.UploadSpeed
 	}
 	return totalUploadSpeed
+}
+func (torrentEngine *TorrentEngine) GetTorrentMetaWithMagnet(magnet string) (metainfo *metainfo.Info, infohash string, err error) {
+	// Get metainfo from a magnet link
+	torrent, err := torrentEngine.client.AddMagnet(magnet)
+	if err != nil {
+		return
+	}
+
+	<-torrent.GotInfo()
+
+	metainfo = torrent.Info()
+	infohash = torrent.InfoHash().String()
+
+	torrent.Drop()
+	return
 }

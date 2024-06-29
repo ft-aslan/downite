@@ -8,14 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
-	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
 	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/danielgtaylor/huma/v2"
 )
 
@@ -43,27 +40,19 @@ func (handler *TorrentHandler) GetTorrentsTotalSpeed(ctx context.Context, input 
 
 type GetTorrentsRes struct {
 	Body struct {
-		Torrents []types.Torrent `json:"torrents"`
+		Torrents []*types.Torrent `json:"torrents"`
 	}
 }
 
 func (handler *TorrentHandler) GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) {
 	res := &GetTorrentsRes{}
-	torrentsRes := []types.Torrent{}
 
-	torrents := handler.Engine.Client.Torrents()
-	for _, torrent := range torrents {
-		dbTorrent, err := handler.Engine.GetTorrentDetails(torrent.InfoHash())
-		if err != nil {
-			return nil, err
-		}
-		torrentsRes = append(torrentsRes, *dbTorrent)
-	}
+	torrents := handler.Engine.GetTorrents()
 
-	sort.Slice(torrentsRes, func(i, j int) bool {
-		return torrentsRes[i].QueueNumber < torrentsRes[j].QueueNumber
+	sort.Slice(torrents, func(i, j int) bool {
+		return torrents[i].QueueNumber < torrents[j].QueueNumber
 	})
-	res.Body.Torrents = torrentsRes
+	res.Body.Torrents = torrents
 	return res, nil
 }
 
@@ -76,16 +65,11 @@ type GetTorrentRes struct {
 
 func (handler *TorrentHandler) GetTorrent(ctx context.Context, input *GetTorrentReq) (*GetTorrentRes, error) {
 	res := &GetTorrentRes{}
-	torrent, ok := handler.Engine.Client.Torrent(infohash.FromHexString(input.Infohash))
-	if !ok {
-		return nil, fmt.Errorf("torrent with hash %s not found", input.Infohash)
-	}
-	dbTorrent, err := handler.Engine.GetTorrentDetails(torrent.InfoHash())
+	torrent, err := handler.Engine.GetTorrent(input.Infohash)
 	if err != nil {
 		return nil, err
 	}
-
-	res.Body = *dbTorrent
+	res.Body = *torrent
 
 	return res, nil
 }
@@ -108,18 +92,9 @@ func (handler *TorrentHandler) PauseTorrent(ctx context.Context, input *TorrentA
 		return nil, err
 	}
 	for _, foundTorrent := range foundTorrents {
-		if foundTorrent.Info() != nil {
-			foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
-			foundTorrent.SetMaxEstablishedConns(0)
-			torrent, err := handler.Db.GetTorrent(foundTorrent.InfoHash().String())
-			if err != nil {
-				return nil, err
-			}
-			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
-			handler.Db.UpdateTorrentStatus(torrent.Infohash, types.TorrentStatusPaused)
-
-		} else {
-			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
+		err := handler.Engine.PauseTorrent(foundTorrent.Infohash)
+		if err != nil {
+			return nil, err
 		}
 	}
 	res.Body.Success = true
@@ -133,20 +108,9 @@ func (handler *TorrentHandler) ResumeTorrent(ctx context.Context, input *Torrent
 		return nil, err
 	}
 	for _, foundTorrent := range foundTorrents {
-		// TODO(fatih): check if torrent is already started
-		if foundTorrent.Info() != nil {
-			foundTorrent.SetMaxEstablishedConns(80)
-			handler.Engine.StartTorrent(foundTorrent)
-
-			torrent, err := handler.Db.GetTorrent(foundTorrent.InfoHash().String())
-			if err != nil {
-				return nil, err
-			}
-			torrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
-			handler.Db.UpdateTorrentStatus(torrent.Infohash, types.TorrentStatusDownloading)
-
-		} else {
-			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
+		err := handler.Engine.ResumeTorrent(foundTorrent.Infohash)
+		if err != nil {
+			return nil, err
 		}
 	}
 	res.Body.Success = true
@@ -160,14 +124,9 @@ func (handler *TorrentHandler) RemoveTorrent(ctx context.Context, input *Torrent
 		return nil, err
 	}
 	for _, foundTorrent := range foundTorrents {
-		// TODO(fatih): check if torrent is already started
-		if foundTorrent.Info() != nil {
-			foundTorrent.SetMaxEstablishedConns(0)
-			foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
-			foundTorrent.Drop()
-			handler.Db.DeleteTorrent(foundTorrent.InfoHash().String())
-		} else {
-			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
+		err := handler.Engine.RemoveTorrent(foundTorrent.Infohash)
+		if err != nil {
+			return nil, err
 		}
 	}
 	res.Body.Success = true
@@ -183,18 +142,7 @@ func (handler *TorrentHandler) DeleteTorrent(ctx context.Context, input *Torrent
 		return nil, err
 	}
 	for _, foundTorrent := range foundTorrents {
-		// TODO(fatih): check if torrent is already started
-		if foundTorrent.Info() == nil {
-			return nil, fmt.Errorf("cannot modify torrent because metainfo is not yet received")
-		}
-		foundTorrent.SetMaxEstablishedConns(0)
-		foundTorrent.CancelPieces(0, foundTorrent.NumPieces())
-		foundTorrent.Drop()
-
-		dbTorrent, err := handler.Db.GetTorrent(foundTorrent.InfoHash().String())
-		err = handler.Db.DeleteTorrent(foundTorrent.InfoHash().String())
-		err = handler.Db.DeleteTorrentFilesByInfohash(foundTorrent.InfoHash().String())
-		err = os.RemoveAll(filepath.Join(dbTorrent.SavePath, foundTorrent.Name()))
+		err := handler.Engine.DeleteTorrent(foundTorrent.Infohash)
 		if err != nil {
 			return nil, err
 		}
@@ -299,7 +247,7 @@ func (handler *TorrentHandler) DownloadTorrent(ctx context.Context, input *Downl
 	}
 
 	// Register Torrent To DB
-	dbTorrent, err := handler.Engine.RegisterTorrent(torrentSpec.InfoHash.String(), torrentSpec.DisplayName, input.RawBody.Form.Value["savePath"][0], torrentSpec.Trackers)
+	dbTorrent, err := handler.Engine.RegisterTorrent(torrentSpec.InfoHash.String(), torrentSpec.DisplayName, input.RawBody.Form.Value["savePath"][0], torrentSpec.Trackers, input.RawBody.Form.Value["addTopOfQueue"][0] == "true")
 	if err != nil {
 		return nil, err
 	}
@@ -447,18 +395,6 @@ func (handler *TorrentHandler) GetMetaWithMagnet(ctx context.Context, input *Get
 		ctx.Err()
 		return nil, huma.Error400BadRequest("invalid magnet")
 	}
-	// Load from a magnet link
-
-	torrent, err := handler.Engine.Client.AddMagnet(magnet)
-	if err != nil {
-		return nil, err
-	}
-
-	<-torrent.GotInfo()
-
-	info = *torrent.Info()
-	infohash = torrent.InfoHash().String()
-
 	fileTree := handler.Engine.CreateFileTreeFromMeta(info)
 
 	res.Body = types.TorrentMeta{
@@ -469,6 +405,5 @@ func (handler *TorrentHandler) GetMetaWithMagnet(ctx context.Context, input *Get
 		Magnet:    magnet,
 	}
 
-	torrent.Drop()
 	return res, nil
 }

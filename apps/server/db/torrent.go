@@ -2,9 +2,10 @@ package db
 
 import (
 	"downite/types"
+	"fmt"
 )
 
-func (db Database) GetTorrents() ([]types.Torrent, error) {
+func (db *Database) GetTorrents() ([]types.Torrent, error) {
 	var err error
 	var torrents []types.Torrent
 	err = db.x.Select(&torrents, `
@@ -35,7 +36,7 @@ ORDER BY
 	return torrents, err
 }
 
-func (db Database) GetTorrent(torrentHash string) (*types.Torrent, error) {
+func (db *Database) GetTorrent(torrentHash string) (*types.Torrent, error) {
 	var err error
 	var torrent types.Torrent
 	err = db.x.Get(&torrent, `
@@ -65,7 +66,16 @@ WHERE
 	return &torrent, err
 }
 
-func (db Database) InsertTorrent(torrent *types.Torrent) error {
+func (db *Database) InsertTorrent(torrent *types.Torrent, addTopOfQueue bool) error {
+	if addTopOfQueue {
+		if torrent.QueueNumber != 1 {
+			return fmt.Errorf("cannot add torrent to top of queue with queue number %d", torrent.QueueNumber)
+		}
+		_, err := db.x.Exec(`UPDATE torrents SET queue_number = queue_number + 1`)
+		if err != nil {
+			return err
+		}
+	}
 	_, err := db.x.NamedExec(`INSERT INTO torrents
 	(infohash, name, queue_number, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
 	VALUES
@@ -74,7 +84,13 @@ func (db Database) InsertTorrent(torrent *types.Torrent) error {
 	return err
 }
 
-func (db Database) UpdateTorrent(torrent *types.Torrent) error {
+func (db *Database) GetLastQueueNumber() (int, error) {
+	var lastQueueNumber int
+	err := db.x.Get(&lastQueueNumber, `SELECT MAX(queue_number) FROM torrents`)
+	return lastQueueNumber, err
+}
+
+func (db *Database) UpdateTorrent(torrent *types.Torrent) error {
 	_, err := db.x.NamedExec(`
 	UPDATE torrents
 	SET
@@ -96,7 +112,7 @@ func (db Database) UpdateTorrent(torrent *types.Torrent) error {
 	`, torrent)
 	return err
 }
-func (db Database) UpdateTorrentStatus(infohash string, status types.TorrentStatus) error {
+func (db *Database) UpdateTorrentStatus(infohash string, status types.TorrentStatus) error {
 	_, err := db.x.Exec(`
 	UPDATE torrents
 	SET
@@ -106,7 +122,7 @@ func (db Database) UpdateTorrentStatus(infohash string, status types.TorrentStat
 	`, status.String(), infohash)
 	return err
 }
-func (db Database) UpdateSizeOfWanted(torrent *types.Torrent) error {
+func (db *Database) UpdateSizeOfWanted(torrent *types.Torrent) error {
 	_, err := db.x.NamedExec(`
 	UPDATE torrents
 	SET
@@ -117,7 +133,7 @@ func (db Database) UpdateSizeOfWanted(torrent *types.Torrent) error {
 	return err
 }
 
-func (db Database) DeleteTorrent(torrentHash string) error {
+func (db *Database) DeleteTorrent(torrentHash string) error {
 	_, err := db.x.Exec(`DELETE FROM torrents WHERE infohash = ?`, torrentHash)
 	return err
 }

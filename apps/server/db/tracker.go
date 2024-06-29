@@ -2,7 +2,7 @@ package db
 
 import "downite/types"
 
-func (db Database) GetAllTrackers() ([]string, error) {
+func (db *Database) GetAllTrackers() ([]string, error) {
 	var err error
 	var trackers []string
 	err = db.x.Select(&trackers, `SELECT address FROM trackers`)
@@ -12,7 +12,7 @@ func (db Database) GetAllTrackers() ([]string, error) {
 	return trackers, err
 }
 
-func (db Database) InsertTracker(tracker *types.Tracker, infohash string) error {
+func (db *Database) InsertTracker(tracker *types.Tracker, infohash string) error {
 	result, err := db.x.NamedExec(`INSERT INTO trackers (url) VALUES (:url)`, tracker)
 	if err != nil {
 		return err
@@ -23,10 +23,10 @@ func (db Database) InsertTracker(tracker *types.Tracker, infohash string) error 
 		return err
 	}
 
-	result = db.x.MustExec(`INSERT INTO torrent_trackers (infohash, tracker_id, tier) VALUES ($1, $2, $3)`, infohash, trackerId, tracker.Tier)
+	_ = db.x.MustExec(`INSERT INTO torrent_trackers (infohash, tracker_id, tier) VALUES ($1, $2, $3)`, infohash, trackerId, tracker.Tier)
 	return nil
 }
-func (db Database) GetTorrentTrackers(infohash string) ([]types.Tracker, error) {
+func (db *Database) GetTorrentTrackers(infohash string) ([]types.Tracker, error) {
 	var err error
 	var trackers []types.Tracker
 	err = db.x.Select(&trackers, `

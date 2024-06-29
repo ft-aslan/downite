@@ -46,9 +46,9 @@ func main() {
 	if err != nil {
 		fmt.Printf("Cannot torrent download client : %s", err)
 	}
-	err = torrentEngine.InitTorrents()
+	err = downloadClient.InitDownloads()
 	if err != nil {
-		fmt.Printf("Cannot initilize torrents : %s", err)
+		fmt.Printf("Cannot initilize downloads : %s", err)
 	}
 	//register download routes
 	humaApi.AddDownloadRoutes(handlers.DownloadHandler{

@@ -49,6 +49,10 @@ func CreateDownloadClient(config DownloadClientConfig) (*Client, error) {
 		Config: &config,
 	}, nil
 }
+func (client *Client) InitDownloads() error {
+	client.downloads = make([]*Download, 0)
+	return nil
+}
 
 func (client *Client) DownloadFromUrl(url string, partCount uint32, fileDownloadPath string) error {
 
