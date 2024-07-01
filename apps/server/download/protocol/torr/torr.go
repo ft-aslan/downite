@@ -456,6 +456,18 @@ func (torrentEngine *TorrentEngine) RemoveTorrent(hash string) error {
 	clientTorrent.Drop()
 	torrentEngine.db.DeleteTorrent(hash)
 
+	err = torrentEngine.db.DeleteTorrentFilesByInfohash(hash)
+	if err != nil {
+		return err
+	}
+	err = torrentEngine.db.DeleteTorrentTrackerLinks(hash)
+	if err != nil {
+		return err
+	}
+	torrentEngine.mutexForTorrents.Lock()
+	defer torrentEngine.mutexForTorrents.Unlock()
+	delete(torrentEngine.torrents, hash)
+	torrentEngine.updateTorrentQueueNumbers()
 	return nil
 }
 func (torrentEngine *TorrentEngine) DeleteTorrent(hash string) error {
@@ -468,20 +480,24 @@ func (torrentEngine *TorrentEngine) DeleteTorrent(hash string) error {
 		return err
 	}
 
-	err = torrentEngine.db.DeleteTorrent(hash)
-	if err != nil {
-		return err
-	}
-	err = torrentEngine.db.DeleteTorrentFilesByInfohash(hash)
-	if err != nil {
-		return err
-	}
 	torrentEngine.mutexForTorrents.Lock()
 	defer torrentEngine.mutexForTorrents.Unlock()
 	dbTorrent := torrentEngine.torrents[hash]
 	err = os.RemoveAll(filepath.Join(dbTorrent.SavePath, clientTorrent.Name()))
 	if err != nil {
 		return err
+	}
+	return nil
+}
+func (torrentEngine *TorrentEngine) updateTorrentQueueNumbers() error {
+	torrentEngine.mutexForTorrents.Lock()
+	defer torrentEngine.mutexForTorrents.Unlock()
+	dbTorrents, err := torrentEngine.db.GetTorrents()
+	if err != nil {
+		return err
+	}
+	for _, dbTorrent := range dbTorrents {
+		torrentEngine.torrents[dbTorrent.Infohash].QueueNumber = dbTorrent.QueueNumber
 	}
 	return nil
 }

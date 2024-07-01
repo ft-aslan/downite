@@ -134,6 +134,20 @@ func (db *Database) UpdateSizeOfWanted(torrent *types.Torrent) error {
 }
 
 func (db *Database) DeleteTorrent(torrentHash string) error {
-	_, err := db.x.Exec(`DELETE FROM torrents WHERE infohash = ?`, torrentHash)
+	var queueNumber int
+	err := db.x.Get(&queueNumber, "SELECT queue_number FROM torrents WHERE infohash = ?", torrentHash)
+	if err != nil {
+		return err
+	}
+	transaction := db.x.MustBegin()
+	_, err = transaction.Exec(`DELETE FROM torrents WHERE infohash = ?`, torrentHash)
+	if err != nil {
+		return err
+	}
+	_, err = transaction.Exec(`UPDATE torrents SET queue_number = queue_number - 1 WHERE queue_number > ?`, queueNumber)
+	if err != nil {
+		return err
+	}
+	err = transaction.Commit()
 	return err
 }

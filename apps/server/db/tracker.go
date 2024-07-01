@@ -38,3 +38,7 @@ func (db *Database) GetTorrentTrackers(infohash string) ([]types.Tracker, error)
 	}
 	return trackers, err
 }
+func (db *Database) DeleteTorrentTrackerLinks(infohash string) error {
+	_, err := db.x.Exec(`DELETE FROM torrent_trackers WHERE infohash = ?`, infohash)
+	return err
+}
