@@ -1,6 +1,8 @@
 package http
 
 import (
+	"downite/db"
+	"downite/types"
 	"fmt"
 	"io"
 	"math"
@@ -9,10 +11,12 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type DownloadClientConfig struct {
 	DownloadPath string
+	PartCount    uint32
 }
 
 // HTTP DOWNLOAD CLIENT
@@ -23,25 +27,11 @@ type Client struct {
 	// defaultStorage *storage.Client
 	onClose []func()
 
-	downloads  []*Download
-	httpClient *http.Client
-	Config     *DownloadClientConfig
-}
-type Download struct {
-	PartProcess []*PartProgress
-	Name        string
-	Path        string
-	PartCount   uint32
-	Url         string
-	TotalSize   int64
-	Downloaded  int64
-	Finished    bool
-}
-type PartProgress struct {
-	PartId         uint32
-	StartByteIndex uint32
-	EndByteIndex   uint32
-	Buffer         []byte
+	mutexForDownloads sync.Mutex
+	downloads         []*types.Download
+	httpClient        *http.Client
+	Config            *DownloadClientConfig
+	db                *db.Database
 }
 
 func CreateDownloadClient(config DownloadClientConfig) (*Client, error) {
@@ -50,7 +40,7 @@ func CreateDownloadClient(config DownloadClientConfig) (*Client, error) {
 	}, nil
 }
 func (client *Client) InitDownloads() error {
-	client.downloads = make([]*Download, 0)
+	client.downloads = make([]*types.Download, 0)
 	return nil
 }
 
@@ -98,19 +88,36 @@ func (client *Client) DownloadFromUrl(url string, partCount uint32, fileDownload
 			return fmt.Errorf("cannot convert content length header to float : %s", err)
 		}
 
-		fileBuffer := make([]byte, int(contentLength))
+		download := &types.Download{
+			PartProgress:    make([]*types.DownloadPart, 0),
+			Name:            fileName,
+			Path:            fileDownloadPath,
+			PartCount:       partCount,
+			PartLength:      uint64(contentLength),
+			Url:             url,
+			TotalSize:       uint64(contentLength),
+			DownloadedBytes: 0,
+			Finished:        false,
+		}
 
+		fileBuffer := make([]byte, int(contentLength))
 		if rangesHeader != "" {
-			var partLength float64 = contentLength / float64(partCount)
+			var partLength float64 = math.Floor(contentLength / float64(partCount))
+
+			download.PartLength = uint64(partLength)
+			client.mutexForDownloads.Lock()
+			client.downloads = append(client.downloads, download)
+			client.mutexForDownloads.Unlock()
+
 			var currentStartByteIndex float64 = 0
 
-			partProcessChan := make(chan PartProgress)
+			partProcessChan := make(chan types.DownloadPart)
 			errorChan := make(chan error)
 
 			var completedPartCount uint32 = 0
 
 			for partIndex := uint32(1); partIndex <= partCount; partIndex++ {
-				endByteIndex := math.Floor(currentStartByteIndex + partLength)
+				endByteIndex := currentStartByteIndex + partLength
 
 				if endByteIndex > contentLength {
 					endByteIndex = contentLength
@@ -123,11 +130,11 @@ func (client *Client) DownloadFromUrl(url string, partCount uint32, fileDownload
 						errorChan <- err
 						return
 					}
-					partProcess := PartProgress{PartId: partIndex, Buffer: filePartBuffer, StartByteIndex: partStartIndex, EndByteIndex: partEndIndex}
+					partProcess := types.DownloadPart{PartIndex: partIndex, Buffer: filePartBuffer, StartByteIndex: partStartIndex, EndByteIndex: partEndIndex}
 					partProcessChan <- partProcess
 				}(uint32(currentStartByteIndex), uint32(endByteIndex))
 
-				currentStartByteIndex += math.Floor(partLength + 1)
+				currentStartByteIndex += partLength + 1
 
 			}
 
@@ -143,20 +150,33 @@ func (client *Client) DownloadFromUrl(url string, partCount uint32, fileDownload
 					}
 					copy(fileBuffer[start:end], partProcess.Buffer)
 
-					fmt.Printf("copied to start index id : %d | end index id : %d | part id : %d \n", partProcess.StartByteIndex, partProcess.EndByteIndex, partProcess.PartId)
+					fmt.Printf("copied to start index id : %d | end index id : %d | part id : %d \n", partProcess.StartByteIndex, partProcess.EndByteIndex, partProcess.PartIndex)
 					completedPartCount += 1
 				}
 			}
 		} else {
-			res, err := client.httpClient.Get(url)
-			if err != nil {
-				return err
-			}
-			fileBuffer = make([]byte, int(contentLength))
-			_, err = io.ReadFull(res.Body, fileBuffer)
-			if err != nil {
-				return err
-			}
+			client.mutexForDownloads.Lock()
+			client.downloads = append(client.downloads, download)
+			client.mutexForDownloads.Unlock()
+			go func() {
+				fileBuffer = make([]byte, int(contentLength))
+				res, err := client.httpClient.Get(url)
+				if err != nil {
+					fmt.Printf("error while downloading : %s", err)
+					client.mutexForDownloads.Lock()
+
+					client.mutexForDownloads.Unlock()
+
+					return
+				}
+
+				defer res.Body.Close()
+				_, err = io.ReadFull(res.Body, fileBuffer)
+				if err != nil {
+					fmt.Printf("error while reading download : %s", err)
+					return
+				}
+			}()
 		}
 
 		outFile, err := os.Create(fileDownloadPath + fileName)
@@ -172,6 +192,13 @@ func (client *Client) DownloadFromUrl(url string, partCount uint32, fileDownload
 
 	}
 
+	return nil
+}
+func (client *Client) RegisterDownload(download *types.Download) error {
+	err := client.db.InsertDownload(download)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

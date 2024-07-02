@@ -8,7 +8,7 @@ import (
 
 type DownloadHandler struct {
 	Db     *db.Database
-	Client *http.Client
+	Engine *http.Client
 }
 
 type GetDownloadFileInfoReq struct {
@@ -20,14 +20,14 @@ type GetDownloadFileInfoRes struct {
 	Body http.Download
 }
 
-func (downloadHandler *DownloadHandler) GetDownloadFileInfo(ctx context.Context, input *GetDownloadFileInfoReq) (*GetDownloadFileInfoRes, error) {
+func (handler *DownloadHandler) GetDownloadFileInfo(ctx context.Context, input *GetDownloadFileInfoReq) (*GetDownloadFileInfoRes, error) {
 	res := &GetDownloadFileInfoRes{}
 	return res, nil
 }
 
 type DownloadReq struct {
 	Body struct {
-		Url         string   `json:"url" minLength:"1"`
+		Url         string   `json:"url" minLength:"1" uri:"true"`
 		Category    string   `json:"category"`
 		Path        string   `json:"path"`
 		Tags        []string `json:"tags"`
@@ -38,10 +38,10 @@ type DownloadRes struct {
 	Body http.Download
 }
 
-func (downloadHandler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
+func (handler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
 	res := &DownloadRes{}
-
-	return res, nil
+	err := handler.Engine.DownloadFromUrl(input.Body.Url, handler.Engine.Config.PartCount, input.Body.Path)
+	return res, err
 }
 
 type GetDownloadReq struct {
@@ -51,7 +51,7 @@ type GetDownloadRes struct {
 	Body http.Download
 }
 
-func (downloadHandler *DownloadHandler) GetDownload(ctx context.Context, input *GetDownloadReq) (*GetDownloadRes, error) {
+func (handler *DownloadHandler) GetDownload(ctx context.Context, input *GetDownloadReq) (*GetDownloadRes, error) {
 	res := &GetDownloadRes{}
 
 	return res, nil

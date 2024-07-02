@@ -11,7 +11,7 @@
             "readOnly": true,
             "type": "string"
           },
-          "Downloaded": { "format": "int64", "type": "integer" },
+          "DownloadedBytes": { "format": "int64", "type": "integer" },
           "Finished": { "type": "boolean" },
           "Name": { "type": "string" },
           "PartCount": { "format": "int32", "type": "integer" },
@@ -20,6 +20,7 @@
             "type": "array"
           },
           "Path": { "type": "string" },
+          "QueueNumber": { "format": "int64", "type": "integer" },
           "TotalSize": { "format": "int64", "type": "integer" },
           "Url": { "type": "string" }
         },
@@ -30,8 +31,9 @@
           "PartCount",
           "Url",
           "TotalSize",
-          "Downloaded",
-          "Finished"
+          "DownloadedBytes",
+          "Finished",
+          "QueueNumber"
         ],
         "type": "object"
       },

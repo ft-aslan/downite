@@ -53,7 +53,7 @@ func main() {
 	//register download routes
 	humaApi.AddDownloadRoutes(handlers.DownloadHandler{
 		Db:     db,
-		Client: downloadClient,
+		Engine: downloadClient,
 	})
 	humaApi.ExportOpenApi()
 	humaApi.Run()

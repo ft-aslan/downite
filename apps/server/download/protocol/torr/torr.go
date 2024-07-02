@@ -464,9 +464,11 @@ func (torrentEngine *TorrentEngine) RemoveTorrent(hash string) error {
 	if err != nil {
 		return err
 	}
+
 	torrentEngine.mutexForTorrents.Lock()
-	defer torrentEngine.mutexForTorrents.Unlock()
 	delete(torrentEngine.torrents, hash)
+	torrentEngine.mutexForTorrents.Unlock()
+
 	torrentEngine.updateTorrentQueueNumbers()
 	return nil
 }
@@ -475,15 +477,17 @@ func (torrentEngine *TorrentEngine) DeleteTorrent(hash string) error {
 	if err != nil {
 		return err
 	}
+
+	torrentEngine.mutexForTorrents.Lock()
+	savePath := torrentEngine.torrents[hash].SavePath
+	torrentEngine.mutexForTorrents.Unlock()
+
 	err = torrentEngine.RemoveTorrent(hash)
 	if err != nil {
 		return err
 	}
 
-	torrentEngine.mutexForTorrents.Lock()
-	defer torrentEngine.mutexForTorrents.Unlock()
-	dbTorrent := torrentEngine.torrents[hash]
-	err = os.RemoveAll(filepath.Join(dbTorrent.SavePath, clientTorrent.Name()))
+	err = os.RemoveAll(filepath.Join(savePath, clientTorrent.Name()))
 	if err != nil {
 		return err
 	}

@@ -186,13 +186,15 @@ export interface components {
              */
             readonly $schema?: string;
             /** Format: int64 */
-            Downloaded: number;
+            DownloadedBytes: number;
             Finished: boolean;
             Name: string;
             /** Format: int32 */
             PartCount: number;
             PartProcess: components["schemas"]["PartProgress"][];
             Path: string;
+            /** Format: int64 */
+            QueueNumber: number;
             /** Format: int64 */
             TotalSize: number;
             Url: string;
