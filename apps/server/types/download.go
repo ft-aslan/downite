@@ -8,12 +8,14 @@ const (
 	DownloadStatusPaused DownloadStatus = iota
 	DownloadStatusDownloading
 	DownloadStatusCompleted
+	DownloadStatusError
 )
 
 var DownloadStatusStringMap = map[DownloadStatus]string{
 	DownloadStatusPaused:      "paused",
 	DownloadStatusDownloading: "downloading",
 	DownloadStatusCompleted:   "completed",
+	DownloadStatusError:       "error",
 }
 
 func (d DownloadStatus) String() string {
@@ -29,7 +31,7 @@ type Download struct {
 	Status          DownloadStatus
 	Name            string
 	Path            string
-	PartCount       uint32 `db:"part_count"`
+	PartCount       int    `db:"part_count"`
 	PartLength      uint64 `db:"part_length"`
 	TotalSize       uint64 `db:"total_size"`
 	DownloadedBytes uint64 `db:"downloaded_bytes"`
@@ -43,9 +45,9 @@ type DownloadPart struct {
 	TimeActive      time.Duration `db:"time_active"`
 	FinishedAt      time.Time     `db:"finished_at"`
 	Status          DownloadStatus
-	PartIndex       uint32 `db:"part_index"`
-	StartByteIndex  uint32 `db:"start_byte_index"`
-	EndByteIndex    uint32 `db:"end_byte_index"`
+	PartIndex       int    `db:"part_index"`
+	StartByteIndex  uint64 `db:"start_byte_index"`
+	EndByteIndex    uint64 `db:"end_byte_index"`
 	Buffer          []byte `db:"-"`
 	DownloadedBytes uint64 `db:"downloaded_bytes"`
 }

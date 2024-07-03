@@ -4,6 +4,7 @@ import (
 	"context"
 	"downite/db"
 	"downite/download/protocol/http"
+	"downite/types"
 )
 
 type DownloadHandler struct {
@@ -17,7 +18,7 @@ type GetDownloadFileInfoReq struct {
 	}
 }
 type GetDownloadFileInfoRes struct {
-	Body http.Download
+	Body types.Download
 }
 
 func (handler *DownloadHandler) GetDownloadFileInfo(ctx context.Context, input *GetDownloadFileInfoReq) (*GetDownloadFileInfoRes, error) {
@@ -35,7 +36,7 @@ type DownloadReq struct {
 	}
 }
 type DownloadRes struct {
-	Body http.Download
+	Body types.Download
 }
 
 func (handler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
@@ -48,7 +49,7 @@ type GetDownloadReq struct {
 	id string `path:"id"`
 }
 type GetDownloadRes struct {
-	Body http.Download
+	Body types.Download
 }
 
 func (handler *DownloadHandler) GetDownload(ctx context.Context, input *GetDownloadReq) (*GetDownloadRes, error) {

@@ -251,7 +251,7 @@ func (torrentEngine *TorrentEngine) RegisterTorrent(infohash string,
 		Infohash: infohash,
 		Name:     name,
 		SavePath: savePath,
-		Status:   types.TorrentStatusStringMap[types.TorrentStatusMetadata],
+		Status:   types.TorrentStatusMetadata.String(),
 		Trackers: trackers,
 	}
 	if addTopOfQueue {
