@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"downite/db"
 	"downite/types"
 	"fmt"
@@ -28,10 +29,14 @@ type Client struct {
 	onClose []func()
 
 	mutexForDownloads sync.Mutex
-	downloads         []*types.Download
+	downloads         map[int]*types.Download
 	httpClient        *http.Client
 	Config            *DownloadClientConfig
 	db                *db.Database
+}
+type contextWithCancel struct {
+	ctx    *context.Context
+	cancel *context.CancelFunc
 }
 
 func CreateDownloadClient(config DownloadClientConfig) (*Client, error) {
@@ -40,11 +45,11 @@ func CreateDownloadClient(config DownloadClientConfig) (*Client, error) {
 	}, nil
 }
 func (client *Client) InitDownloads() error {
-	client.downloads = make([]*types.Download, 0)
+	client.downloads = make(map[int]*types.Download, 0)
 	return nil
 }
 
-func (client *Client) DownloadFromUrl(url string, partCount int, fileDownloadPath string) error {
+func (client *Client) DownloadFromUrl(url string, partCount int, savePath string) error {
 
 	//check if server accepts split downloads
 	req, err := http.NewRequest("HEAD", url, nil)
@@ -97,9 +102,9 @@ func (client *Client) DownloadFromUrl(url string, partCount int, fileDownloadPat
 		partCount = 1
 	}
 	download := &types.Download{
-		PartProgress:    make([]*types.DownloadPart, partCount),
+		PartProgresses:  make([]*types.DownloadPart, partCount),
 		Name:            fileName,
-		Path:            fileDownloadPath,
+		Path:            savePath,
 		PartCount:       partCount,
 		PartLength:      partLength,
 		Url:             url,
@@ -108,110 +113,77 @@ func (client *Client) DownloadFromUrl(url string, partCount int, fileDownloadPat
 		Status:          types.DownloadStatusPaused,
 	}
 
+	//REGISTER DOWNLOAD
+	//from now on download has id from db
+	client.RegisterDownload(download)
+
+	//START SPLIT DOWNLOAD
 	fileBuffer := make([]byte, int(contentLength))
+	var partStartIndex uint64 = 0
 
-	if rangesHeader != "" {
-		download.Status = types.DownloadStatusDownloading
-		for i := 0; i < partCount; i++ {
-			download.PartProgress[i] = &types.DownloadPart{
-				PartIndex:      i + 1,
-				StartByteIndex: uint64(uint64(i) * partLength),
-				EndByteIndex:   uint64((uint64(i) + 1) * partLength),
-				Status:         types.DownloadStatusPaused,
-			}
+	partProcessChan := make(chan *types.DownloadPart)
+	errorChan := make(chan error)
+
+	var completedPartCount int = 0
+
+	downloadPartContexts := make([]*contextWithCancel, 0, partCount)
+
+	for partIndex := 1; partIndex <= partCount; partIndex++ {
+		partEndIndex := partStartIndex + partLength
+
+		if partEndIndex > contentLength {
+			partEndIndex = contentLength
+		}
+		fmt.Printf("requesting : start %d | end %d \n", partStartIndex, partEndIndex)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		downloadPartContexts[partIndex-1] = &contextWithCancel{
+			ctx:    &ctx,
+			cancel: &cancel,
 		}
 
-		id, err := client.db.InsertDownload(download)
-		if err != nil {
-			return err
-		}
-		download.Id = id
-
-		client.mutexForDownloads.Lock()
-		client.downloads = append(client.downloads, download)
-		client.mutexForDownloads.Unlock()
-
-		var currentStartByteIndex uint64 = 0
-
-		partProcessChan := make(chan types.DownloadPart)
-		errorChan := make(chan error)
-
-		var completedPartCount int = 0
-
-		for partIndex := 1; partIndex <= partCount; partIndex++ {
-			endByteIndex := currentStartByteIndex + partLength
-
-			if endByteIndex > contentLength {
-				endByteIndex = contentLength
-			}
-			fmt.Printf("requesting : start %f | end %f \n", currentStartByteIndex, endByteIndex)
-
-			go func(partStartIndex uint64, partEndIndex uint64) {
-				filePartBuffer, err := client.downloadFilePart(partStartIndex, partEndIndex, url)
-				if err != nil {
-					errorChan <- err
-					return
-				}
-				partProcess := types.DownloadPart{PartIndex: partIndex, Buffer: filePartBuffer, StartByteIndex: partStartIndex, EndByteIndex: partEndIndex}
-				partProcessChan <- partProcess
-			}(currentStartByteIndex, endByteIndex)
-
-			currentStartByteIndex += partLength + 1
-
-		}
-
-		for completedPartCount != partCount {
-			select {
-			case err := <-errorChan:
-				return fmt.Errorf("while downloading file parts : %s", err)
-			case partProcess := <-partProcessChan:
-				start := partProcess.StartByteIndex
-				end := partProcess.EndByteIndex + 1
-				if end > contentLength {
-					end = contentLength
-				}
-				copy(fileBuffer[start:end], partProcess.Buffer)
-
-				fmt.Printf("copied to start index id : %d | end index id : %d | part id : %d \n", partProcess.StartByteIndex, partProcess.EndByteIndex, partProcess.PartIndex)
-				completedPartCount += 1
-			}
-		}
-	} else {
-		download.Status = types.DownloadStatusDownloading
-		download.PartProgress[0] = &types.DownloadPart{
-			PartIndex:      1,
-			StartByteIndex: 0,
-			EndByteIndex:   contentLength,
-			Status:         types.DownloadStatusPaused,
-		}
-		// download.Id = id
-
-		client.mutexForDownloads.Lock()
-		client.downloads = append(client.downloads, download)
-		client.mutexForDownloads.Unlock()
-
-		go func() {
-			fileBuffer = make([]byte, int(contentLength))
-			res, err := client.httpClient.Get(url)
+		// we are creating new goroutine for each part
+		// and we are passing parameters
+		// because we are changing them in each iteration
+		go func(partStartIndex uint64, partEndIndex uint64, partIndex int) {
+			filePartBuffer, err := client.downloadFilePart(partStartIndex, partEndIndex, url)
 			if err != nil {
-				fmt.Printf("error while downloading : %s", err)
-				client.mutexForDownloads.Lock()
-
-				client.mutexForDownloads.Unlock()
-
+				errorChan <- err
 				return
 			}
 
-			defer res.Body.Close()
-			_, err = io.ReadFull(res.Body, fileBuffer)
-			if err != nil {
-				fmt.Printf("error while reading download : %s", err)
-				return
-			}
-		}()
+			client.mutexForDownloads.Lock()
+			partProgress := download.PartProgresses[partIndex-1]
+			partProgress.Buffer = filePartBuffer
+			client.mutexForDownloads.Unlock()
+
+			partProcessChan <- partProgress
+		}(partStartIndex, partEndIndex, partIndex)
+
+		partStartIndex += partLength + 1
+
 	}
 
-	outFile, err := os.Create(fileDownloadPath + fileName)
+	for completedPartCount != partCount {
+		select {
+		case err := <-errorChan:
+			return fmt.Errorf("while downloading file parts : %s", err)
+		case partProcess := <-partProcessChan:
+			start := partProcess.StartByteIndex
+			end := partProcess.EndByteIndex + 1
+			if end > contentLength {
+				end = contentLength
+			}
+			copy(fileBuffer[start:end], partProcess.Buffer)
+
+			fmt.Printf("copied to start index id : %d | end index id : %d | part id : %d \n", partProcess.StartByteIndex, partProcess.EndByteIndex, partProcess.PartIndex)
+			completedPartCount += 1
+		}
+	}
+
+	outFile, err := os.Create(savePath + fileName)
 	if err != nil {
 		return err
 	}
@@ -225,10 +197,31 @@ func (client *Client) DownloadFromUrl(url string, partCount int, fileDownloadPat
 	return nil
 }
 func (client *Client) RegisterDownload(download *types.Download) error {
-	_, err := client.db.InsertDownload(download)
+	for i := 0; i < download.PartCount; i++ {
+		download.PartProgresses[i] = &types.DownloadPart{
+			PartIndex:      i + 1,
+			StartByteIndex: uint64(uint64(i) * download.PartLength),
+			EndByteIndex:   uint64((uint64(i) + 1) * download.PartLength),
+			Status:         types.DownloadStatusPaused,
+			DownloadId:     download.Id,
+		}
+	}
+
+	id, err := client.db.InsertDownload(download)
 	if err != nil {
 		return err
 	}
+	download.Id = id
+
+	err = client.db.InsertDownloadParts(download.PartProgresses)
+	if err != nil {
+		return err
+	}
+
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+	client.downloads[id] = download
+
 	return nil
 }
 func (client *Client) AddDownload(download *types.Download) error {
