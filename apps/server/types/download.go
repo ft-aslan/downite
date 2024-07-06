@@ -35,21 +35,27 @@ type Download struct {
 	PartLength      uint64 `db:"part_length"`
 	TotalSize       uint64 `db:"total_size"`
 	DownloadedBytes uint64 `db:"downloaded_bytes"`
-	PartProgresses  []*DownloadPart
+	Parts           []*DownloadPart
 	Url             string
 	QueueNumber     int `db:"queue_number"`
 }
 type DownloadPart struct {
-	CreatedAt       time.Time     `db:"created_at"`
-	StartedAt       time.Time     `db:"started_at"`
-	TimeActive      time.Duration `db:"time_active"`
-	FinishedAt      time.Time     `db:"finished_at"`
-	Status          DownloadStatus
-	PartIndex       int    `db:"part_index"`
-	StartByteIndex  uint64 `db:"start_byte_index"`
-	EndByteIndex    uint64 `db:"end_byte_index"`
-	PartLength      uint64 `db:"part_length"`
+	CreatedAt      time.Time     `db:"created_at"`
+	StartedAt      time.Time     `db:"started_at"`
+	TimeActive     time.Duration `db:"time_active"`
+	FinishedAt     time.Time     `db:"finished_at"`
+	Status         DownloadStatus
+	PartIndex      int    `db:"part_index"`
+	StartByteIndex uint64 `db:"start_byte_index"`
+	EndByteIndex   uint64 `db:"end_byte_index"`
+	PartLength     uint64 `db:"part_length"`
+	//we dont store buffer in db and memory
 	Buffer          []byte `db:"-"`
 	DownloadedBytes uint64 `db:"downloaded_bytes"`
 	DownloadId      int    `json:"-" db:"download_id"`
+}
+
+func (d *DownloadPart) Write(bytes []byte) (int, error) {
+	d.DownloadedBytes += uint64(len(bytes))
+	return len(bytes), nil
 }

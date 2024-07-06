@@ -28,11 +28,12 @@ func (handler *DownloadHandler) GetDownloadFileInfo(ctx context.Context, input *
 
 type DownloadReq struct {
 	Body struct {
-		Url         string   `json:"url" minLength:"1" uri:"true"`
-		Category    string   `json:"category"`
-		Path        string   `json:"path"`
-		Tags        []string `json:"tags"`
-		Description string   `json:"description"`
+		Url           string   `json:"url" minLength:"1" uri:"true"`
+		Category      string   `json:"category"`
+		Path          string   `json:"path"`
+		Tags          []string `json:"tags"`
+		Description   string   `json:"description"`
+		StartDownload bool     `json:"startDownload"`
 	}
 }
 type DownloadRes struct {
@@ -41,7 +42,7 @@ type DownloadRes struct {
 
 func (handler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
 	res := &DownloadRes{}
-	err := handler.Engine.DownloadFromUrl(input.Body.Url, handler.Engine.Config.PartCount, input.Body.Path)
+	err := handler.Engine.DownloadFromUrl(input.Body.Url, handler.Engine.Config.PartCount, input.Body.Path, input.Body.StartDownload)
 	return res, err
 }
 
