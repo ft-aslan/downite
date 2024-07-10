@@ -3,7 +3,7 @@ package main
 import (
 	"downite/api"
 	"downite/db"
-	"downite/download/protocol/http"
+	"downite/download/protocol/direct"
 	"downite/download/protocol/torr"
 	"downite/handlers"
 	"fmt"
@@ -39,10 +39,10 @@ func main() {
 	})
 
 	defaultDownloadsDir := "./tmp/downloads"
-	downloadClientConfig := http.DownloadClientConfig{
+	downloadClientConfig := direct.DownloadClientConfig{
 		DownloadPath: defaultDownloadsDir,
 	}
-	downloadClient, err := http.CreateDownloadClient(downloadClientConfig)
+	downloadClient, err := direct.CreateDownloadClient(downloadClientConfig, db)
 	if err != nil {
 		fmt.Printf("Cannot torrent download client : %s", err)
 	}

@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get all downloads */
+        get: operations["get-downloads"];
+        put?: never;
+        /** Download with url */
+        post: operations["download"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/download/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete download with files */
+        post: operations["delete-download-with-files"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/download/meta": {
         parameters: {
             query?: never;
@@ -15,6 +50,74 @@ export interface paths {
         put?: never;
         /** Get meta data of download */
         post: operations["get-download-meta"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/download/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause download */
+        post: operations["pause-download"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/download/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove download */
+        post: operations["remove-download"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/download/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume download */
+        post: operations["resume-download"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/download/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get download */
+        get: operations["get-download"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -187,17 +290,99 @@ export interface components {
             readonly $schema?: string;
             /** Format: int64 */
             DownloadedBytes: number;
-            Finished: boolean;
-            Name: string;
-            /** Format: int32 */
+            /** Format: int64 */
             PartCount: number;
-            PartProcess: components["schemas"]["PartProgress"][];
-            Path: string;
+            /** Format: int64 */
+            PartLength: number;
             /** Format: int64 */
             QueueNumber: number;
             /** Format: int64 */
             TotalSize: number;
-            Url: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            parts: components["schemas"]["DownloadPart"][];
+            path: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: int64 */
+            status: number;
+            /** Format: int64 */
+            timeActive: number;
+            url: string;
+        };
+        DownloadActionReqBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            ids: number[];
+        };
+        DownloadActionResBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            success: boolean;
+        };
+        DownloadMeta: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            fileName: string;
+            fileType: string;
+            isRangeAllowed: boolean;
+            /** Format: int64 */
+            totalSize: number;
+            url: string;
+        };
+        DownloadPart: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            downloadedBytes: number;
+            /** Format: int64 */
+            endByteIndex: number;
+            /** Format: date-time */
+            finishedAt: string;
+            /** Format: int64 */
+            partIndex: number;
+            /** Format: int64 */
+            partLength: number;
+            /** Format: int64 */
+            startByteIndex: number;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: int64 */
+            status: number;
+            /** Format: int64 */
+            timeActive: number;
+        };
+        DownloadReqBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            addTopOfQueue: boolean;
+            category: string;
+            /** @enum {string} */
+            contentLayout: "Original" | "Create subfolder" | "Don't create subfolder";
+            description: string;
+            incompleteSavePath: string;
+            isIncompleteSavePathEnabled: boolean;
+            savePath: string;
+            startDownload: boolean;
+            tags: string[];
+            url: string;
         };
         DownloadTorrentReqBody: {
             /**
@@ -257,7 +442,7 @@ export interface components {
              */
             type: string;
         };
-        GetDownloadFileInfoReqBody: {
+        GetDownloadMetaReqBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -280,15 +465,6 @@ export interface components {
              */
             readonly $schema?: string;
             torrents: components["schemas"]["Torrent"][];
-        };
-        PartProgress: {
-            Buffer: string;
-            /** Format: int32 */
-            EndByteIndex: number;
-            /** Format: int32 */
-            PartId: number;
-            /** Format: int32 */
-            StartByteIndex: number;
         };
         Peer: {
             url: string;
@@ -429,6 +605,101 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "get-downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Download"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Download"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-download-with-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadActionReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadActionResBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-download-meta": {
         parameters: {
             query?: never;
@@ -438,9 +709,137 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["GetDownloadFileInfoReqBody"];
+                "application/json": components["schemas"]["GetDownloadMetaReqBody"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadMeta"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "pause-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadActionReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadActionResBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "remove-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadActionReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadActionResBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "resume-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadActionReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadActionResBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

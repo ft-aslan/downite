@@ -12,11 +12,9 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import {
-  ArrowBigUpDash,
   ArrowUpDown,
   Check,
   ChevronDown,
-  Copy,
   MoreHorizontal,
   Pause,
   Play,
@@ -52,7 +50,7 @@ import { Progress } from "@/components/ui/progress"
 import { Link } from "@tanstack/react-router"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-function TorrentStatusIcon(props: { status: string }) {
+function DownloadStatusIcon(props: { status: string }) {
   switch (props.status) {
     case "metadata":
       return <RefreshCw className="h-4 w-4" />
@@ -62,29 +60,27 @@ function TorrentStatusIcon(props: { status: string }) {
       return <Play className="h-4 w-4" />
     case "completed":
       return <Check className="h-4 w-4" />
-    case "seeding":
-      return <ArrowBigUpDash className="h-4 w-4" />
     default:
       return null
   }
 }
-function toggleTorrentState(infohash: string, status: string) {
+function toggleDownloadState(id: number, status: string) {
   if (status === "downloading") {
-    client.POST("/torrent/pause", {
+    client.POST("/download/pause", {
       body: {
-        infoHashes: [infohash],
+        ids: [id],
       },
     })
   } else if (status === "paused") {
-    client.POST("/torrent/resume", {
+    client.POST("/download/resume", {
       body: {
-        infoHashes: [infohash],
+        ids: [id],
       },
     })
   }
 }
 
-const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
+const columns: ColumnDef<components["schemas"]["Download"]>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -129,10 +125,10 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
       <Button
         variant="ghost"
         onClick={() =>
-          toggleTorrentState(row.getValue("infohash"), row.getValue("status"))
+          toggleDownloadState(row.getValue("id"), row.getValue("status"))
         }
       >
-        <TorrentStatusIcon status={row.getValue("status")} />
+        <DownloadStatusIcon status={row.getValue("status")} />
       </Button>
     ),
   },
@@ -151,10 +147,7 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     },
     cell: ({ row }) => (
       <div>
-        <Link
-          to={`/torrent/$infohash`}
-          params={{ infohash: row.original.infohash }}
-        >
+        <Link to={`/download/$id`} params={{ id: row.original.id }}>
           {row.getValue("name")}
         </Link>
       </div>
@@ -181,56 +174,6 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     ),
   },
   {
-    accessorKey: "sizeOfWanted",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Size
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => (
-      <div>
-        {((row.getValue("sizeOfWanted") as number) / 1024 / 1024).toFixed(2) +
-          " MB"}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "seeds",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Seeds
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => <div>{row.getValue("seeds")}</div>,
-  },
-  /*   {
-    accessorKey: "peers",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Peers
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => <div>{row.getValue("peerCount")}</div>,
-  }, */
-  {
     accessorKey: "downloadSpeed",
     header: ({ column }) => {
       return (
@@ -246,40 +189,25 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
     cell: ({ row }) => <div>{row.getValue("downloadSpeed")} KB/s</div>,
   },
   {
-    accessorKey: "uploadSpeed",
+    accessorKey: "id",
     header: ({ column }) => {
       return (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Upload Speed
+          ID
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
-    cell: ({ row }) => <div>{row.getValue("uploadSpeed")} KB/s</div>,
-  },
-  {
-    accessorKey: "infohash",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Infohash
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => <div>{row.getValue("infohash")}</div>,
+    cell: ({ row }) => <div>{row.getValue("id")}</div>,
   },
   {
     id: "actions",
     enableHiding: false,
     cell: ({ row }) => {
-      const torrent = row.original
+      const download = row.original
 
       return (
         <DropdownMenu>
@@ -293,9 +221,9 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
               onClick={() => {
-                client.POST("/torrent/pause", {
+                client.POST("/download/pause", {
                   body: {
-                    infoHashes: [torrent.infohash],
+                    ids: [download.id],
                   },
                 })
               }}
@@ -305,9 +233,9 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
-                client.POST("/torrent/resume", {
+                client.POST("/download/resume", {
                   body: {
-                    infoHashes: [torrent.infohash],
+                    ids: [download.id],
                   },
                 })
               }}
@@ -315,18 +243,12 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
               <Play className="ml-2 h-4 w-4" />
               <span className="ml-1 sm:whitespace-nowrap">Resume</span>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(torrent.infohash)}
-            >
-              <Copy className="ml-2 h-4 w-4" />
-              <span className="ml-1 sm:whitespace-nowrap">Copy info hash</span>
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {
-                client.POST("/torrent/remove", {
+                client.POST("/download/remove", {
                   body: {
-                    infoHashes: [torrent.infohash],
+                    ids: [download.id],
                   },
                 })
               }}
@@ -336,9 +258,9 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
-                client.POST("/torrent/delete", {
+                client.POST("/download/delete", {
                   body: {
-                    infoHashes: [torrent.infohash],
+                    ids: [download.id],
                   },
                 })
               }}
@@ -355,10 +277,10 @@ const columns: ColumnDef<components["schemas"]["Torrent"]>[] = [
   },
 ]
 
-export function TorrentsTable({
-  torrents,
+export function DownloadsTable({
+  downloads,
 }: {
-  torrents: components["schemas"]["Torrent"][]
+  downloads: components["schemas"]["Download"][]
 }) {
   const [view, setView] = React.useState<"table" | "grid">("table")
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -367,12 +289,12 @@ export function TorrentsTable({
   )
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({
-      infohash: false,
+      id: false,
     })
   const [rowSelection, setRowSelection] = React.useState({})
 
   const table = useReactTable({
-    data: torrents,
+    data: downloads,
     columns: columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -394,7 +316,7 @@ export function TorrentsTable({
     <div className="w-full">
       <div className="flex items-center py-4">
         <Input
-          placeholder="Find Torrent..."
+          placeholder="Find Download..."
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("name")?.setFilterValue(event.target.value)

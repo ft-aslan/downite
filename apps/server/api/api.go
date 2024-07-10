@@ -180,7 +180,49 @@ func (api API) AddDownloadRoutes(handler handlers.DownloadHandler) {
 		Method:      http.MethodPost,
 		Path:        "/download/meta",
 		Summary:     "Get meta data of download",
-	}, handler.GetDownloadFileInfo)
+	}, handler.GetDownloadMeta)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "download",
+		Method:      http.MethodPost,
+		Path:        "/download",
+		Summary:     "Download with url",
+	}, handler.Download)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-downloads",
+		Method:      http.MethodGet,
+		Path:        "/download",
+		Summary:     "Get all downloads",
+	}, handler.GetDownloads)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-download",
+		Method:      http.MethodGet,
+		Path:        "/download/{id}",
+		Summary:     "Get download",
+	}, handler.GetDownload)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "pause-download",
+		Method:      http.MethodPost,
+		Path:        "/download/pause",
+		Summary:     "Pause download",
+	}, handler.PauseDownload)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "resume-download",
+		Method:      http.MethodPost,
+		Path:        "/download/resume",
+		Summary:     "Resume download",
+	}, handler.ResumeDownload)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "remove-download",
+		Method:      http.MethodPost,
+		Path:        "/download/remove",
+		Summary:     "Remove download",
+	}, handler.RemoveDownload)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "delete-download-with-files",
+		Method:      http.MethodPost,
+		Path:        "/download/delete",
+		Summary:     "Delete download with files",
+	}, handler.DeleteDownload)
 }
 
 // Create a custom middleware handler to disable CORS

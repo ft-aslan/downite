@@ -1,4 +1,4 @@
--- +goose Up
+-- +goose up
 create table if not exists downloads (
     id integer primary key,
     created_at timestamp default current_timestamp,
@@ -12,8 +12,9 @@ create table if not exists downloads (
     total_size int not null,
     downloaded_bytes int not null,
     url text not null,
-    queue_number int not null,
+    queue_number int not null
 );
+
 create table if not exists download_parts (
     id integer primary key,
     created_at timestamp default current_timestamp,
@@ -27,6 +28,8 @@ create table if not exists download_parts (
     downloaded_bytes int not null,
     foreign key (download_id) references downloads (id)
 );
--- +goose Down
-drop table if exists downloads;
-drop table if exists download_parts;
+
+-- +goose down
+drop table downloads;
+
+drop table download_parts;

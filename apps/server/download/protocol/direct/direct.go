@@ -1,4 +1,4 @@
-package http
+package direct
 
 import (
 	"context"
@@ -39,29 +39,30 @@ type contextWithCancel struct {
 	cancel *context.CancelFunc
 }
 
-func CreateDownloadClient(config DownloadClientConfig) (*Client, error) {
+func CreateDownloadClient(config DownloadClientConfig, db *db.Database) (*Client, error) {
 	return &Client{
 		Config: &config,
+		httpClient: &http.Client{
+			Transport: http.DefaultTransport,
+		},
+		db: db,
 	}, nil
 }
 func (client *Client) InitDownloads() error {
 	client.downloads = make(map[int]*types.Download, 0)
 	return nil
 }
-
-func (client *Client) DownloadFromUrl(url string, partCount int, savePath string, startDownload bool) error {
-
-	//check if server accepts split downloads
+func (client *Client) GetDownloadMeta(url string) (*types.DownloadMeta, error) {
 	req, err := http.NewRequest("HEAD", url, nil)
 
 	if err != nil {
-		return fmt.Errorf("while creating request: %s", err)
+		return nil, fmt.Errorf("while creating request: %s", err)
 	}
 
 	res, err := client.httpClient.Do(req)
 
 	if err != nil {
-		return fmt.Errorf("while head request: %s", err)
+		return nil, fmt.Errorf("while head request: %s", err)
 	}
 	//check if server accepts split downloads
 	rangesHeader := res.Header.Get("Accept-Ranges")
@@ -71,7 +72,7 @@ func (client *Client) DownloadFromUrl(url string, partCount int, savePath string
 	contentDispositionHeader := res.Header.Get("Content-Disposition")
 
 	if contentLengthHeader == "" {
-		return fmt.Errorf("cannot find content length in headers")
+		return nil, fmt.Errorf("cannot find content length in headers")
 	}
 
 	var fileName string
@@ -84,44 +85,64 @@ func (client *Client) DownloadFromUrl(url string, partCount int, savePath string
 	}
 
 	if fileName == "" {
-		return fmt.Errorf("cannot find file name")
+		return nil, fmt.Errorf("cannot find file name")
 	}
 	if contentLengthHeader == "" {
-		return fmt.Errorf("cannot find content length in headers")
+		return nil, fmt.Errorf("cannot find content length in headers")
 	}
 	contentLength, err := strconv.ParseUint(contentLengthHeader, 10, 64)
 	if err != nil {
-		return fmt.Errorf("cannot convert content length header to int : %s", err)
+		return nil, fmt.Errorf("cannot convert content length header to int : %s", err)
+	}
+
+	return &types.DownloadMeta{
+		FileName:       fileName,
+		TotalSize:      contentLength,
+		Url:            url,
+		FileType:       path.Ext(fileName),
+		IsRangeAllowed: rangesHeader == "bytes",
+	}, nil
+
+}
+
+func (client *Client) DownloadFromUrl(url string, partCount int, savePath string, startDownload bool) (*types.Download, error) {
+	//GET METAINFO
+	metaInfo, err := client.GetDownloadMeta(url)
+	if err != nil {
+		return nil, err
 	}
 
 	var partLength uint64 = 0
-	if rangesHeader != "" {
-		partLength = uint64(math.Floor(float64(contentLength) / float64(partCount)))
+
+	if metaInfo.IsRangeAllowed {
+		partLength = uint64(math.Floor(float64(metaInfo.TotalSize) / float64(partCount)))
 	} else {
-		partLength = contentLength
+		partLength = metaInfo.TotalSize
 		partCount = 1
 	}
 	download := &types.Download{
 		Parts:           make([]*types.DownloadPart, partCount),
-		Name:            fileName,
+		Name:            metaInfo.FileName,
 		Path:            savePath,
 		PartCount:       partCount,
 		PartLength:      partLength,
 		Url:             url,
-		TotalSize:       uint64(contentLength),
+		TotalSize:       uint64(metaInfo.TotalSize),
 		DownloadedBytes: 0,
 		Status:          types.DownloadStatusPaused,
 	}
 
-	//REGISTER DOWNLOAD
+	//REGISTER DOWNLOAD to DB
 	//from now on download has id from db
 	client.RegisterDownload(download)
-
+	//ADD DOWNLOAD TO client
+	client.AddDownload(download)
 	//START SPLIT DOWNLOAD
 	if startDownload {
-		client.AddDownload(download)
+		client.StartDownload(download.Id)
 	}
-	return nil
+
+	return download, nil
 }
 func (client *Client) RegisterDownload(download *types.Download) error {
 	for i := 0; i < download.PartCount; i++ {
@@ -162,11 +183,11 @@ func (client *Client) AddDownload(download *types.Download) {
 
 	client.downloads[download.Id] = download
 }
-func (client *Client) RemoveDownload(download *types.Download) error {
+func (client *Client) RemoveDownload(id int) error {
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
 
-	delete(client.downloads, download.Id)
+	delete(client.downloads, id)
 	return nil
 }
 func (client *Client) GetDownload(id int) (*types.Download, error) {
@@ -179,6 +200,19 @@ func (client *Client) GetDownload(id int) (*types.Download, error) {
 	}
 	return download, nil
 }
+func (client *Client) GetDownloads() ([]*types.Download, error) {
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+
+	if client.downloads == nil {
+		return nil, fmt.Errorf("downloads are not initilized")
+	}
+	downloads := make([]*types.Download, 0, len(client.downloads))
+	for _, download := range client.downloads {
+		downloads = append(downloads, download)
+	}
+	return downloads, nil
+}
 func (client *Client) StartDownload(id int) error {
 	download, err := client.GetDownload(id)
 	if err != nil {
@@ -186,7 +220,6 @@ func (client *Client) StartDownload(id int) error {
 	}
 
 	fileBuffer := make([]byte, int(download.TotalSize))
-	var partStartIndex uint64 = 0
 
 	partProcessChan := make(chan *types.DownloadPart, download.PartCount)
 	errorChan := make(chan error)
@@ -212,7 +245,7 @@ func (client *Client) StartDownload(id int) error {
 				errorChan <- err
 				return
 			}
-			buffer := make([]byte, part.EndByteIndex+1-partStartIndex)
+			buffer := make([]byte, part.EndByteIndex+1-part.StartByteIndex)
 
 			_, err = io.ReadFull(filePartBufferReader, buffer)
 			if err != nil {
@@ -222,14 +255,12 @@ func (client *Client) StartDownload(id int) error {
 			// defer filePartBufferReader.Close()
 			partProgress := &types.DownloadPart{
 				PartIndex:      part.PartIndex,
-				StartByteIndex: partStartIndex,
+				StartByteIndex: part.StartByteIndex,
 				EndByteIndex:   part.EndByteIndex,
 				Buffer:         buffer,
 			}
 			partProcessChan <- partProgress
 		}()
-
-		partStartIndex += download.PartLength + 1
 
 	}
 

@@ -19,6 +19,7 @@ import { Route as DownloadsImport } from './routes/downloads'
 import { Route as AccountImport } from './routes/account'
 import { Route as IndexImport } from './routes/index'
 import { Route as TorrentsIndexImport } from './routes/torrents/index'
+import { Route as DownloadsIndexImport } from './routes/downloads/index'
 import { Route as TorrentInfohashImport } from './routes/torrent/$infohash'
 
 // Create/Update Routes
@@ -61,6 +62,11 @@ const IndexRoute = IndexImport.update({
 const TorrentsIndexRoute = TorrentsIndexImport.update({
   path: '/',
   getParentRoute: () => TorrentsRoute,
+} as any)
+
+const DownloadsIndexRoute = DownloadsIndexImport.update({
+  path: '/',
+  getParentRoute: () => DownloadsRoute,
 } as any)
 
 const TorrentInfohashRoute = TorrentInfohashImport.update({
@@ -128,6 +134,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorrentInfohashImport
       parentRoute: typeof TorrentImport
     }
+    '/downloads/': {
+      id: '/downloads/'
+      path: '/'
+      fullPath: '/downloads/'
+      preLoaderRoute: typeof DownloadsIndexImport
+      parentRoute: typeof DownloadsImport
+    }
     '/torrents/': {
       id: '/torrents/'
       path: '/'
@@ -143,7 +156,7 @@ declare module '@tanstack/react-router' {
 export const routeTree = rootRoute.addChildren({
   IndexRoute,
   AccountRoute,
-  DownloadsRoute,
+  DownloadsRoute: DownloadsRoute.addChildren({ DownloadsIndexRoute }),
   HelpRoute,
   SettingsRoute,
   TorrentRoute: TorrentRoute.addChildren({ TorrentInfohashRoute }),
@@ -174,7 +187,10 @@ export const routeTree = rootRoute.addChildren({
       "filePath": "account.tsx"
     },
     "/downloads": {
-      "filePath": "downloads.tsx"
+      "filePath": "downloads.tsx",
+      "children": [
+        "/downloads/"
+      ]
     },
     "/help": {
       "filePath": "help.tsx"
@@ -197,6 +213,10 @@ export const routeTree = rootRoute.addChildren({
     "/torrent/$infohash": {
       "filePath": "torrent/$infohash.tsx",
       "parent": "/torrent"
+    },
+    "/downloads/": {
+      "filePath": "downloads/index.tsx",
+      "parent": "/downloads"
     },
     "/torrents/": {
       "filePath": "torrents/index.tsx",
