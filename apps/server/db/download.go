@@ -1,12 +1,24 @@
 package db
 
-import "downite/types"
+import (
+	"downite/types"
+	"fmt"
+)
 
-func (db *Database) InsertDownload(download *types.Download) (int, error) {
+func (db *Database) InsertDownload(download *types.Download, addTopOfQueue bool) (int, error) {
+	if addTopOfQueue {
+		if download.QueueNumber != 1 {
+			return 0, fmt.Errorf("cannot add download to top of queue with queue number %d", download.QueueNumber)
+		}
+		_, err := db.x.Exec(`UPDATE downloads SET queue_number = queue_number + 1`)
+		if err != nil {
+			return 0, err
+		}
+	}
 	result, err := db.x.NamedExec(`INSERT INTO downloads
-	(status, name, path, part_count, part_length, total_size, downloaded_bytes, url, queue_number)
+	(created_at, status, name, path, part_count, part_length, total_size, downloaded_bytes, url, queue_number)
 	VALUES
-	(:status, :name, :path, :part_count, :part_length, :total_size, :downloaded_bytes, :url, :queue_number)
+	(:created_at, :status, :name, :path, :part_count, :part_length, :total_size, :downloaded_bytes, :url, :queue_number)
 	`, download)
 	if err != nil {
 		return 0, err
@@ -43,7 +55,13 @@ func (db *Database) DeleteDownload(id int) error {
 	return err
 }
 
-func (db *Database) UpdateDownload(id int, download *types.Download) error {
+func (db *Database) GetLastQueueNumberOfDownloads() (int, error) {
+	var lastQueueNumber int
+	err := db.x.Get(&lastQueueNumber, `SELECT MAX(queue_number) FROM downloads`)
+	return lastQueueNumber, err
+}
+
+func (db *Database) UpdateDownload(download *types.Download) error {
 	_, err := db.x.NamedExec(`UPDATE downloads
 	SET
 		status = :status,
@@ -55,6 +73,9 @@ func (db *Database) UpdateDownload(id int, download *types.Download) error {
 		downloaded_bytes = :downloaded_bytes,
 		url = :url,
 		queue_number = :queue_number
+		started_at = :started_at,
+		finished_at = :finished_at,
+		time_active = :time_active
 	WHERE
 		id = :id
 	`, download)
@@ -62,9 +83,10 @@ func (db *Database) UpdateDownload(id int, download *types.Download) error {
 }
 func (db *Database) InsertDownloadParts(downloadPart []*types.DownloadPart) error {
 	_, err := db.x.NamedExec(`INSERT INTO download_parts
-	(status, part_index, start_byte_index, end_byte_index, part_length, downloaded_bytes, download_id)
+	(created_at, status, part_index, start_byte_index, end_byte_index, part_length, downloaded_bytes, download_id)
 	VALUES
-	(:status, :part_index, :start_byte_index, :end_byte_index, :part_length, :downloaded_bytes, :download_id)
+	(:created_at, :status, :part_index, :start_byte_index, :end_byte_index, :part_length, :downloaded_bytes, :download_id)
 	`, downloadPart)
+
 	return err
 }

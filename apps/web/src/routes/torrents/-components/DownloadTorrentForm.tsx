@@ -253,9 +253,6 @@ export default function DownloadTorrentForm({
                           <FormLabel className="text-base">
                             Use another path for incomplete torrent
                           </FormLabel>
-                          <FormDescription>
-                            Use another path for incomplete torrent
-                          </FormDescription>
                         </div>
                         <FormControl>
                           <Switch
@@ -278,9 +275,6 @@ export default function DownloadTorrentForm({
                         <FormLabel className="text-base">
                           Start torrent
                         </FormLabel>
-                        <FormDescription>
-                          Start the torrent after creation
-                        </FormDescription>
                       </div>
 
                       <FormControl>
@@ -303,9 +297,6 @@ export default function DownloadTorrentForm({
                         <FormLabel className="text-base">
                           Add top of queue
                         </FormLabel>
-                        <FormDescription>
-                          Add the torrent to the top of the queue
-                        </FormDescription>
                       </div>
 
                       <FormControl>

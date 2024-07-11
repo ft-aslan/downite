@@ -260,7 +260,7 @@ func (torrentEngine *TorrentEngine) RegisterTorrent(infohash string,
 		if len(torrentEngine.torrents) == 0 {
 			dbTorrent.QueueNumber = 1
 		} else {
-			lastQueueNumber, err := torrentEngine.db.GetLastQueueNumber()
+			lastQueueNumber, err := torrentEngine.db.GetLastQueueNumberOfTorrents()
 			if err != nil {
 				return nil, err
 			}

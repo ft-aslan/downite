@@ -39,7 +39,7 @@ export default function GetDownloadMetaForm({
     onSuccess(result) {
       if (result.data) {
         toast(
-          `Fetched download metadata from address : ${result.data.fileName}`
+          `Fetched download metadata from address. File name : ${result.data.fileName}`
         )
         form.reset()
         onDownloadMetaChange(result.data)
@@ -66,7 +66,7 @@ export default function GetDownloadMetaForm({
               <FormControl>
                 <Input type="text" placeholder="Enter Address..." {...field} />
               </FormControl>
-              <FormDescription>Enter Address</FormDescription>
+              <FormDescription>Enter Address to download</FormDescription>
               <FormMessage />
             </FormItem>
           )}

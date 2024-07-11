@@ -10,9 +10,11 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type DownloadClientConfig struct {
@@ -33,6 +35,9 @@ type Client struct {
 	httpClient        *http.Client
 	Config            *DownloadClientConfig
 	db                *db.Database
+	// part contexts for each download. we need to cancel them if download is cancelled
+	partContexts            map[int][]*contextWithCancel
+	downloadStateChangeChan chan map[int]types.DownloadStatus
 }
 type contextWithCancel struct {
 	ctx    *context.Context
@@ -50,6 +55,18 @@ func CreateDownloadClient(config DownloadClientConfig, db *db.Database) (*Client
 }
 func (client *Client) InitDownloads() error {
 	client.downloads = make(map[int]*types.Download, 0)
+	client.partContexts = make(map[int][]*contextWithCancel)
+	client.downloadStateChangeChan = make(chan map[int]types.DownloadStatus)
+	go func() {
+		for stateChanges := range client.downloadStateChangeChan {
+			for id, stateChange := range stateChanges {
+				client.mutexForDownloads.Lock()
+				download := client.downloads[id]
+				download.Status = stateChange
+				client.mutexForDownloads.Unlock()
+			}
+		}
+	}()
 	return nil
 }
 func (client *Client) GetDownloadMeta(url string) (*types.DownloadMeta, error) {
@@ -105,7 +122,7 @@ func (client *Client) GetDownloadMeta(url string) (*types.DownloadMeta, error) {
 
 }
 
-func (client *Client) DownloadFromUrl(url string, partCount int, savePath string, startDownload bool) (*types.Download, error) {
+func (client *Client) DownloadFromUrl(url string, partCount int, savePath string, startDownload bool, addTopOfQueue bool) (*types.Download, error) {
 	//GET METAINFO
 	metaInfo, err := client.GetDownloadMeta(url)
 	if err != nil {
@@ -120,7 +137,14 @@ func (client *Client) DownloadFromUrl(url string, partCount int, savePath string
 		partLength = metaInfo.TotalSize
 		partCount = 1
 	}
+
+	// if save path empty use default path
+	if savePath == "" {
+		savePath = client.Config.DownloadPath
+	}
+
 	download := &types.Download{
+		CreatedAt:       time.Now(),
 		Parts:           make([]*types.DownloadPart, partCount),
 		Name:            metaInfo.FileName,
 		Path:            savePath,
@@ -129,12 +153,13 @@ func (client *Client) DownloadFromUrl(url string, partCount int, savePath string
 		Url:             url,
 		TotalSize:       uint64(metaInfo.TotalSize),
 		DownloadedBytes: 0,
+		Progress:        0,
 		Status:          types.DownloadStatusPaused,
 	}
 
 	//REGISTER DOWNLOAD to DB
 	//from now on download has id from db
-	client.RegisterDownload(download)
+	client.RegisterDownload(download, addTopOfQueue)
 	//ADD DOWNLOAD TO client
 	client.AddDownload(download)
 	//START SPLIT DOWNLOAD
@@ -144,7 +169,7 @@ func (client *Client) DownloadFromUrl(url string, partCount int, savePath string
 
 	return download, nil
 }
-func (client *Client) RegisterDownload(download *types.Download) error {
+func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue bool) error {
 	for i := 0; i < download.PartCount; i++ {
 
 		startByteIndex := uint64(i) * download.PartLength
@@ -155,19 +180,37 @@ func (client *Client) RegisterDownload(download *types.Download) error {
 		}
 
 		download.Parts[i] = &types.DownloadPart{
-			PartIndex:      i + 1,
-			StartByteIndex: startByteIndex,
-			EndByteIndex:   endByteIndex,
-			PartLength:     download.PartLength,
-			Status:         types.DownloadStatusPaused,
-			DownloadId:     download.Id,
+			CreatedAt:       time.Now(),
+			PartIndex:       i + 1,
+			StartByteIndex:  startByteIndex,
+			EndByteIndex:    endByteIndex,
+			PartLength:      download.PartLength,
+			Status:          types.DownloadStatusPaused,
+			DownloadId:      download.Id,
+			DownloadedBytes: 0,
+			Progress:        0,
 		}
 	}
 
-	id, err := client.db.InsertDownload(download)
+	if addTopOfQueue {
+		download.QueueNumber = 1
+	} else {
+		if len(client.downloads) == 0 {
+			download.QueueNumber = 1
+		} else {
+			lastQueueNumber, err := client.db.GetLastQueueNumberOfDownloads()
+			if err != nil {
+				return err
+			}
+			download.QueueNumber = lastQueueNumber + 1
+		}
+	}
+
+	id, err := client.db.InsertDownload(download, addTopOfQueue)
 	if err != nil {
 		return err
 	}
+
 	download.Id = id
 
 	err = client.db.InsertDownloadParts(download.Parts)
@@ -219,7 +262,11 @@ func (client *Client) StartDownload(id int) error {
 		return err
 	}
 
-	fileBuffer := make([]byte, int(download.TotalSize))
+	fileBuffer, err := os.Create(filepath.Join(download.Path, download.Name))
+	if err != nil {
+		return err
+	}
+	defer fileBuffer.Close()
 
 	partProcessChan := make(chan *types.DownloadPart, download.PartCount)
 	errorChan := make(chan error)
@@ -233,16 +280,17 @@ func (client *Client) StartDownload(id int) error {
 
 		ctx, cancel := context.WithCancel(context.Background())
 
-		downloadPartContexts[part.PartIndex-1] = &contextWithCancel{
+		downloadPartContexts = append(downloadPartContexts, &contextWithCancel{
 			ctx:    &ctx,
 			cancel: &cancel,
-		}
+		})
 
 		// we are creating new goroutine for each part
 		go func() {
 			filePartBufferReader, err := client.downloadFilePart(part, download.Url, ctx)
 			if err != nil {
 				errorChan <- err
+				cancel()
 				return
 			}
 			buffer := make([]byte, part.EndByteIndex+1-part.StartByteIndex)
@@ -250,6 +298,7 @@ func (client *Client) StartDownload(id int) error {
 			_, err = io.ReadFull(filePartBufferReader, buffer)
 			if err != nil {
 				errorChan <- err
+				cancel()
 				return
 			}
 			// defer filePartBufferReader.Close()
@@ -257,11 +306,21 @@ func (client *Client) StartDownload(id int) error {
 				PartIndex:      part.PartIndex,
 				StartByteIndex: part.StartByteIndex,
 				EndByteIndex:   part.EndByteIndex,
+				PartLength:     part.PartLength,
+				Status:         types.DownloadStatusCompleted,
+				DownloadId:     part.DownloadId,
+				Progress:       100.0,
 				Buffer:         buffer,
 			}
 			partProcessChan <- partProgress
 		}()
 
+	}
+	download.Status = types.DownloadStatusDownloading
+	download.StartedAt = time.Now()
+	err = client.db.UpdateDownload(download)
+	if err != nil {
+		return err
 	}
 
 	for completedPartCount != download.PartCount {
@@ -274,22 +333,18 @@ func (client *Client) StartDownload(id int) error {
 			if end > download.TotalSize {
 				end = download.TotalSize
 			}
-			copy(fileBuffer[start:end], partProcess.Buffer)
+			_, err := fileBuffer.Seek(int64(start), io.SeekStart)
+			if err != nil {
+				return err
+			}
+			_, err = fileBuffer.Write(partProcess.Buffer)
+			if err != nil {
+				return err
+			}
 
 			fmt.Printf("copied to start index id : %d | end index id : %d | part id : %d \n", partProcess.StartByteIndex, partProcess.EndByteIndex, partProcess.PartIndex)
 			completedPartCount += 1
 		}
-	}
-
-	outFile, err := os.Create(download.Path + download.Name)
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-
-	_, err = outFile.Write(fileBuffer)
-	if err != nil {
-		return err
 	}
 	return nil
 }

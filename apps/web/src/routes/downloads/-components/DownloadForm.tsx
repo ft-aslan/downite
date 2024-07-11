@@ -43,6 +43,7 @@ export default function DownloadForm({
   //TODO(fatih): dont use any as type. fegure out how we can type form for multipart form
   const form = useForm<components["schemas"]["DownloadReqBody"]>({
     defaultValues: {
+      url: downloadMeta.url,
       savePath: "",
       startDownload: true,
       isIncompleteSavePathEnabled: false,
@@ -117,9 +118,6 @@ export default function DownloadForm({
                   <FormControl>
                     <Input type="text" placeholder="Save Path" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    The path where the download will be saved
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -158,9 +156,6 @@ export default function DownloadForm({
                       <FormLabel className="text-base">
                         Use another path for incomplete download
                       </FormLabel>
-                      <FormDescription>
-                        Use another path for incomplete download
-                      </FormDescription>
                     </div>
                     <FormControl>
                       <Switch
@@ -181,9 +176,6 @@ export default function DownloadForm({
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Start download</FormLabel>
-                    <FormDescription>
-                      Start the download after creation
-                    </FormDescription>
                   </div>
 
                   <FormControl>
@@ -206,9 +198,6 @@ export default function DownloadForm({
                     <FormLabel className="text-base">
                       Add top of queue
                     </FormLabel>
-                    <FormDescription>
-                      Add the download to the top of the queue
-                    </FormDescription>
                   </div>
 
                   <FormControl>

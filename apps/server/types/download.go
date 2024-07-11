@@ -35,24 +35,26 @@ type Download struct {
 	PartLength      uint64          `db:"part_length"`
 	TotalSize       uint64          `db:"total_size"`
 	DownloadedBytes uint64          `db:"downloaded_bytes"`
+	Progress        float64         `json:"progress"`
 	Parts           []*DownloadPart `json:"parts"`
 	Url             string          `json:"url"`
 	QueueNumber     int             `db:"queue_number"`
 }
 type DownloadPart struct {
-	CreatedAt      time.Time      `db:"created_at" json:"createdAt"`
-	StartedAt      time.Time      `db:"started_at" json:"startedAt"`
-	TimeActive     time.Duration  `db:"time_active" json:"timeActive"`
-	FinishedAt     time.Time      `db:"finished_at" json:"finishedAt"`
-	Status         DownloadStatus `json:"status"`
-	PartIndex      int            `db:"part_index" json:"partIndex"`
-	StartByteIndex uint64         `db:"start_byte_index" json:"startByteIndex"`
-	EndByteIndex   uint64         `db:"end_byte_index" json:"endByteIndex"`
-	PartLength     uint64         `db:"part_length" json:"partLength"`
+	CreatedAt       time.Time      `db:"created_at" json:"createdAt"`
+	StartedAt       time.Time      `db:"started_at" json:"startedAt"`
+	TimeActive      time.Duration  `db:"time_active" json:"timeActive"`
+	FinishedAt      time.Time      `db:"finished_at" json:"finishedAt"`
+	Status          DownloadStatus `json:"status"`
+	PartIndex       int            `db:"part_index" json:"partIndex"`
+	StartByteIndex  uint64         `db:"start_byte_index" json:"startByteIndex"`
+	EndByteIndex    uint64         `db:"end_byte_index" json:"endByteIndex"`
+	PartLength      uint64         `db:"part_length" json:"partLength"`
+	DownloadedBytes uint64         `db:"downloaded_bytes" json:"downloadedBytes"`
+	Progress        float64        `db:"-" json:"progress"`
 	//we dont store buffer in db and memory
-	Buffer          []byte `db:"-" json:"-"`
-	DownloadedBytes uint64 `db:"downloaded_bytes" json:"downloadedBytes"`
-	DownloadId      int    `json:"-" db:"download_id"`
+	Buffer     []byte `db:"-" json:"-"`
+	DownloadId int    `json:"-" db:"download_id"`
 }
 type DownloadMeta struct {
 	TotalSize      uint64 `json:"totalSize"`

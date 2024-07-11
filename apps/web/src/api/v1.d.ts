@@ -307,6 +307,8 @@ export interface components {
             name: string;
             parts: components["schemas"]["DownloadPart"][];
             path: string;
+            /** Format: double */
+            progress: number;
             /** Format: date-time */
             startedAt: string;
             /** Format: int64 */
@@ -357,6 +359,8 @@ export interface components {
             partIndex: number;
             /** Format: int64 */
             partLength: number;
+            /** Format: double */
+            progress: number;
             /** Format: int64 */
             startByteIndex: number;
             /** Format: date-time */
@@ -376,7 +380,6 @@ export interface components {
             category: string;
             /** @enum {string} */
             contentLayout: "Original" | "Create subfolder" | "Don't create subfolder";
-            description: string;
             incompleteSavePath: string;
             isIncompleteSavePathEnabled: boolean;
             savePath: string;

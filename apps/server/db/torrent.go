@@ -77,14 +77,14 @@ func (db *Database) InsertTorrent(torrent *types.Torrent, addTopOfQueue bool) er
 		}
 	}
 	_, err := db.x.NamedExec(`INSERT INTO torrents
-	(infohash, name, queue_number, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
+	(craeted_at, infohash, name, queue_number, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
 	VALUES
-	(:infohash, :name, :queue_number, :save_path, :status, :time_active, :downloaded, :uploaded, :total_size, :size_of_wanted, :comment, :category_id, :created_at, :started_at)
+	(:created_at, :infohash, :name, :queue_number, :save_path, :status, :time_active, :downloaded, :uploaded, :total_size, :size_of_wanted, :comment, :category_id, :created_at, :started_at)
 	`, torrent)
 	return err
 }
 
-func (db *Database) GetLastQueueNumber() (int, error) {
+func (db *Database) GetLastQueueNumberOfTorrents() (int, error) {
 	var lastQueueNumber int
 	err := db.x.Get(&lastQueueNumber, `SELECT MAX(queue_number) FROM torrents`)
 	return lastQueueNumber, err

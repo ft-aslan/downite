@@ -41,6 +41,7 @@ func main() {
 	defaultDownloadsDir := "./tmp/downloads"
 	downloadClientConfig := direct.DownloadClientConfig{
 		DownloadPath: defaultDownloadsDir,
+		PartCount:    8,
 	}
 	downloadClient, err := direct.CreateDownloadClient(downloadClientConfig, db)
 	if err != nil {

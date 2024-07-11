@@ -41,7 +41,6 @@ type DownloadReq struct {
 		IncompleteSavePath          string   `json:"incompleteSavePath"`
 		ContentLayout               string   `json:"contentLayout" enum:"Original,Create subfolder,Don't create subfolder"`
 		Tags                        []string `json:"tags"`
-		Description                 string   `json:"description"`
 		StartDownload               bool     `json:"startDownload"`
 		AddTopOfQueue               bool     `json:"addTopOfQueue"`
 	}
@@ -52,7 +51,7 @@ type DownloadRes struct {
 
 func (handler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
 	res := &DownloadRes{}
-	download, err := handler.Engine.DownloadFromUrl(input.Body.Url, handler.Engine.Config.PartCount, input.Body.SavePath, input.Body.StartDownload)
+	download, err := handler.Engine.DownloadFromUrl(input.Body.Url, handler.Engine.Config.PartCount, input.Body.SavePath, input.Body.StartDownload, input.Body.AddTopOfQueue)
 	res.Body = download
 	return res, err
 }

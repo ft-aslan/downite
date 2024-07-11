@@ -25,6 +25,7 @@
             "type": "array"
           },
           "path": { "type": "string" },
+          "progress": { "format": "double", "type": "number" },
           "startedAt": { "format": "date-time", "type": "string" },
           "status": { "format": "int64", "type": "integer" },
           "timeActive": { "format": "int64", "type": "integer" },
@@ -43,6 +44,7 @@
           "PartLength",
           "TotalSize",
           "DownloadedBytes",
+          "progress",
           "parts",
           "url",
           "QueueNumber"
@@ -120,6 +122,7 @@
           "finishedAt": { "format": "date-time", "type": "string" },
           "partIndex": { "format": "int64", "type": "integer" },
           "partLength": { "format": "int64", "type": "integer" },
+          "progress": { "format": "double", "type": "number" },
           "startByteIndex": { "format": "int64", "type": "integer" },
           "startedAt": { "format": "date-time", "type": "string" },
           "status": { "format": "int64", "type": "integer" },
@@ -135,7 +138,8 @@
           "startByteIndex",
           "endByteIndex",
           "partLength",
-          "downloadedBytes"
+          "downloadedBytes",
+          "progress"
         ],
         "type": "object"
       },
@@ -157,7 +161,6 @@
             "enum": ["Original", "Create subfolder", "Don't create subfolder"],
             "type": "string"
           },
-          "description": { "type": "string" },
           "incompleteSavePath": { "type": "string" },
           "isIncompleteSavePathEnabled": { "type": "boolean" },
           "savePath": { "type": "string" },
@@ -173,7 +176,6 @@
           "incompleteSavePath",
           "contentLayout",
           "tags",
-          "description",
           "startDownload",
           "addTopOfQueue"
         ],
