@@ -30,7 +30,7 @@ type Download struct {
 	FinishedAt      time.Time       `json:"finishedAt" db:"finished_at"`
 	Status          DownloadStatus  `json:"status"`
 	Name            string          `json:"name"`
-	Path            string          `json:"path"`
+	SavePath        string          `db:"save_path" json:"savePath"`
 	PartCount       int             `db:"part_count"`
 	PartLength      uint64          `db:"part_length"`
 	TotalSize       uint64          `db:"total_size"`

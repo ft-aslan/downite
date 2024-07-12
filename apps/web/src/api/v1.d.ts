@@ -306,9 +306,9 @@ export interface components {
             id: number;
             name: string;
             parts: components["schemas"]["DownloadPart"][];
-            path: string;
             /** Format: double */
             progress: number;
+            savePath: string;
             /** Format: date-time */
             startedAt: string;
             /** Format: int64 */

@@ -425,7 +425,7 @@ func (torrentEngine *TorrentEngine) FindTorrents(hashes []string) ([]*types.Torr
 	return foundTorrents, nil
 }
 func (torrentEngine *TorrentEngine) ResumeTorrent(hash string) error {
-	clientTorrent, err := torrentEngine.getActiveClientTorrent(hash)
+	clientTorrent, err := torrentEngine.getActiveTorrentFromClient(hash)
 	if err != nil {
 		return err
 	}
@@ -435,7 +435,7 @@ func (torrentEngine *TorrentEngine) ResumeTorrent(hash string) error {
 	return nil
 }
 func (torrentEngine *TorrentEngine) PauseTorrent(hash string) error {
-	clientTorrent, err := torrentEngine.getActiveClientTorrent(hash)
+	clientTorrent, err := torrentEngine.getActiveTorrentFromClient(hash)
 	if err != nil {
 		return err
 	}
@@ -447,7 +447,7 @@ func (torrentEngine *TorrentEngine) PauseTorrent(hash string) error {
 	return nil
 }
 func (torrentEngine *TorrentEngine) RemoveTorrent(hash string) error {
-	clientTorrent, err := torrentEngine.getActiveClientTorrent(hash)
+	clientTorrent, err := torrentEngine.getActiveTorrentFromClient(hash)
 	if err != nil {
 		return err
 	}
@@ -473,7 +473,7 @@ func (torrentEngine *TorrentEngine) RemoveTorrent(hash string) error {
 	return nil
 }
 func (torrentEngine *TorrentEngine) DeleteTorrent(hash string) error {
-	clientTorrent, err := torrentEngine.getActiveClientTorrent(hash)
+	clientTorrent, err := torrentEngine.getActiveTorrentFromClient(hash)
 	if err != nil {
 		return err
 	}
@@ -505,7 +505,7 @@ func (torrentEngine *TorrentEngine) updateTorrentQueueNumbers() error {
 	}
 	return nil
 }
-func (torrentEngine *TorrentEngine) getActiveClientTorrent(hash string) (*gotorrent.Torrent, error) {
+func (torrentEngine *TorrentEngine) getActiveTorrentFromClient(hash string) (*gotorrent.Torrent, error) {
 	clientTorrent, ok := torrentEngine.client.Torrent(infohash.FromHexString(hash))
 	if !ok {
 		return nil, fmt.Errorf("cannot find torrent with %s this infohash", hash)

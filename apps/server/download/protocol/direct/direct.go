@@ -36,12 +36,12 @@ type Client struct {
 	Config            *DownloadClientConfig
 	db                *db.Database
 	// part contexts for each download. we need to cancel them if download is cancelled
-	partContexts            map[int][]*contextWithCancel
+	partContextMap          map[int][]*contextWithCancel
 	downloadStateChangeChan chan map[int]types.DownloadStatus
 }
 type contextWithCancel struct {
 	ctx    *context.Context
-	cancel *context.CancelFunc
+	cancel context.CancelFunc
 }
 
 func CreateDownloadClient(config DownloadClientConfig, db *db.Database) (*Client, error) {
@@ -55,11 +55,21 @@ func CreateDownloadClient(config DownloadClientConfig, db *db.Database) (*Client
 }
 func (client *Client) InitDownloads() error {
 	client.downloads = make(map[int]*types.Download, 0)
-	client.partContexts = make(map[int][]*contextWithCancel)
+	client.partContextMap = make(map[int][]*contextWithCancel)
 	client.downloadStateChangeChan = make(chan map[int]types.DownloadStatus)
+
 	go func() {
 		for stateChanges := range client.downloadStateChangeChan {
 			for id, stateChange := range stateChanges {
+				partContexts, ok := client.partContextMap[id]
+				if !ok {
+					continue
+				}
+				for _, ctxWithCancel := range partContexts {
+					ctxWithCancel.cancel()
+				}
+
+				delete(client.partContextMap, id)
 				client.mutexForDownloads.Lock()
 				download := client.downloads[id]
 				download.Status = stateChange
@@ -67,6 +77,31 @@ func (client *Client) InitDownloads() error {
 			}
 		}
 	}()
+	return nil
+}
+func (client *Client) PauseDownload(id int) error {
+	client.downloadStateChangeChan <- map[int]types.DownloadStatus{
+		id: types.DownloadStatusPaused,
+	}
+
+	client.mutexForDownloads.Lock()
+	download := client.downloads[id]
+	download.Status = types.DownloadStatusPaused
+	client.mutexForDownloads.Unlock()
+
+	return nil
+}
+
+func (client *Client) ResumeDownload(id int) error {
+	client.downloadStateChangeChan <- map[int]types.DownloadStatus{
+		id: types.DownloadStatusDownloading,
+	}
+
+	client.mutexForDownloads.Lock()
+	download := client.downloads[id]
+	download.Status = types.DownloadStatusPaused
+	client.mutexForDownloads.Unlock()
+
 	return nil
 }
 func (client *Client) GetDownloadMeta(url string) (*types.DownloadMeta, error) {
@@ -147,7 +182,7 @@ func (client *Client) DownloadFromUrl(url string, partCount int, savePath string
 		CreatedAt:       time.Now(),
 		Parts:           make([]*types.DownloadPart, partCount),
 		Name:            metaInfo.FileName,
-		Path:            savePath,
+		SavePath:        savePath,
 		PartCount:       partCount,
 		PartLength:      partLength,
 		Url:             url,
@@ -164,7 +199,10 @@ func (client *Client) DownloadFromUrl(url string, partCount int, savePath string
 	client.AddDownload(download)
 	//START SPLIT DOWNLOAD
 	if startDownload {
-		client.StartDownload(download.Id)
+		err := client.StartDownload(download.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return download, nil
@@ -227,10 +265,61 @@ func (client *Client) AddDownload(download *types.Download) {
 	client.downloads[download.Id] = download
 }
 func (client *Client) RemoveDownload(id int) error {
+
+	err := client.PauseDownload(id)
+	if err != nil {
+		return err
+	}
+
+	err = client.db.DeleteDownload(id)
+	if err != nil {
+		return err
+	}
+	err = client.db.DeleteDownloadParts(id)
+	if err != nil {
+		return err
+	}
+
+	client.mutexForDownloads.Lock()
+	delete(client.downloads, id)
+	client.mutexForDownloads.Unlock()
+
+	err = client.updateDownloadQueueNumbers()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (client *Client) updateDownloadQueueNumbers() error {
+	dbDownloads, err := client.db.GetDownloads()
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
+	if err != nil {
+		return err
+	}
+	for _, dbDownload := range dbDownloads {
+		client.downloads[dbDownload.Id].QueueNumber = dbDownload.QueueNumber
+	}
+	return nil
+}
 
-	delete(client.downloads, id)
+func (client *Client) DeleteDownload(id int) error {
+
+	client.mutexForDownloads.Lock()
+	savePath := client.downloads[id].SavePath
+	fileName := client.downloads[id].Name
+	client.mutexForDownloads.Unlock()
+
+	err := client.RemoveDownload(id)
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(filepath.Join(savePath, fileName))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 func (client *Client) GetDownload(id int) (*types.Download, error) {
@@ -261,8 +350,8 @@ func (client *Client) StartDownload(id int) error {
 	if err != nil {
 		return err
 	}
-
-	fileBuffer, err := os.Create(filepath.Join(download.Path, download.Name))
+	fmt.Printf("starting download : %s \n", filepath.Join(download.SavePath, download.Name))
+	fileBuffer, err := os.OpenFile(filepath.Join(download.SavePath, download.Name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -282,7 +371,7 @@ func (client *Client) StartDownload(id int) error {
 
 		downloadPartContexts = append(downloadPartContexts, &contextWithCancel{
 			ctx:    &ctx,
-			cancel: &cancel,
+			cancel: cancel,
 		})
 
 		// we are creating new goroutine for each part
@@ -385,9 +474,6 @@ func (client *Client) downloadFilePart(downloadPart *types.DownloadPart, url str
 	defer res.Body.Close()
 
 	filePartBufferReader := io.TeeReader(res.Body, downloadPart)
-	if err != nil {
-		return nil, fmt.Errorf("while reading response : %s", err)
-	}
 
 	if res.StatusCode == http.StatusPartialContent || res.StatusCode == http.StatusOK {
 		return filePartBufferReader, nil

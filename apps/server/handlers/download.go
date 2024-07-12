@@ -96,17 +96,41 @@ type DownloadActionRes struct {
 
 func (handler *DownloadHandler) PauseDownload(ctx context.Context, input *DownloadActionReq) (*DownloadActionRes, error) {
 	res := &DownloadActionRes{}
+	for _, id := range input.Body.Ids {
+		err := handler.Engine.PauseDownload(id)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return res, nil
 }
 func (handler *DownloadHandler) ResumeDownload(ctx context.Context, input *DownloadActionReq) (*DownloadActionRes, error) {
 	res := &DownloadActionRes{}
+	for _, id := range input.Body.Ids {
+		err := handler.Engine.ResumeDownload(id)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return res, nil
 }
 func (handler *DownloadHandler) DeleteDownload(ctx context.Context, input *DownloadActionReq) (*DownloadActionRes, error) {
 	res := &DownloadActionRes{}
+	for _, id := range input.Body.Ids {
+		err := handler.Engine.DeleteDownload(id)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return res, nil
 }
 func (handler *DownloadHandler) RemoveDownload(ctx context.Context, input *DownloadActionReq) (*DownloadActionRes, error) {
 	res := &DownloadActionRes{}
+	for _, id := range input.Body.Ids {
+		err := handler.Engine.RemoveDownload(id)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return res, nil
 }

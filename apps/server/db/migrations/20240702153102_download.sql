@@ -6,7 +6,7 @@ create table if not exists downloads (
     finished_at timestamp default null,
     status int not null,
     name text not null,
-    path text not null,
+    save_path text not null,
     part_count int not null,
     part_length int not null,
     total_size int not null,

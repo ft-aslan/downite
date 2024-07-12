@@ -24,8 +24,8 @@
             "items": { "$ref": "#/components/schemas/DownloadPart" },
             "type": "array"
           },
-          "path": { "type": "string" },
           "progress": { "format": "double", "type": "number" },
+          "savePath": { "type": "string" },
           "startedAt": { "format": "date-time", "type": "string" },
           "status": { "format": "int64", "type": "integer" },
           "timeActive": { "format": "int64", "type": "integer" },
@@ -39,7 +39,7 @@
           "finishedAt",
           "status",
           "name",
-          "path",
+          "savePath",
           "PartCount",
           "PartLength",
           "TotalSize",

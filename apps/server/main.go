@@ -7,6 +7,8 @@ import (
 	"downite/download/protocol/torr"
 	"downite/handlers"
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -37,8 +39,11 @@ func main() {
 		Db:     db,
 		Engine: torrentEngine,
 	})
-
-	defaultDownloadsDir := "./tmp/downloads"
+	executablePath, err := os.Executable()
+	if err != nil {
+		panic(fmt.Errorf("Cannot get executable path : %s", err))
+	}
+	defaultDownloadsDir := filepath.Join(filepath.Dir(executablePath), "downloads")
 	downloadClientConfig := direct.DownloadClientConfig{
 		DownloadPath: defaultDownloadsDir,
 		PartCount:    8,

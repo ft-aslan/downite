@@ -55,6 +55,10 @@ func (db *Database) DeleteDownload(id int) error {
 	return err
 }
 
+func (db *Database) DeleteDownloadParts(id int) error {
+	_, err := db.x.Exec(`DELETE FROM download_parts WHERE download_id = ?`, id)
+	return err
+}
 func (db *Database) GetLastQueueNumberOfDownloads() (int, error) {
 	var lastQueueNumber int
 	err := db.x.Get(&lastQueueNumber, `SELECT MAX(queue_number) FROM downloads`)
