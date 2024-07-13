@@ -52,9 +52,7 @@ type DownloadPart struct {
 	PartLength      uint64         `db:"part_length" json:"partLength"`
 	DownloadedBytes uint64         `db:"downloaded_bytes" json:"downloadedBytes"`
 	Progress        float64        `db:"-" json:"progress"`
-	//we dont store buffer in db and memory
-	Buffer     []byte `db:"-" json:"-"`
-	DownloadId int    `json:"-" db:"download_id"`
+	DownloadId      int            `json:"-" db:"download_id"`
 }
 type DownloadMeta struct {
 	TotalSize      uint64 `json:"totalSize"`

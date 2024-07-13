@@ -39,11 +39,20 @@ func main() {
 		Db:     db,
 		Engine: torrentEngine,
 	})
+
 	executablePath, err := os.Executable()
 	if err != nil {
 		panic(fmt.Errorf("Cannot get executable path : %s", err))
 	}
-	defaultDownloadsDir := filepath.Join(filepath.Dir(executablePath), "downloads")
+	defaultDownloadsDir := filepath.Join(filepath.Dir(executablePath), "/tmp/downloads")
+	// Check if the directory exists
+	if _, err := os.Stat(defaultDownloadsDir); os.IsNotExist(err) {
+		// Create the directory if it doesn't exist
+		if err := os.MkdirAll(defaultDownloadsDir, os.ModePerm); err != nil {
+			fmt.Println("Error creating directory:", err)
+			return
+		}
+	}
 	downloadClientConfig := direct.DownloadClientConfig{
 		DownloadPath: defaultDownloadsDir,
 		PartCount:    8,

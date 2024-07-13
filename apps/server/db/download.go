@@ -68,18 +68,18 @@ func (db *Database) GetLastQueueNumberOfDownloads() (int, error) {
 func (db *Database) UpdateDownload(download *types.Download) error {
 	_, err := db.x.NamedExec(`UPDATE downloads
 	SET
+		started_at = :started_at,
+		time_active = :time_active,
+		finished_at = :finished_at,
 		status = :status,
 		name = :name,
-		path = :path,
+		save_path = :save_path,
 		part_count = :part_count,
 		part_length = :part_length,
 		total_size = :total_size,
 		downloaded_bytes = :downloaded_bytes,
 		url = :url,
 		queue_number = :queue_number
-		started_at = :started_at,
-		finished_at = :finished_at,
-		time_active = :time_active
 	WHERE
 		id = :id
 	`, download)
@@ -92,5 +92,28 @@ func (db *Database) InsertDownloadParts(downloadPart []*types.DownloadPart) erro
 	(:created_at, :status, :part_index, :start_byte_index, :end_byte_index, :part_length, :downloaded_bytes, :download_id)
 	`, downloadPart)
 
+	return err
+}
+func (db *Database) GetDownloadParts(downloadId int) ([]types.DownloadPart, error) {
+	var err error
+	var downloadParts []types.DownloadPart
+	err = db.x.Select(&downloadParts, `SELECT * FROM download_parts WHERE download_id = ?`, downloadId)
+	if err != nil {
+		return nil, err
+	}
+	return downloadParts, err
+}
+func (db *Database) UpdateDownloadPart(downloadPart *types.DownloadPart) error {
+	_, err := db.x.NamedExec(`UPDATE download_parts
+	SET
+		started_at = :started_at,
+		time_active = :time_active,
+		finished_at = :finished_at,
+		status = :status,
+		downloaded_bytes = :downloaded_bytes
+	WHERE
+		download_id = :download_id
+		AND part_index = :part_index	
+	`, downloadPart)
 	return err
 }

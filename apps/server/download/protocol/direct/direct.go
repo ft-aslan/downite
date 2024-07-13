@@ -63,6 +63,7 @@ func (client *Client) InitDownloads() error {
 			for id, stateChange := range stateChanges {
 				partContexts, ok := client.partContextMap[id]
 				if !ok {
+					fmt.Printf("download with id %d not found. Could not update state\n", id)
 					continue
 				}
 				for _, ctxWithCancel := range partContexts {
@@ -211,10 +212,13 @@ func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue b
 	for i := 0; i < download.PartCount; i++ {
 
 		startByteIndex := uint64(i) * download.PartLength
-		endByteIndex := uint64((uint64(i) + 1) * download.PartLength)
+		endByteIndex := uint64((uint64(i)+1)*download.PartLength) - 1
+		partLength := download.PartLength
 
-		if endByteIndex > download.TotalSize {
+		if i == download.PartCount-1 {
+			//this is last part
 			endByteIndex = download.TotalSize
+			partLength = download.TotalSize - startByteIndex
 		}
 
 		download.Parts[i] = &types.DownloadPart{
@@ -222,7 +226,7 @@ func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue b
 			PartIndex:       i + 1,
 			StartByteIndex:  startByteIndex,
 			EndByteIndex:    endByteIndex,
-			PartLength:      download.PartLength,
+			PartLength:      partLength,
 			Status:          types.DownloadStatusPaused,
 			DownloadId:      download.Id,
 			DownloadedBytes: 0,
@@ -351,11 +355,6 @@ func (client *Client) StartDownload(id int) error {
 		return err
 	}
 	fmt.Printf("starting download : %s \n", filepath.Join(download.SavePath, download.Name))
-	fileBuffer, err := os.OpenFile(filepath.Join(download.SavePath, download.Name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer fileBuffer.Close()
 
 	partProcessChan := make(chan *types.DownloadPart, download.PartCount)
 	errorChan := make(chan error)
@@ -376,32 +375,29 @@ func (client *Client) StartDownload(id int) error {
 
 		// we are creating new goroutine for each part
 		go func() {
-			filePartBufferReader, err := client.downloadFilePart(part, download.Url, ctx)
+			filePartBuffer, err := os.OpenFile(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
+				part.Status = types.DownloadStatusError
 				errorChan <- err
 				cancel()
 				return
 			}
-			buffer := make([]byte, part.EndByteIndex+1-part.StartByteIndex)
+			defer filePartBuffer.Close()
 
-			_, err = io.ReadFull(filePartBufferReader, buffer)
+			err = client.downloadFilePart(part, filePartBuffer, download.Url, ctx)
 			if err != nil {
+				part.Status = types.DownloadStatusError
 				errorChan <- err
 				cancel()
 				return
 			}
-			// defer filePartBufferReader.Close()
-			partProgress := &types.DownloadPart{
-				PartIndex:      part.PartIndex,
-				StartByteIndex: part.StartByteIndex,
-				EndByteIndex:   part.EndByteIndex,
-				PartLength:     part.PartLength,
-				Status:         types.DownloadStatusCompleted,
-				DownloadId:     part.DownloadId,
-				Progress:       100.0,
-				Buffer:         buffer,
+			if part.DownloadedBytes == part.PartLength {
+				partProcessChan <- part
+				return
 			}
-			partProcessChan <- partProgress
+
+			part.Status = types.DownloadStatusError
+			errorChan <- fmt.Errorf("downloaded bytes %d is not equal to end byte index %d", part.DownloadedBytes, part.EndByteIndex)
 		}()
 
 	}
@@ -417,22 +413,68 @@ func (client *Client) StartDownload(id int) error {
 		case err := <-errorChan:
 			return fmt.Errorf("while downloading file parts : %s", err)
 		case partProcess := <-partProcessChan:
-			start := partProcess.StartByteIndex
-			end := partProcess.EndByteIndex + 1
-			if end > download.TotalSize {
-				end = download.TotalSize
-			}
-			_, err := fileBuffer.Seek(int64(start), io.SeekStart)
-			if err != nil {
-				return err
-			}
-			_, err = fileBuffer.Write(partProcess.Buffer)
+			completedPartCount += 1
+
+			partProcess.Status = types.DownloadStatusCompleted
+			partProcess.FinishedAt = time.Now()
+			err = client.db.UpdateDownloadPart(partProcess)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("copied to start index id : %d | end index id : %d | part id : %d \n", partProcess.StartByteIndex, partProcess.EndByteIndex, partProcess.PartIndex)
-			completedPartCount += 1
+			if completedPartCount != download.PartCount {
+				continue
+			}
+
+			download.Status = types.DownloadStatusCompleted
+			download.FinishedAt = time.Now()
+			err = client.db.UpdateDownload(download)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("download completed : %s \n", filepath.Join(download.SavePath, download.Name))
+
+			_, err := os.Stat(filepath.Join(download.SavePath, download.Name))
+			if err == nil {
+				fmt.Printf("deleting existing file : %s \n", filepath.Join(download.SavePath, download.Name))
+				err := os.Remove(filepath.Join(download.SavePath, download.Name))
+				if err != nil {
+					return err
+				}
+			}
+			downloadedFile, err := os.OpenFile(filepath.Join(download.SavePath, download.Name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			defer downloadedFile.Close()
+			for _, part := range download.Parts {
+				if part.Status != types.DownloadStatusCompleted {
+					return fmt.Errorf("some parts are not completed")
+				}
+				partBuffer, err := os.ReadFile(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+				if err != nil {
+					return err
+				}
+				_, err = downloadedFile.Write(partBuffer)
+				if err != nil {
+					return err
+				}
+			}
+
+			downloadedFileStats, err := downloadedFile.Stat()
+			if downloadedFileStats.Size() != int64(download.TotalSize) {
+				return fmt.Errorf("downloaded bytes %d is not equal to total size %d", downloadedFileStats.Size(), download.TotalSize)
+			}
+
+			for _, part := range download.Parts {
+				fmt.Printf("removing part : %s_part%d \n", download.Name, part.PartIndex)
+				err = os.Remove(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+				if err != nil {
+					return err
+				}
+			}
+			break
 		}
 	}
 	return nil
@@ -460,25 +502,29 @@ func getFileNameFromHeader(contentDisposition string) string {
 	return ""
 }
 
-func (client *Client) downloadFilePart(downloadPart *types.DownloadPart, url string, ctx context.Context) (io.Reader, error) {
+func (client *Client) downloadFilePart(downloadPart *types.DownloadPart, filePartBuffer *os.File, url string, ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("while creating request: %s", err)
+		return fmt.Errorf("while creating request: %s", err)
 	}
 	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", downloadPart.StartByteIndex, downloadPart.EndByteIndex))
 
 	res, err := client.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("while download : %s", err)
+		return fmt.Errorf("while download : %s", err)
 	}
 	defer res.Body.Close()
 
-	filePartBufferReader := io.TeeReader(res.Body, downloadPart)
-
-	if res.StatusCode == http.StatusPartialContent || res.StatusCode == http.StatusOK {
-		return filePartBufferReader, nil
+	if res.StatusCode != http.StatusPartialContent && res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code while downloading: %s", res.Status)
 	}
 
-	return nil, fmt.Errorf("unexpected status code: %s", res.Status)
+	filePartBufferReader := io.TeeReader(res.Body, downloadPart)
 
+	_, err = io.Copy(filePartBuffer, filePartBufferReader)
+	if err != nil {
+		return fmt.Errorf("while download : %s", err)
+	}
+
+	return nil
 }
