@@ -4,6 +4,7 @@ import (
 	"context"
 	"downite/db"
 	"downite/types"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -41,6 +42,7 @@ type Client struct {
 	Config               *DownloadClientConfig
 	db                   *db.Database
 	// part contexts for each download. we need to cancel them if download is cancelled
+	mutexForPartContexts    sync.Mutex
 	partContextMap          map[int][]*contextWithCancel
 	downloadStateChangeChan chan map[int]types.DownloadStatus
 }
@@ -64,67 +66,73 @@ func (client *Client) InitDownloads() error {
 	client.partContextMap = make(map[int][]*contextWithCancel)
 	client.downloadStateChangeChan = make(chan map[int]types.DownloadStatus)
 
-	go func() {
-		for stateChanges := range client.downloadStateChangeChan {
-			for id, stateChange := range stateChanges {
-				partContexts, ok := client.partContextMap[id]
-				if !ok {
-					fmt.Printf("download with id %d not found. Could not update state\n", id)
-					continue
-				}
-				for _, ctxWithCancel := range partContexts {
-					ctxWithCancel.cancel()
-				}
+	go client.updateDownloadSpeeds()
 
-				delete(client.partContextMap, id)
-				client.mutexForDownloads.Lock()
-				download := client.downloads[id]
-				download.Status = stateChange.String()
-				client.mutexForDownloads.Unlock()
-			}
-		}
-	}()
-	go func() {
-		for {
-			client.mutexForDownloads.Lock()
-			for _, download := range client.downloads {
-				if download.Status == types.DownloadStatusDownloading.String() {
-					prevSize := client.downloadsPrevSizeMap[download.Id]
-					downloadedByteCount := download.DownloadedBytes - prevSize
-					download.DownloadSpeed = downloadedByteCount / 1024
-
-					//set new totalsize as prevsize
-					client.downloadsPrevSizeMap[download.Id] = download.DownloadedBytes
-				}
-			}
-			client.mutexForDownloads.Unlock()
-			time.Sleep(time.Second)
-		}
-	}()
 	return nil
 }
+func (client *Client) updateDownloadSpeeds() {
+	for {
+		client.mutexForDownloads.Lock()
+		for _, download := range client.downloads {
+			if download.Status == types.DownloadStatusDownloading.String() {
+				prevSize := client.downloadsPrevSizeMap[download.Id]
+				downloadedByteCount := download.DownloadedBytes - prevSize
+				download.DownloadSpeed = downloadedByteCount / 1024
+
+				//set new totalsize as prevsize
+				client.downloadsPrevSizeMap[download.Id] = download.DownloadedBytes
+			}
+		}
+		client.mutexForDownloads.Unlock()
+		time.Sleep(time.Second)
+	}
+}
 func (client *Client) PauseDownload(id int) error {
-	client.downloadStateChangeChan <- map[int]types.DownloadStatus{
-		id: types.DownloadStatusPaused,
+
+	//cancel all part downloads
+	client.mutexForPartContexts.Lock()
+	partContexts, ok := client.partContextMap[id]
+	if !ok {
+		client.mutexForPartContexts.Unlock()
+		return fmt.Errorf("download with id %d not found. Could not pause download\n", id)
+	}
+	for _, ctxWithCancel := range partContexts {
+		ctxWithCancel.cancel()
 	}
 
-	client.mutexForDownloads.Lock()
-	download := client.downloads[id]
-	download.Status = types.DownloadStatusPaused.String()
-	client.mutexForDownloads.Unlock()
+	//delete part contexts from map
+	delete(client.partContextMap, id)
+	client.mutexForPartContexts.Unlock()
 
+	err := client.updateDownloadState(id, types.DownloadStatusPaused)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (client *Client) ResumeDownload(id int) error {
-	client.downloadStateChangeChan <- map[int]types.DownloadStatus{
-		id: types.DownloadStatusDownloading,
+	err := client.StartDownload(id)
+	if err != nil {
+		return fmt.Errorf("could not start download : %s\n", err)
 	}
-
+	client.updateDownloadState(id, types.DownloadStatusDownloading)
+	return nil
+}
+func (client *Client) updateDownloadState(id int, state types.DownloadStatus) error {
 	client.mutexForDownloads.Lock()
-	download := client.downloads[id]
-	download.Status = types.DownloadStatusPaused.String()
-	client.mutexForDownloads.Unlock()
+	defer client.mutexForDownloads.Unlock()
+
+	download, ok := client.downloads[id]
+	if !ok {
+		return fmt.Errorf("download not found")
+	}
+	download.Status = state.String()
+
+	err := client.db.UpdateDownload(download)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -366,7 +374,8 @@ func (client *Client) RemoveDownload(id int) error {
 	if err != nil {
 		return err
 	}
-	err = client.db.DeleteDownloadParts(id)
+
+	err = client.deleteDownloadParts(id)
 	if err != nil {
 		return err
 	}
@@ -473,6 +482,10 @@ func (client *Client) StartDownload(id int) error {
 
 			err = client.downloadFilePart(download, part, filePartBuffer, download.Url, ctx)
 			if err != nil {
+				// if download is canceled then return
+				if errors.Is(err, context.Canceled) {
+					return
+				}
 				part.Status = types.DownloadStatusError
 				errorChan <- err
 				cancel()
@@ -489,6 +502,11 @@ func (client *Client) StartDownload(id int) error {
 		}()
 
 	}
+
+	client.mutexForPartContexts.Lock()
+	client.partContextMap[download.Id] = downloadPartContexts
+	client.mutexForPartContexts.Unlock()
+
 	download.Status = types.DownloadStatusDownloading.String()
 	download.StartedAt = time.Now()
 	err = client.db.UpdateDownload(download)
@@ -499,7 +517,7 @@ func (client *Client) StartDownload(id int) error {
 		for completedPartCount != download.PartCount {
 			select {
 			case err := <-errorChan:
-				fmt.Printf("Error while downloading file parts : %s", err)
+				fmt.Printf("Error while downloading file parts for %s : %s", download.Name, err)
 			case partProcess := <-partProcessChan:
 				completedPartCount += 1
 
@@ -562,19 +580,47 @@ func (client *Client) StartDownload(id int) error {
 					fmt.Printf("Error downloaded bytes %d is not equal to total size %d", downloadedFileStats.Size(), download.TotalSize)
 					return
 				}
-
-				for _, part := range download.Parts {
-					fmt.Printf("removing part : %s_part%d \n", download.Name, part.PartIndex)
-					err = os.Remove(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
-					if err != nil {
-						fmt.Printf("Error while deleting part file : %s \n", err)
-						return
-					}
+				err = client.deleteDownloadParts(download.Id)
+				if err != nil {
+					fmt.Printf("Error %s \n", err)
+					return
 				}
 				break
 			}
 		}
 	}()
+	return nil
+}
+
+// delete download parts
+func (client *Client) deleteDownloadParts(id int) error {
+	client.mutexForPartContexts.Lock()
+	delete(client.partContextMap, id)
+	client.mutexForPartContexts.Unlock()
+
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+	download, ok := client.downloads[id]
+	if !ok {
+		return fmt.Errorf("download not found")
+	}
+
+	parts, err := client.db.GetDownloadParts(id)
+	if err != nil {
+		return err
+	}
+	for _, part := range parts {
+		fmt.Printf("removing part : %s_part%d \n", download.Name, part.PartIndex)
+		err := os.Remove(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+		if err != nil {
+			return fmt.Errorf("while deleting part file : %s \n", err)
+		}
+	}
+
+	err = client.db.DeleteDownloadParts(id)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -622,7 +668,7 @@ func (client *Client) downloadFilePart(download *types.Download, downloadPart *t
 
 	_, err = io.Copy(filePart, downloadedFilePartReader)
 	if err != nil {
-		return fmt.Errorf("while download : %s", err)
+		return err
 	}
 
 	return nil

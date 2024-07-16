@@ -53,6 +53,7 @@ func (download *Download) Write(bytes []byte) (int, error) {
 }
 
 type DownloadPart struct {
+	id              int            `db:"id" json:"-"`
 	CreatedAt       time.Time      `db:"created_at" json:"createdAt"`
 	StartedAt       time.Time      `db:"started_at" json:"startedAt"`
 	TimeActive      time.Duration  `db:"time_active" json:"timeActive"`

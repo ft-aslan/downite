@@ -16,9 +16,9 @@ func (db *Database) InsertDownload(download *types.Download, addTopOfQueue bool)
 		}
 	}
 	result, err := db.x.NamedExec(`INSERT INTO downloads
-	(created_at, status, name, path, part_count, part_length, total_size, downloaded_bytes, url, queue_number)
+	(created_at, status, name, save_path, part_count, part_length, total_size, downloaded_bytes, url, queue_number, error)
 	VALUES
-	(:created_at, :status, :name, :path, :part_count, :part_length, :total_size, :downloaded_bytes, :url, :queue_number)
+	(:created_at, :status, :name, :save_path, :part_count, :part_length, :total_size, :downloaded_bytes, :url, :queue_number, :error)
 	`, download)
 	if err != nil {
 		return 0, err
@@ -80,6 +80,7 @@ func (db *Database) UpdateDownload(download *types.Download) error {
 		downloaded_bytes = :downloaded_bytes,
 		url = :url,
 		queue_number = :queue_number
+		error = :error
 	WHERE
 		id = :id
 	`, download)

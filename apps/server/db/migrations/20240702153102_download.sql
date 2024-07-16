@@ -23,11 +23,12 @@ create table if not exists download_parts (
     time_active int not null,
     finished_at timestamp default null,
     status int not null,
-    download_id int not null,
     part_index int not null,
     start_byte_index int not null,
     end_byte_index int not null,
+    part_length int not null,
     downloaded_bytes int not null,
+    download_id int not null,
     foreign key (download_id) references downloads (id)
 );
 
