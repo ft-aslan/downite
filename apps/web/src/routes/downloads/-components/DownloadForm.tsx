@@ -86,7 +86,7 @@ export default function DownloadForm({
         onSubmit={onSubmit}
         className={cn("grid items-start gap-4", className)}
       >
-        <div className="flex flex-col space-y-2 rounded-md border p-4">
+        <div className="flex w-full flex-col space-y-2 rounded-md border p-4">
           <div className="flex-1 space-y-1">
             <p className="text-sm font-medium leading-none">Name:</p>
             <p className="text-muted-foreground text-sm">
@@ -95,7 +95,9 @@ export default function DownloadForm({
           </div>
           <div className="flex-1 space-y-1">
             <p className="text-sm font-medium leading-none">Address: </p>
-            <p className="text-muted-foreground text-sm">{downloadMeta.url}</p>
+            <p className="text-muted-foreground truncate text-sm">
+              {downloadMeta.url}
+            </p>
           </div>
           <div className="flex-1 space-y-1">
             <p className="text-sm font-medium leading-none">Size: </p>

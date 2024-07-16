@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kkdai/youtube/v2"
 )
 
 type DownloadClientConfig struct {
@@ -30,11 +34,12 @@ type Client struct {
 	// defaultStorage *storage.Client
 	onClose []func()
 
-	mutexForDownloads sync.Mutex
-	downloads         map[int]*types.Download
-	httpClient        *http.Client
-	Config            *DownloadClientConfig
-	db                *db.Database
+	mutexForDownloads    sync.Mutex
+	downloads            map[int]*types.Download
+	downloadsPrevSizeMap map[int]uint64
+	httpClient           *http.Client
+	Config               *DownloadClientConfig
+	db                   *db.Database
 	// part contexts for each download. we need to cancel them if download is cancelled
 	partContextMap          map[int][]*contextWithCancel
 	downloadStateChangeChan chan map[int]types.DownloadStatus
@@ -50,7 +55,8 @@ func CreateDownloadClient(config DownloadClientConfig, db *db.Database) (*Client
 		httpClient: &http.Client{
 			Transport: http.DefaultTransport,
 		},
-		db: db,
+		downloadsPrevSizeMap: make(map[int]uint64),
+		db:                   db,
 	}, nil
 }
 func (client *Client) InitDownloads() error {
@@ -73,9 +79,26 @@ func (client *Client) InitDownloads() error {
 				delete(client.partContextMap, id)
 				client.mutexForDownloads.Lock()
 				download := client.downloads[id]
-				download.Status = stateChange
+				download.Status = stateChange.String()
 				client.mutexForDownloads.Unlock()
 			}
+		}
+	}()
+	go func() {
+		for {
+			client.mutexForDownloads.Lock()
+			for _, download := range client.downloads {
+				if download.Status == types.DownloadStatusDownloading.String() {
+					prevSize := client.downloadsPrevSizeMap[download.Id]
+					downloadedByteCount := download.DownloadedBytes - prevSize
+					download.DownloadSpeed = downloadedByteCount / 1024
+
+					//set new totalsize as prevsize
+					client.downloadsPrevSizeMap[download.Id] = download.DownloadedBytes
+				}
+			}
+			client.mutexForDownloads.Unlock()
+			time.Sleep(time.Second)
 		}
 	}()
 	return nil
@@ -87,7 +110,7 @@ func (client *Client) PauseDownload(id int) error {
 
 	client.mutexForDownloads.Lock()
 	download := client.downloads[id]
-	download.Status = types.DownloadStatusPaused
+	download.Status = types.DownloadStatusPaused.String()
 	client.mutexForDownloads.Unlock()
 
 	return nil
@@ -100,13 +123,13 @@ func (client *Client) ResumeDownload(id int) error {
 
 	client.mutexForDownloads.Lock()
 	download := client.downloads[id]
-	download.Status = types.DownloadStatusPaused
+	download.Status = types.DownloadStatusPaused.String()
 	client.mutexForDownloads.Unlock()
 
 	return nil
 }
-func (client *Client) GetDownloadMeta(url string) (*types.DownloadMeta, error) {
-	req, err := http.NewRequest("HEAD", url, nil)
+func (client *Client) GetDownloadMeta(rawUrl string) (*types.DownloadMeta, error) {
+	req, err := http.NewRequest("HEAD", rawUrl, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf("while creating request: %s", err)
@@ -123,15 +146,25 @@ func (client *Client) GetDownloadMeta(url string) (*types.DownloadMeta, error) {
 	contentLengthHeader := res.Header.Get("Content-Length")
 	//EXAMPLE HEADER = "attachment; filename=\"test.txt\""
 	contentDispositionHeader := res.Header.Get("Content-Disposition")
+	fileTypeHeader := res.Header.Get("Content-Type")
 
 	if contentLengthHeader == "" {
 		return nil, fmt.Errorf("cannot find content length in headers")
 	}
 
 	var fileName string
+	var fileType string
 
 	if contentDispositionHeader == "" {
-		fileName = path.Base(url)
+		parsedUrl, err := url.Parse(rawUrl)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse url : %s", err)
+		}
+		filename := path.Base(parsedUrl.Path)
+		if filename == "" {
+			return nil, fmt.Errorf("cannot find file name")
+		}
+		fileName = filename
 	} else {
 		//if it has filename in its string
 		fileName = getFileNameFromHeader(contentDispositionHeader)
@@ -140,6 +173,19 @@ func (client *Client) GetDownloadMeta(url string) (*types.DownloadMeta, error) {
 	if fileName == "" {
 		return nil, fmt.Errorf("cannot find file name")
 	}
+
+	fileType = path.Ext(fileName)
+	if fileType == "" && fileTypeHeader != "" {
+		foundFileTypes, err := mime.ExtensionsByType(fileTypeHeader)
+		if err != nil {
+			return nil, err
+		}
+		if len(foundFileTypes) != 0 {
+			fileType = foundFileTypes[len(foundFileTypes)-1]
+			fileName = fileName + fileType
+		}
+	}
+
 	if contentLengthHeader == "" {
 		return nil, fmt.Errorf("cannot find content length in headers")
 	}
@@ -151,16 +197,56 @@ func (client *Client) GetDownloadMeta(url string) (*types.DownloadMeta, error) {
 	return &types.DownloadMeta{
 		FileName:       fileName,
 		TotalSize:      contentLength,
-		Url:            url,
-		FileType:       path.Ext(fileName),
+		Url:            rawUrl,
+		FileType:       fileType,
 		IsRangeAllowed: rangesHeader == "bytes",
 	}, nil
 
 }
 
-func (client *Client) DownloadFromUrl(url string, partCount int, savePath string, startDownload bool, addTopOfQueue bool) (*types.Download, error) {
+func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath string, startDownload bool, addTopOfQueue bool) (*types.Download, error) {
+	parsedUrl, err := url.Parse(rawUrl)
+	if err != nil {
+		return nil, err
+	}
+	// modify url for youtube links
+	if parsedUrl.Host == "youtube" || parsedUrl.Host == "youtu.be" || parsedUrl.Host == "www.youtube.com" {
+		youtubeClient := &youtube.Client{}
+		video, err := youtubeClient.GetVideo(rawUrl)
+		if err != nil {
+			return nil, err
+		}
+		formats := video.Formats.Quality("1080p")
+		if len(formats) == 0 {
+			return nil, fmt.Errorf("no audio formats found")
+		}
+		var targetFormat *youtube.Format
+		for _, format := range formats {
+			if format.AudioChannels > 0 {
+				targetFormat = &format
+				break
+			}
+		}
+
+		if targetFormat == nil {
+			targetFormat = &formats[0]
+		}
+
+		videoUrl, err := youtubeClient.GetStreamURL(video, targetFormat)
+		if err != nil {
+			return nil, err
+		}
+
+		rawUrl = videoUrl
+		parsedUrl, err = url.Parse(rawUrl)
+		if err != nil {
+			return nil, err
+		}
+		// destroy youtube client
+		youtubeClient = nil
+	}
 	//GET METAINFO
-	metaInfo, err := client.GetDownloadMeta(url)
+	metaInfo, err := client.GetDownloadMeta(rawUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -186,11 +272,11 @@ func (client *Client) DownloadFromUrl(url string, partCount int, savePath string
 		SavePath:        savePath,
 		PartCount:       partCount,
 		PartLength:      partLength,
-		Url:             url,
+		Url:             rawUrl,
 		TotalSize:       uint64(metaInfo.TotalSize),
 		DownloadedBytes: 0,
 		Progress:        0,
-		Status:          types.DownloadStatusPaused,
+		Status:          types.DownloadStatusPaused.String(),
 	}
 
 	//REGISTER DOWNLOAD to DB
@@ -267,6 +353,7 @@ func (client *Client) AddDownload(download *types.Download) {
 	defer client.mutexForDownloads.Unlock()
 
 	client.downloads[download.Id] = download
+	client.downloadsPrevSizeMap[download.Id] = 0
 }
 func (client *Client) RemoveDownload(id int) error {
 
@@ -384,7 +471,7 @@ func (client *Client) StartDownload(id int) error {
 			}
 			defer filePartBuffer.Close()
 
-			err = client.downloadFilePart(part, filePartBuffer, download.Url, ctx)
+			err = client.downloadFilePart(download, part, filePartBuffer, download.Url, ctx)
 			if err != nil {
 				part.Status = types.DownloadStatusError
 				errorChan <- err
@@ -397,86 +484,97 @@ func (client *Client) StartDownload(id int) error {
 			}
 
 			part.Status = types.DownloadStatusError
+			cancel()
 			errorChan <- fmt.Errorf("downloaded bytes %d is not equal to end byte index %d", part.DownloadedBytes, part.EndByteIndex)
 		}()
 
 	}
-	download.Status = types.DownloadStatusDownloading
+	download.Status = types.DownloadStatusDownloading.String()
 	download.StartedAt = time.Now()
 	err = client.db.UpdateDownload(download)
 	if err != nil {
 		return err
 	}
+	go func() {
+		for completedPartCount != download.PartCount {
+			select {
+			case err := <-errorChan:
+				fmt.Printf("Error while downloading file parts : %s", err)
+			case partProcess := <-partProcessChan:
+				completedPartCount += 1
 
-	for completedPartCount != download.PartCount {
-		select {
-		case err := <-errorChan:
-			return fmt.Errorf("while downloading file parts : %s", err)
-		case partProcess := <-partProcessChan:
-			completedPartCount += 1
-
-			partProcess.Status = types.DownloadStatusCompleted
-			partProcess.FinishedAt = time.Now()
-			err = client.db.UpdateDownloadPart(partProcess)
-			if err != nil {
-				return err
-			}
-
-			if completedPartCount != download.PartCount {
-				continue
-			}
-
-			download.Status = types.DownloadStatusCompleted
-			download.FinishedAt = time.Now()
-			err = client.db.UpdateDownload(download)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("download completed : %s \n", filepath.Join(download.SavePath, download.Name))
-
-			_, err := os.Stat(filepath.Join(download.SavePath, download.Name))
-			if err == nil {
-				fmt.Printf("deleting existing file : %s \n", filepath.Join(download.SavePath, download.Name))
-				err := os.Remove(filepath.Join(download.SavePath, download.Name))
+				partProcess.Status = types.DownloadStatusCompleted
+				partProcess.FinishedAt = time.Now()
+				err = client.db.UpdateDownloadPart(partProcess)
 				if err != nil {
-					return err
+					fmt.Printf("Error while updating download part in db : %s", err)
+					return
 				}
-			}
-			downloadedFile, err := os.OpenFile(filepath.Join(download.SavePath, download.Name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return err
-			}
-			defer downloadedFile.Close()
-			for _, part := range download.Parts {
-				if part.Status != types.DownloadStatusCompleted {
-					return fmt.Errorf("some parts are not completed")
-				}
-				partBuffer, err := os.ReadFile(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
-				if err != nil {
-					return err
-				}
-				_, err = downloadedFile.Write(partBuffer)
-				if err != nil {
-					return err
-				}
-			}
 
-			downloadedFileStats, err := downloadedFile.Stat()
-			if downloadedFileStats.Size() != int64(download.TotalSize) {
-				return fmt.Errorf("downloaded bytes %d is not equal to total size %d", downloadedFileStats.Size(), download.TotalSize)
-			}
-
-			for _, part := range download.Parts {
-				fmt.Printf("removing part : %s_part%d \n", download.Name, part.PartIndex)
-				err = os.Remove(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
-				if err != nil {
-					return err
+				if completedPartCount != download.PartCount {
+					continue
 				}
+
+				download.Status = types.DownloadStatusCompleted.String()
+				download.FinishedAt = time.Now()
+				err = client.db.UpdateDownload(download)
+				if err != nil {
+					fmt.Printf("Error while updating download in db : %s", err)
+					return
+				}
+
+				fmt.Printf("download completed : %s \n", filepath.Join(download.SavePath, download.Name))
+
+				_, err := os.Stat(filepath.Join(download.SavePath, download.Name))
+				if err == nil {
+					fmt.Printf("deleting existing file : %s \n", filepath.Join(download.SavePath, download.Name))
+					err := os.Remove(filepath.Join(download.SavePath, download.Name))
+					if err != nil {
+						fmt.Printf("Error while deleting existing download file : %s \n", err)
+						return
+					}
+				}
+				downloadedFile, err := os.OpenFile(filepath.Join(download.SavePath, download.Name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					fmt.Printf("Error while creating new download file : %s \n", err)
+					return
+				}
+				defer downloadedFile.Close()
+				for _, part := range download.Parts {
+					if part.Status != types.DownloadStatusCompleted {
+						fmt.Printf("error download incomplete : %s \n", filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+						return
+					}
+					partBuffer, err := os.ReadFile(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+					if err != nil {
+						fmt.Printf("Error while reading part file : %s \n", err)
+						return
+					}
+					_, err = downloadedFile.Write(partBuffer)
+					if err != nil {
+						fmt.Printf("Error while writing part file : %s \n", err)
+						return
+					}
+				}
+
+				downloadedFileStats, err := downloadedFile.Stat()
+				if downloadedFileStats.Size() != int64(download.TotalSize) {
+					fmt.Printf("Error downloaded bytes %d is not equal to total size %d", downloadedFileStats.Size(), download.TotalSize)
+					return
+				}
+
+				for _, part := range download.Parts {
+					fmt.Printf("removing part : %s_part%d \n", download.Name, part.PartIndex)
+					err = os.Remove(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+					if err != nil {
+						fmt.Printf("Error while deleting part file : %s \n", err)
+						return
+					}
+				}
+				break
 			}
-			break
 		}
-	}
+	}()
 	return nil
 }
 
@@ -502,7 +600,7 @@ func getFileNameFromHeader(contentDisposition string) string {
 	return ""
 }
 
-func (client *Client) downloadFilePart(downloadPart *types.DownloadPart, filePartBuffer *os.File, url string, ctx context.Context) error {
+func (client *Client) downloadFilePart(download *types.Download, downloadPart *types.DownloadPart, filePart *os.File, url string, ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("while creating request: %s", err)
@@ -519,9 +617,10 @@ func (client *Client) downloadFilePart(downloadPart *types.DownloadPart, filePar
 		return fmt.Errorf("unexpected status code while downloading: %s", res.Status)
 	}
 
-	filePartBufferReader := io.TeeReader(res.Body, downloadPart)
+	downloadedFilePartReader := io.TeeReader(res.Body, downloadPart)
+	downloadedFilePartReader = io.TeeReader(downloadedFilePartReader, download)
 
-	_, err = io.Copy(filePartBuffer, filePartBufferReader)
+	_, err = io.Copy(filePart, downloadedFilePartReader)
 	if err != nil {
 		return fmt.Errorf("while download : %s", err)
 	}

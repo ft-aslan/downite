@@ -9,6 +9,7 @@ const (
 	DownloadStatusDownloading
 	DownloadStatusCompleted
 	DownloadStatusError
+	DownloadStatusMetadata
 )
 
 var DownloadStatusStringMap = map[DownloadStatus]string{
@@ -16,6 +17,7 @@ var DownloadStatusStringMap = map[DownloadStatus]string{
 	DownloadStatusDownloading: "downloading",
 	DownloadStatusCompleted:   "completed",
 	DownloadStatusError:       "error",
+	DownloadStatusMetadata:    "metadata",
 }
 
 func (d DownloadStatus) String() string {
@@ -23,23 +25,33 @@ func (d DownloadStatus) String() string {
 }
 
 type Download struct {
-	Id              int             `json:"id"`
-	CreatedAt       time.Time       `json:"createdAt" db:"created_at"`
-	StartedAt       time.Time       `json:"startedAt" db:"started_at"`
-	TimeActive      time.Duration   `json:"timeActive" db:"time_active"`
-	FinishedAt      time.Time       `json:"finishedAt" db:"finished_at"`
-	Status          DownloadStatus  `json:"status"`
-	Name            string          `json:"name"`
-	SavePath        string          `db:"save_path" json:"savePath"`
-	PartCount       int             `db:"part_count"`
-	PartLength      uint64          `db:"part_length"`
-	TotalSize       uint64          `db:"total_size"`
-	DownloadedBytes uint64          `db:"downloaded_bytes"`
-	Progress        float64         `json:"progress"`
-	Parts           []*DownloadPart `json:"parts"`
-	Url             string          `json:"url"`
-	QueueNumber     int             `db:"queue_number"`
+	Id                  int             `json:"id"`
+	CreatedAt           time.Time       `json:"createdAt" db:"created_at"`
+	StartedAt           time.Time       `json:"startedAt" db:"started_at"`
+	TimeActive          time.Duration   `json:"timeActive" db:"time_active"`
+	FinishedAt          time.Time       `json:"finishedAt" db:"finished_at"`
+	Status              string          `json:"status" enum:"paused,downloading,completed,error,metadata"`
+	Name                string          `json:"name"`
+	SavePath            string          `db:"save_path" json:"savePath"`
+	PartCount           int             `db:"part_count"`
+	PartLength          uint64          `db:"part_length"`
+	TotalSize           uint64          `db:"total_size"`
+	DownloadedBytes     uint64          `db:"downloaded_bytes"`
+	DownloadSpeed       uint64          `db:"-" json:"downloadSpeed"`
+	Progress            float64         `json:"progress"`
+	Parts               []*DownloadPart `json:"parts"`
+	Url                 string          `json:"url"`
+	QueueNumber         int             `db:"queue_number"`
+	CurrentWrittenBytes uint64          `db:"-" json:"-"`
+	Error               string          `db:"error"`
 }
+
+func (download *Download) Write(bytes []byte) (int, error) {
+	download.DownloadedBytes += uint64(len(bytes))
+	download.Progress = float64(download.DownloadedBytes) / float64(download.TotalSize) * 100
+	return len(bytes), nil
+}
+
 type DownloadPart struct {
 	CreatedAt       time.Time      `db:"created_at" json:"createdAt"`
 	StartedAt       time.Time      `db:"started_at" json:"startedAt"`
@@ -62,7 +74,8 @@ type DownloadMeta struct {
 	IsRangeAllowed bool   `json:"isRangeAllowed"`
 }
 
-func (d *DownloadPart) Write(bytes []byte) (int, error) {
-	d.DownloadedBytes += uint64(len(bytes))
+func (part *DownloadPart) Write(bytes []byte) (int, error) {
+	part.DownloadedBytes += uint64(len(bytes))
+	part.Progress = float64(part.DownloadedBytes) / float64(part.PartLength) * 100
 	return len(bytes), nil
 }

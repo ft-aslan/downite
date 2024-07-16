@@ -21,6 +21,7 @@ const (
 	TorrentStatusCompleted
 	TorrentStatusSeeding
 	TorrentStatusMetadata
+	TorrentStatusError
 )
 
 var TorrentStatusStringMap = map[TorrentStatus]string{
@@ -29,6 +30,7 @@ var TorrentStatusStringMap = map[TorrentStatus]string{
 	TorrentStatusCompleted:   "completed",
 	TorrentStatusSeeding:     "seeding",
 	TorrentStatusMetadata:    "metadata",
+	TorrentStatusError:       "error",
 }
 
 func (s TorrentStatus) String() string {

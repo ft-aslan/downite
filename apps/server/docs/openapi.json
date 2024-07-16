@@ -12,11 +12,13 @@
             "type": "string"
           },
           "DownloadedBytes": { "format": "int64", "type": "integer" },
+          "Error": { "type": "string" },
           "PartCount": { "format": "int64", "type": "integer" },
           "PartLength": { "format": "int64", "type": "integer" },
           "QueueNumber": { "format": "int64", "type": "integer" },
           "TotalSize": { "format": "int64", "type": "integer" },
           "createdAt": { "format": "date-time", "type": "string" },
+          "downloadSpeed": { "format": "int64", "type": "integer" },
           "finishedAt": { "format": "date-time", "type": "string" },
           "id": { "format": "int64", "type": "integer" },
           "name": { "type": "string" },
@@ -27,7 +29,10 @@
           "progress": { "format": "double", "type": "number" },
           "savePath": { "type": "string" },
           "startedAt": { "format": "date-time", "type": "string" },
-          "status": { "format": "int64", "type": "integer" },
+          "status": {
+            "enum": ["paused", "downloading", "completed", "error", "metadata"],
+            "type": "string"
+          },
           "timeActive": { "format": "int64", "type": "integer" },
           "url": { "type": "string" }
         },
@@ -44,10 +49,12 @@
           "PartLength",
           "TotalSize",
           "DownloadedBytes",
+          "downloadSpeed",
           "progress",
           "parts",
           "url",
-          "QueueNumber"
+          "QueueNumber",
+          "Error"
         ],
         "type": "object"
       },

@@ -271,9 +271,9 @@ func (handler *TorrentHandler) DownloadTorrent(ctx context.Context, input *Downl
 		if err != nil {
 			return nil, err
 		}
-		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusDownloading]
+		dbTorrent.Status = types.TorrentStatusDownloading.String()
 	} else {
-		dbTorrent.Status = types.TorrentStatusStringMap[types.TorrentStatusPaused]
+		dbTorrent.Status = types.TorrentStatusPaused.String()
 	}
 
 	dbTorrent.TotalSize = torrent.Length()

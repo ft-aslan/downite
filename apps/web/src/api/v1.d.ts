@@ -290,6 +290,7 @@ export interface components {
             readonly $schema?: string;
             /** Format: int64 */
             DownloadedBytes: number;
+            Error: string;
             /** Format: int64 */
             PartCount: number;
             /** Format: int64 */
@@ -300,6 +301,8 @@ export interface components {
             TotalSize: number;
             /** Format: date-time */
             createdAt: string;
+            /** Format: int64 */
+            downloadSpeed: number;
             /** Format: date-time */
             finishedAt: string;
             /** Format: int64 */
@@ -311,8 +314,8 @@ export interface components {
             savePath: string;
             /** Format: date-time */
             startedAt: string;
-            /** Format: int64 */
-            status: number;
+            /** @enum {string} */
+            status: "paused" | "downloading" | "completed" | "error" | "metadata";
             /** Format: int64 */
             timeActive: number;
             url: string;
