@@ -368,8 +368,7 @@ export interface components {
             startByteIndex: number;
             /** Format: date-time */
             startedAt: string;
-            /** Format: int64 */
-            status: number;
+            status: string;
             /** Format: int64 */
             timeActive: number;
         };

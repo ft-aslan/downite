@@ -1,16 +1,23 @@
 package api
 
 import (
+	"context"
+	"downite/db"
+	"downite/download/protocol/direct"
+	"downite/download/protocol/torr"
 	"downite/handlers"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
+	"github.com/danielgtaylor/huma/v2/humacli"
 	"github.com/rs/cors"
 )
 
@@ -18,19 +25,19 @@ type ApiOptions struct {
 	Port int `help:"Port to listen on" short:"p" default:"9999"`
 }
 type API struct {
+	Cli     humacli.CLI
 	humaApi huma.API
-	handler *http.Handler
 	Options *ApiOptions
 }
 
-func ApiInit(options ApiOptions) *API {
+func ApiInit(options *ApiOptions) *API {
 	api := &API{}
-	s := http.NewServeMux()
-
-	//initilize docs
-	s.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`
+	cli := humacli.New(func(hooks humacli.Hooks, options *ApiOptions) {
+		mux := http.NewServeMux()
+		//initilize docs
+		mux.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`
 			<!doctype html>
 			<html>
 			  <head>
@@ -48,32 +55,116 @@ func ApiInit(options ApiOptions) *API {
 			  </body>
 			</html>
 			`))
+		})
+		//initilize huma
+		config := huma.DefaultConfig("Downite API", "0.0.1")
+		config.Servers = []*huma.Server{{URL: "http://localhost:9999/api"}}
+
+		config.OpenAPIPath = "/openapi"
+		config.DocsPath = ""
+
+		humaApi := humago.NewWithPrefix(mux, "/api", config)
+		api.humaApi = humaApi
+		// api.UseMiddleware(CorsMiddleware)
+
+		//disabled cors
+		cors := cors.New(cors.Options{
+			AllowedOrigins: []string{"*"},
+			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		})
+		corsMux := cors.Handler(mux)
+
+		server := http.Server{
+			Addr:    fmt.Sprintf("localhost:%d", options.Port),
+			Handler: corsMux,
+		}
+
+		//initilize db
+		db, err := db.DbInit()
+		if err != nil {
+			fmt.Printf("Cannot connect to db : %s", err)
+		}
+
+		//initilize torrent engine
+		pieceCompletionDir := "./tmp"
+		defaultTorrentsDir := "./tmp/torrents"
+		torrentEngineConfig := torr.TorrentEngineConfig{
+			PieceCompletionDbPath: pieceCompletionDir,
+			DownloadPath:          defaultTorrentsDir,
+		}
+		torrentEngine, err := torr.CreateTorrentEngine(torrentEngineConfig, db)
+		if err != nil {
+			fmt.Printf("Cannot create torrent engine : %s", err)
+		}
+		err = torrentEngine.InitTorrents()
+		if err != nil {
+			fmt.Printf("Cannot initilize torrents : %s", err)
+		}
+		//register torrent routes
+		api.AddTorrentRoutes(handlers.TorrentHandler{
+			Db:     db,
+			Engine: torrentEngine,
+		})
+
+		//initilize download client
+		executablePath, err := os.Executable()
+		if err != nil {
+			panic(fmt.Errorf("Cannot get executable path : %s", err))
+		}
+		defaultDownloadsDir := filepath.Join(filepath.Dir(executablePath), "/tmp/downloads")
+		// Check if the directory exists
+		if _, err := os.Stat(defaultDownloadsDir); os.IsNotExist(err) {
+			// Create the directory if it doesn't exist
+			if err := os.MkdirAll(defaultDownloadsDir, os.ModePerm); err != nil {
+				fmt.Println("Error creating directory:", err)
+				return
+			}
+		}
+		downloadClientConfig := direct.DownloadClientConfig{
+			DownloadPath: defaultDownloadsDir,
+			PartCount:    8,
+		}
+		downloadClient, err := direct.CreateDownloadClient(downloadClientConfig, db)
+		if err != nil {
+			fmt.Printf("Cannot torrent download client : %s", err)
+		}
+		err = downloadClient.InitDownloads()
+		if err != nil {
+			fmt.Printf("Cannot initilize downloads : %s", err)
+		}
+		//register download routes
+		api.AddDownloadRoutes(handlers.DownloadHandler{
+			Db:     db,
+			Engine: downloadClient,
+		})
+
+		api.ExportOpenApi()
+
+		// Tell the CLI how to start your router.
+		hooks.OnStart(func() {
+			fmt.Printf("Starting server on port %d...\n", api.Options.Port)
+			server.ListenAndServe()
+		})
+
+		// Tell the CLI how to stop your server.
+		hooks.OnStop(func() {
+			torrentEngine.Stop()
+			downloadClient.Stop()
+			fmt.Printf("Stopping server...\n")
+			// Give the server 5 seconds to gracefully shut down, then give up.
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			server.Shutdown(ctx)
+		})
 	})
 
-	//initilize huma
-	config := huma.DefaultConfig("Downite API", "0.0.1")
-	config.Servers = []*huma.Server{{URL: "http://localhost:9999/api"}}
+	api.Options = options
+	api.Cli = cli
 
-	config.OpenAPIPath = "/openapi"
-	config.DocsPath = ""
-
-	humaApi := humago.NewWithPrefix(s, "/api", config)
-	api.humaApi = humaApi
-	// api.UseMiddleware(CorsMiddleware)
-
-	//disabled cors
-	cors := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	})
-	corsMux := cors.Handler(s)
-	api.handler = &corsMux
-	api.Options = &options
 	return api
 }
 func (api *API) Run() {
-	fmt.Printf("Starting server on port %d...\n", api.Options.Port)
-	http.ListenAndServe(fmt.Sprintf("localhost:%d", api.Options.Port), *api.handler)
+	api.Cli.Run()
 }
 func (api *API) ExportOpenApi() {
 	//write api json to file

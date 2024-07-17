@@ -66,6 +66,10 @@ func CreateTorrentEngine(config TorrentEngineConfig, db *db.Database) (*TorrentE
 	torrentEngine.client = client
 	return torrentEngine, nil
 }
+func (torrentEngine *TorrentEngine) Stop() []error {
+	errs := torrentEngine.client.Close()
+	return errs
+}
 func (torrentEngine *TorrentEngine) InitTorrents() error {
 	dbTorrents, err := torrentEngine.db.GetTorrents()
 	if err != nil {

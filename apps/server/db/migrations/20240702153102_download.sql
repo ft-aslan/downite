@@ -4,7 +4,7 @@ create table if not exists downloads (
     created_at timestamp default current_timestamp,
     started_at timestamp default null,
     finished_at timestamp default null,
-    time_active int not null,
+    time_active int default 0,
     status int not null,
     name text not null,
     save_path text not null,
@@ -13,14 +13,15 @@ create table if not exists downloads (
     total_size int not null,
     downloaded_bytes int not null,
     url text not null,
-    queue_number int not null
+    queue_number int not null,
+    error text
 );
 
 create table if not exists download_parts (
     id integer primary key,
     created_at timestamp default current_timestamp,
     started_at timestamp default null,
-    time_active int not null,
+    time_active int default 0,
     finished_at timestamp default null,
     status int not null,
     part_index int not null,

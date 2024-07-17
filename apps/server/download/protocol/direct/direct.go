@@ -42,9 +42,8 @@ type Client struct {
 	Config               *DownloadClientConfig
 	db                   *db.Database
 	// part contexts for each download. we need to cancel them if download is cancelled
-	mutexForPartContexts    sync.Mutex
-	partContextMap          map[int][]*contextWithCancel
-	downloadStateChangeChan chan map[int]types.DownloadStatus
+	mutexForPartContexts sync.Mutex
+	partContextMap       map[int][]*contextWithCancel
 }
 type contextWithCancel struct {
 	ctx    *context.Context
@@ -64,11 +63,40 @@ func CreateDownloadClient(config DownloadClientConfig, db *db.Database) (*Client
 func (client *Client) InitDownloads() error {
 	client.downloads = make(map[int]*types.Download, 0)
 	client.partContextMap = make(map[int][]*contextWithCancel)
-	client.downloadStateChangeChan = make(chan map[int]types.DownloadStatus)
 
+	downloads, err := client.db.GetDownloads()
+	if err != nil {
+		return err
+	}
+	for _, download := range downloads {
+		// get the parts
+		parts, err := client.db.GetDownloadParts(download.Id)
+		if err != nil {
+			return err
+		}
+		download.Parts = parts
+		download.Progress = float64(download.DownloadedBytes) / float64(download.TotalSize) * 100
+
+		go func() {
+			client.AddDownload(&download)
+			if download.Status == types.DownloadStatusDownloading.String() {
+				err = client.StartDownload(download.Id)
+				if err != nil {
+					fmt.Printf("Error while starting download %s", err)
+				}
+			}
+		}()
+	}
 	go client.updateDownloadSpeeds()
 
 	return nil
+}
+func (client *Client) Stop() []error {
+	errs := make([]error, 0)
+	for _, download := range client.downloads {
+		errs = append(errs, client.PauseDownload(download.Id))
+	}
+	return errs
 }
 func (client *Client) updateDownloadSpeeds() {
 	for {
@@ -104,10 +132,24 @@ func (client *Client) PauseDownload(id int) error {
 	delete(client.partContextMap, id)
 	client.mutexForPartContexts.Unlock()
 
-	err := client.updateDownloadState(id, types.DownloadStatusPaused)
+	download, err := client.GetDownload(id)
 	if err != nil {
 		return err
 	}
+	download.Status = types.DownloadStatusPaused.String()
+	err = client.db.UpdateDownload(download)
+	if err != nil {
+		return err
+	}
+
+	for _, downloadPart := range download.Parts {
+		downloadPart.Status = types.DownloadStatusPaused.String()
+		err = client.db.UpdateDownloadPart(&downloadPart)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -116,7 +158,25 @@ func (client *Client) ResumeDownload(id int) error {
 	if err != nil {
 		return fmt.Errorf("could not start download : %s\n", err)
 	}
-	client.updateDownloadState(id, types.DownloadStatusDownloading)
+
+	download, err := client.GetDownload(id)
+	if err != nil {
+		return err
+	}
+	download.Status = types.DownloadStatusDownloading.String()
+	err = client.db.UpdateDownload(download)
+	if err != nil {
+		return err
+	}
+
+	for _, downloadPart := range download.Parts {
+		downloadPart.Status = types.DownloadStatusDownloading.String()
+		err = client.db.UpdateDownloadPart(&downloadPart)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 func (client *Client) updateDownloadState(id int, state types.DownloadStatus) error {
@@ -275,7 +335,7 @@ func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath str
 
 	download := &types.Download{
 		CreatedAt:       time.Now(),
-		Parts:           make([]*types.DownloadPart, partCount),
+		Parts:           make([]types.DownloadPart, partCount),
 		Name:            metaInfo.FileName,
 		SavePath:        savePath,
 		PartCount:       partCount,
@@ -289,7 +349,10 @@ func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath str
 
 	//REGISTER DOWNLOAD to DB
 	//from now on download has id from db
-	client.RegisterDownload(download, addTopOfQueue)
+	err = client.RegisterDownload(download, addTopOfQueue)
+	if err != nil {
+		return nil, err
+	}
 	//ADD DOWNLOAD TO client
 	client.AddDownload(download)
 	//START SPLIT DOWNLOAD
@@ -303,6 +366,12 @@ func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath str
 	return download, nil
 }
 func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue bool) error {
+	id, err := client.db.InsertDownload(download, addTopOfQueue)
+	if err != nil {
+		return err
+	}
+
+	download.Id = id
 	for i := 0; i < download.PartCount; i++ {
 
 		startByteIndex := uint64(i) * download.PartLength
@@ -315,13 +384,13 @@ func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue b
 			partLength = download.TotalSize - startByteIndex
 		}
 
-		download.Parts[i] = &types.DownloadPart{
+		download.Parts[i] = types.DownloadPart{
 			CreatedAt:       time.Now(),
 			PartIndex:       i + 1,
 			StartByteIndex:  startByteIndex,
 			EndByteIndex:    endByteIndex,
 			PartLength:      partLength,
-			Status:          types.DownloadStatusPaused,
+			Status:          types.DownloadStatusPaused.String(),
 			DownloadId:      download.Id,
 			DownloadedBytes: 0,
 			Progress:        0,
@@ -341,13 +410,6 @@ func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue b
 			download.QueueNumber = lastQueueNumber + 1
 		}
 	}
-
-	id, err := client.db.InsertDownload(download, addTopOfQueue)
-	if err != nil {
-		return err
-	}
-
-	download.Id = id
 
 	err = client.db.InsertDownloadParts(download.Parts)
 	if err != nil {
@@ -473,30 +535,30 @@ func (client *Client) StartDownload(id int) error {
 		go func() {
 			filePartBuffer, err := os.OpenFile(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				part.Status = types.DownloadStatusError
+				part.Status = types.DownloadStatusError.String()
 				errorChan <- err
 				cancel()
 				return
 			}
 			defer filePartBuffer.Close()
 
-			err = client.downloadFilePart(download, part, filePartBuffer, download.Url, ctx)
+			err = client.downloadFilePart(download, &part, filePartBuffer, download.Url, ctx)
 			if err != nil {
 				// if download is canceled then return
 				if errors.Is(err, context.Canceled) {
 					return
 				}
-				part.Status = types.DownloadStatusError
+				part.Status = types.DownloadStatusError.String()
 				errorChan <- err
 				cancel()
 				return
 			}
 			if part.DownloadedBytes == part.PartLength {
-				partProcessChan <- part
+				partProcessChan <- &part
 				return
 			}
 
-			part.Status = types.DownloadStatusError
+			part.Status = types.DownloadStatusError.String()
 			cancel()
 			errorChan <- fmt.Errorf("downloaded bytes %d is not equal to end byte index %d", part.DownloadedBytes, part.EndByteIndex)
 		}()
@@ -521,7 +583,7 @@ func (client *Client) StartDownload(id int) error {
 			case partProcess := <-partProcessChan:
 				completedPartCount += 1
 
-				partProcess.Status = types.DownloadStatusCompleted
+				partProcess.Status = types.DownloadStatusCompleted.String()
 				partProcess.FinishedAt = time.Now()
 				err = client.db.UpdateDownloadPart(partProcess)
 				if err != nil {
@@ -559,7 +621,7 @@ func (client *Client) StartDownload(id int) error {
 				}
 				defer downloadedFile.Close()
 				for _, part := range download.Parts {
-					if part.Status != types.DownloadStatusCompleted {
+					if part.Status != types.DownloadStatusCompleted.String() {
 						fmt.Printf("error download incomplete : %s \n", filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
 						return
 					}
@@ -651,7 +713,7 @@ func (client *Client) downloadFilePart(download *types.Download, downloadPart *t
 	if err != nil {
 		return fmt.Errorf("while creating request: %s", err)
 	}
-	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", downloadPart.StartByteIndex, downloadPart.EndByteIndex))
+	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", downloadPart.StartByteIndex-downloadPart.DownloadedBytes, downloadPart.EndByteIndex))
 
 	res, err := client.httpClient.Do(req)
 	if err != nil {
@@ -664,9 +726,9 @@ func (client *Client) downloadFilePart(download *types.Download, downloadPart *t
 	}
 
 	downloadedFilePartReader := io.TeeReader(res.Body, downloadPart)
-	downloadedFilePartReader = io.TeeReader(downloadedFilePartReader, download)
+	downloadedFileReader := io.TeeReader(downloadedFilePartReader, download)
 
-	_, err = io.Copy(filePart, downloadedFilePartReader)
+	_, err = io.Copy(filePart, downloadedFileReader)
 	if err != nil {
 		return err
 	}

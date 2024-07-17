@@ -132,7 +132,7 @@
           "progress": { "format": "double", "type": "number" },
           "startByteIndex": { "format": "int64", "type": "integer" },
           "startedAt": { "format": "date-time", "type": "string" },
-          "status": { "format": "int64", "type": "integer" },
+          "status": { "type": "string" },
           "timeActive": { "format": "int64", "type": "integer" }
         },
         "required": [
