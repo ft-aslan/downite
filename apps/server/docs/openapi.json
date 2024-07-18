@@ -11,22 +11,21 @@
             "readOnly": true,
             "type": "string"
           },
-          "DownloadedBytes": { "format": "int64", "type": "integer" },
-          "Error": { "type": "string" },
-          "PartCount": { "format": "int64", "type": "integer" },
-          "PartLength": { "format": "int64", "type": "integer" },
-          "QueueNumber": { "format": "int64", "type": "integer" },
-          "TotalSize": { "format": "int64", "type": "integer" },
           "createdAt": { "format": "date-time", "type": "string" },
           "downloadSpeed": { "format": "int64", "type": "integer" },
+          "downloadedBytes": { "format": "int64", "type": "integer" },
+          "error": { "type": "string" },
           "finishedAt": { "format": "date-time", "type": "string" },
           "id": { "format": "int64", "type": "integer" },
           "name": { "type": "string" },
+          "partCount": { "format": "int64", "type": "integer" },
+          "partLength": { "format": "int64", "type": "integer" },
           "parts": {
             "items": { "$ref": "#/components/schemas/DownloadPart" },
             "type": "array"
           },
           "progress": { "format": "double", "type": "number" },
+          "queueNumber": { "format": "int64", "type": "integer" },
           "savePath": { "type": "string" },
           "startedAt": { "format": "date-time", "type": "string" },
           "status": {
@@ -34,6 +33,7 @@
             "type": "string"
           },
           "timeActive": { "format": "int64", "type": "integer" },
+          "totalSize": { "format": "int64", "type": "integer" },
           "url": { "type": "string" }
         },
         "required": [
@@ -45,16 +45,16 @@
           "status",
           "name",
           "savePath",
-          "PartCount",
-          "PartLength",
-          "TotalSize",
-          "DownloadedBytes",
+          "partCount",
+          "partLength",
+          "totalSize",
+          "downloadedBytes",
           "downloadSpeed",
           "progress",
           "parts",
           "url",
-          "QueueNumber",
-          "Error"
+          "queueNumber",
+          "error"
         ],
         "type": "object"
       },
@@ -817,6 +817,14 @@
     "/download/{id}": {
       "get": {
         "operationId": "get-download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
         "responses": {
           "200": {
             "content": {

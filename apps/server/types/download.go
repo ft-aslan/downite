@@ -25,25 +25,25 @@ func (d DownloadStatus) String() string {
 }
 
 type Download struct {
-	Id                  int            `json:"id"`
-	CreatedAt           time.Time      `json:"createdAt" db:"created_at"`
-	StartedAt           time.Time      `json:"startedAt" db:"started_at"`
-	TimeActive          time.Duration  `json:"timeActive" db:"time_active"`
-	FinishedAt          time.Time      `json:"finishedAt" db:"finished_at"`
-	Status              string         `json:"status" enum:"paused,downloading,completed,error,metadata"`
-	Name                string         `json:"name"`
-	SavePath            string         `db:"save_path" json:"savePath"`
-	PartCount           int            `db:"part_count"`
-	PartLength          uint64         `db:"part_length"`
-	TotalSize           uint64         `db:"total_size"`
-	DownloadedBytes     uint64         `db:"downloaded_bytes"`
-	DownloadSpeed       uint64         `db:"-" json:"downloadSpeed"`
-	Progress            float64        `json:"progress"`
-	Parts               []DownloadPart `json:"parts"`
-	Url                 string         `json:"url"`
-	QueueNumber         int            `db:"queue_number"`
-	CurrentWrittenBytes uint64         `db:"-" json:"-"`
-	Error               string         `db:"error"`
+	Id                  int             `json:"id"`
+	CreatedAt           time.Time       `json:"createdAt" db:"created_at"`
+	StartedAt           time.Time       `json:"startedAt" db:"started_at"`
+	TimeActive          time.Duration   `json:"timeActive" db:"time_active"`
+	FinishedAt          time.Time       `json:"finishedAt" db:"finished_at"`
+	Status              string          `json:"status" enum:"paused,downloading,completed,error,metadata"`
+	Name                string          `json:"name"`
+	SavePath            string          `db:"save_path" json:"savePath"`
+	PartCount           int             `db:"part_count" json:"partCount"`
+	PartLength          uint64          `db:"part_length" json:"partLength"`
+	TotalSize           uint64          `db:"total_size" json:"totalSize"`
+	DownloadedBytes     uint64          `db:"downloaded_bytes" json:"downloadedBytes"`
+	DownloadSpeed       uint64          `db:"-" json:"downloadSpeed"`
+	Progress            float64         `json:"progress"`
+	Parts               []*DownloadPart `json:"parts"`
+	Url                 string          `json:"url"`
+	QueueNumber         int             `db:"queue_number" json:"queueNumber"`
+	CurrentWrittenBytes uint64          `db:"-" json:"-"`
+	Error               string          `db:"error" json:"error"`
 }
 
 func (download *Download) Write(bytes []byte) (int, error) {

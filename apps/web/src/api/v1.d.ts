@@ -288,29 +288,27 @@ export interface components {
              * @description A URL to the JSON Schema for this object.
              */
             readonly $schema?: string;
-            /** Format: int64 */
-            DownloadedBytes: number;
-            Error: string;
-            /** Format: int64 */
-            PartCount: number;
-            /** Format: int64 */
-            PartLength: number;
-            /** Format: int64 */
-            QueueNumber: number;
-            /** Format: int64 */
-            TotalSize: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */
             downloadSpeed: number;
+            /** Format: int64 */
+            downloadedBytes: number;
+            error: string;
             /** Format: date-time */
             finishedAt: string;
             /** Format: int64 */
             id: number;
             name: string;
+            /** Format: int64 */
+            partCount: number;
+            /** Format: int64 */
+            partLength: number;
             parts: components["schemas"]["DownloadPart"][];
             /** Format: double */
             progress: number;
+            /** Format: int64 */
+            queueNumber: number;
             savePath: string;
             /** Format: date-time */
             startedAt: string;
@@ -318,6 +316,8 @@ export interface components {
             status: "paused" | "downloading" | "completed" | "error" | "metadata";
             /** Format: int64 */
             timeActive: number;
+            /** Format: int64 */
+            totalSize: number;
             url: string;
         };
         DownloadActionReqBody: {
@@ -841,7 +841,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

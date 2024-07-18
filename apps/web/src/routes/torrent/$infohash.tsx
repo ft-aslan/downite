@@ -48,7 +48,7 @@ function TorrentRoot() {
 
   if (!torrent) return null
   return (
-    <Tabs defaultValue="overview">
+    <Tabs defaultValue="overview" className="w-full p-4">
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="info">Info</TabsTrigger>

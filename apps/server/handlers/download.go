@@ -5,6 +5,7 @@ import (
 	"downite/db"
 	"downite/download/protocol/direct"
 	"downite/types"
+	"strconv"
 )
 
 type DownloadHandler struct {
@@ -71,7 +72,7 @@ func (handler *DownloadHandler) GetDownloads(ctx context.Context, input *struct{
 }
 
 type GetDownloadReq struct {
-	id string `path:"id"`
+	Id string `path:"id"`
 }
 type GetDownloadRes struct {
 	Body *types.Download
@@ -79,6 +80,12 @@ type GetDownloadRes struct {
 
 func (handler *DownloadHandler) GetDownload(ctx context.Context, input *GetDownloadReq) (*GetDownloadRes, error) {
 	res := &GetDownloadRes{}
+	id, _ := strconv.Atoi(input.Id)
+	download, err := handler.Engine.GetDownload(id)
+	if err != nil {
+		return nil, err
+	}
+	res.Body = download
 
 	return res, nil
 }

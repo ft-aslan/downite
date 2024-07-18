@@ -87,17 +87,25 @@ export default function DownloadForm({
         className={cn("grid items-start gap-4", className)}
       >
         <div className="flex w-full flex-col space-y-2 rounded-md border p-4">
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium leading-none">Name:</p>
-            <p className="text-muted-foreground text-sm">
-              {downloadMeta.fileName}
-            </p>
+          <div className="flex-1 space-y-2">
+            <p className="text-sm font-medium leading-none">Name: </p>
+            <Input
+              type="text"
+              placeholder="Address"
+              className="text-muted-foreground text-sm"
+              value={downloadMeta.fileName}
+              readOnly
+            />
           </div>
-          <div className="flex-1 space-y-1">
+          <div className="flex-1 space-y-2">
             <p className="text-sm font-medium leading-none">Address: </p>
-            <p className="text-muted-foreground truncate text-sm">
-              {downloadMeta.url}
-            </p>
+            <Input
+              type="text"
+              placeholder="Address"
+              className="text-muted-foreground text-sm"
+              value={downloadMeta.url}
+              readOnly
+            />
           </div>
           <div className="flex-1 space-y-1">
             <p className="text-sm font-medium leading-none">Size: </p>

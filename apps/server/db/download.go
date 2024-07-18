@@ -86,7 +86,7 @@ func (db *Database) UpdateDownload(download *types.Download) error {
 	`, download)
 	return err
 }
-func (db *Database) InsertDownloadParts(downloadPart []types.DownloadPart) error {
+func (db *Database) InsertDownloadParts(downloadPart []*types.DownloadPart) error {
 	_, err := db.x.NamedExec(`INSERT INTO download_parts
 	(created_at, status, part_index, start_byte_index, end_byte_index, part_length, downloaded_bytes, download_id)
 	VALUES
@@ -95,9 +95,9 @@ func (db *Database) InsertDownloadParts(downloadPart []types.DownloadPart) error
 
 	return err
 }
-func (db *Database) GetDownloadParts(downloadId int) ([]types.DownloadPart, error) {
+func (db *Database) GetDownloadParts(downloadId int) ([]*types.DownloadPart, error) {
 	var err error
-	var downloadParts []types.DownloadPart
+	var downloadParts []*types.DownloadPart
 	err = db.x.Select(&downloadParts, `SELECT * FROM download_parts WHERE download_id = ?`, downloadId)
 	if err != nil {
 		return nil, err

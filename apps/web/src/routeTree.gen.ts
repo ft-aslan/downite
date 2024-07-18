@@ -21,6 +21,7 @@ import { Route as IndexImport } from './routes/index'
 import { Route as TorrentsIndexImport } from './routes/torrents/index'
 import { Route as DownloadsIndexImport } from './routes/downloads/index'
 import { Route as TorrentInfohashImport } from './routes/torrent/$infohash'
+import { Route as DownloadIdImport } from './routes/download/$id'
 
 // Create/Update Routes
 
@@ -72,6 +73,11 @@ const DownloadsIndexRoute = DownloadsIndexImport.update({
 const TorrentInfohashRoute = TorrentInfohashImport.update({
   path: '/$infohash',
   getParentRoute: () => TorrentRoute,
+} as any)
+
+const DownloadIdRoute = DownloadIdImport.update({
+  path: '/download/$id',
+  getParentRoute: () => rootRoute,
 } as any)
 
 // Populate the FileRoutesByPath interface
@@ -127,6 +133,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TorrentsImport
       parentRoute: typeof rootRoute
     }
+    '/download/$id': {
+      id: '/download/$id'
+      path: '/download/$id'
+      fullPath: '/download/$id'
+      preLoaderRoute: typeof DownloadIdImport
+      parentRoute: typeof rootRoute
+    }
     '/torrent/$infohash': {
       id: '/torrent/$infohash'
       path: '/$infohash'
@@ -161,6 +174,7 @@ export const routeTree = rootRoute.addChildren({
   SettingsRoute,
   TorrentRoute: TorrentRoute.addChildren({ TorrentInfohashRoute }),
   TorrentsRoute: TorrentsRoute.addChildren({ TorrentsIndexRoute }),
+  DownloadIdRoute,
 })
 
 /* prettier-ignore-end */
@@ -177,7 +191,8 @@ export const routeTree = rootRoute.addChildren({
         "/help",
         "/settings",
         "/torrent",
-        "/torrents"
+        "/torrents",
+        "/download/$id"
       ]
     },
     "/": {
@@ -209,6 +224,9 @@ export const routeTree = rootRoute.addChildren({
       "children": [
         "/torrents/"
       ]
+    },
+    "/download/$id": {
+      "filePath": "download/$id.tsx"
     },
     "/torrent/$infohash": {
       "filePath": "torrent/$infohash.tsx",
