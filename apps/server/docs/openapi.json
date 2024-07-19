@@ -292,6 +292,17 @@
         },
         "type": "object"
       },
+      "FileSystemNode": {
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "size": { "format": "int64", "type": "integer" },
+          "type": { "enum": ["dir", "file"], "type": "string" }
+        },
+        "required": ["type", "size", "name", "path"],
+        "type": "object"
+      },
       "GetDownloadMetaReqBody": {
         "additionalProperties": false,
         "properties": {
@@ -307,6 +318,43 @@
           "url": { "minLength": 1, "type": "string" }
         },
         "required": ["url"],
+        "type": "object"
+      },
+      "GetFileSystemNodesReqBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/GetFileSystemNodesReqBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "path": { "type": "string" }
+        },
+        "required": ["path"],
+        "type": "object"
+      },
+      "GetFileSystemNodesResBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/GetFileSystemNodesResBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "fileSystemNodes": {
+            "items": { "$ref": "#/components/schemas/FileSystemNode" },
+            "type": "array"
+          }
+        },
+        "required": ["fileSystemNodes"],
         "type": "object"
       },
       "GetMetaWithMagnetReqBody": {
@@ -912,6 +960,42 @@
           }
         },
         "summary": "Get torrent meta info with magnet"
+      }
+    },
+    "/os/filesystem": {
+      "post": {
+        "operationId": "get-file-system-nodes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetFileSystemNodesReqBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFileSystemNodesResBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get file system nodes"
       }
     },
     "/torrent": {

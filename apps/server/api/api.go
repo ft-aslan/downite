@@ -137,6 +137,7 @@ func ApiInit(options *ApiOptions) *API {
 			Db:     db,
 			Engine: downloadClient,
 		})
+		api.AddSystemRoutes(handlers.SystemHandler{})
 
 		api.ExportOpenApi()
 
@@ -148,8 +149,18 @@ func ApiInit(options *ApiOptions) *API {
 
 		// Tell the CLI how to stop your server.
 		hooks.OnStop(func() {
-			torrentEngine.Stop()
-			downloadClient.Stop()
+			errs := torrentEngine.Stop()
+			if len(errs) > 0 {
+				for _, err := range errs {
+					fmt.Printf("Error while stopping torrent engine : %s", err)
+				}
+			}
+			errs = downloadClient.Stop()
+			if len(errs) > 0 {
+				for _, err := range errs {
+					fmt.Printf("Error while stopping download client : %s", err)
+				}
+			}
 			fmt.Printf("Stopping server...\n")
 			// Give the server 5 seconds to gracefully shut down, then give up.
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -184,6 +195,21 @@ func (api *API) ExportOpenApi() {
 		fmt.Println("Error running prettier for openapi.json:", err)
 		return
 	}
+}
+func (api *API) AddSystemRoutes(handler handlers.SystemHandler) {
+	humaApi := api.humaApi
+	// huma.Register(humaApi, huma.Operation{
+	// 	OperationID: "get-system-info",
+	// 	Method:      http.MethodGet,
+	// 	Path:        "/system/info",
+	// 	Summary:     "Get system info",
+	// }, handler.GetSystemInfo)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-file-system-nodes",
+		Method:      http.MethodPost,
+		Path:        "/os/filesystem",
+		Summary:     "Get file system nodes",
+	}, handler.GetFileSystemNodes)
 }
 func (api *API) AddTorrentRoutes(handler handlers.TorrentHandler) {
 	humaApi := api.humaApi

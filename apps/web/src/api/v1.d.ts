@@ -158,6 +158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/os/filesystem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Get file system nodes */
+        post: operations["get-file-system-nodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/torrent": {
         parameters: {
             query?: never;
@@ -447,6 +464,14 @@ export interface components {
              */
             type: string;
         };
+        FileSystemNode: {
+            name: string;
+            path: string;
+            /** Format: int64 */
+            size: number;
+            /** @enum {string} */
+            type: "dir" | "file";
+        };
         GetDownloadMetaReqBody: {
             /**
              * Format: uri
@@ -454,6 +479,22 @@ export interface components {
              */
             readonly $schema?: string;
             url: string;
+        };
+        GetFileSystemNodesReqBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            path: string;
+        };
+        GetFileSystemNodesResBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            fileSystemNodes: components["schemas"]["FileSystemNode"][];
         };
         GetMetaWithMagnetReqBody: {
             /**
@@ -921,6 +962,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TorrentMeta"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-file-system-nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GetFileSystemNodesReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetFileSystemNodesResBody"];
                 };
             };
             /** @description Error */
