@@ -32,7 +32,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { FileBrowserDialog } from "@/components/file-browser-dialog"
 import { Folder } from "lucide-react"
-import React from "react"
 
 interface GetDownloadMetaFormProps {
   className?: string
@@ -133,7 +132,9 @@ export default function DownloadForm({
                     <div className="flex flex-row items-center justify-between gap-2 rounded-lg border p-4">
                       <Input type="text" placeholder="Save Path" {...field} />
 
-                      <FileBrowserDialog>
+                      <FileBrowserDialog
+                        onSelect={(path) => field.onChange(path)}
+                      >
                         <Button variant="default" className="gap-1">
                           <Folder className="h-3.5 w-3.5" />
                           <span className="sm:whitespace-nowrap">Browse</span>
@@ -153,11 +154,22 @@ export default function DownloadForm({
                   <FormItem className="grid gap-2">
                     <FormLabel>Incomplete download path</FormLabel>
                     <FormControl>
-                      <Input
-                        type="text"
-                        placeholder="Incomplete Save Path"
-                        {...field}
-                      />
+                      <div className="flex flex-row items-center justify-between gap-2 rounded-lg border p-4">
+                        <Input
+                          type="text"
+                          placeholder="Incomplete Save Path"
+                          {...field}
+                        />
+
+                        <FileBrowserDialog
+                          onSelect={(path) => field.onChange(path)}
+                        >
+                          <Button variant="default" className="gap-1">
+                            <Folder className="h-3.5 w-3.5" />
+                            <span className="sm:whitespace-nowrap">Browse</span>
+                          </Button>
+                        </FileBrowserDialog>
+                      </div>
                     </FormControl>
                     <FormDescription>
                       The path where the where download will be saved while it

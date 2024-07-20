@@ -39,6 +39,9 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import TorrentFileTree, {
   createFlatFileTree,
 } from "@/components/TorrentFileTree"
+import { FileBrowserDialog } from "@/components/file-browser-dialog"
+import { Button } from "@/components/ui/button"
+import { Folder } from "lucide-react"
 
 // const formSchema = z.object({
 //   magnet: z.string().startsWith("magnet:?").optional(),
@@ -210,7 +213,24 @@ export default function DownloadTorrentForm({
                     <FormItem className="grid gap-2">
                       <FormLabel>Save path</FormLabel>
                       <FormControl>
-                        <Input type="text" placeholder="Save Path" {...field} />
+                        <div className="flex flex-row items-center justify-between gap-2 rounded-lg border p-4">
+                          <Input
+                            type="text"
+                            placeholder="Save Path"
+                            {...field}
+                          />
+
+                          <FileBrowserDialog
+                            onSelect={(path) => field.onChange(path)}
+                          >
+                            <Button variant="default" className="gap-1">
+                              <Folder className="h-3.5 w-3.5" />
+                              <span className="sm:whitespace-nowrap">
+                                Browse
+                              </span>
+                            </Button>
+                          </FileBrowserDialog>
+                        </div>
                       </FormControl>
                       <FormDescription>
                         The path where the torrent will be saved
@@ -227,11 +247,24 @@ export default function DownloadTorrentForm({
                       <FormItem className="grid gap-2">
                         <FormLabel>Incomplete torrent path</FormLabel>
                         <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="Incomplete Save Path"
-                            {...field}
-                          />
+                          <div className="flex flex-row items-center justify-between gap-2 rounded-lg border p-4">
+                            <Input
+                              type="text"
+                              placeholder="Incomplete Save Path"
+                              {...field}
+                            />
+
+                            <FileBrowserDialog
+                              onSelect={(path) => field.onChange(path)}
+                            >
+                              <Button variant="default" className="gap-1">
+                                <Folder className="h-3.5 w-3.5" />
+                                <span className="sm:whitespace-nowrap">
+                                  Browse
+                                </span>
+                              </Button>
+                            </FileBrowserDialog>
+                          </div>
                         </FormControl>
                         <FormDescription>
                           The path where the where torrent will be saved while

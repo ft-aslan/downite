@@ -20,10 +20,18 @@ import {
 import { useState } from "react"
 import { useMedia } from "react-use"
 import FileBrowser from "./file-browser"
+import React from "react"
 
-export function FileBrowserDialog({ children }: { children: React.ReactNode }) {
+export function FileBrowserDialog({
+  children,
+  onSelect,
+}: {
+  children: React.ReactNode
+  onSelect: (path: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const isDesktop = useMedia("(min-width: 768px)")
+  const [path, setPath] = React.useState("/")
 
   const onOpenChange = (open: boolean) => {
     setOpen(open)
@@ -36,7 +44,18 @@ export function FileBrowserDialog({ children }: { children: React.ReactNode }) {
           <DialogHeader>
             <DialogTitle>File Browser</DialogTitle>
             <DialogDescription>Browse in file system</DialogDescription>
-            <FileBrowser />
+            <FileBrowser path={path} onChange={setPath} />
+            <div>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  onSelect(path)
+                  setOpen(false)
+                }}
+              >
+                Select
+              </Button>
+            </div>
           </DialogHeader>
         </DialogContent>
       </Dialog>
@@ -52,7 +71,12 @@ export function FileBrowserDialog({ children }: { children: React.ReactNode }) {
           <DrawerDescription>Browse in file system</DrawerDescription>
         </DrawerHeader>
 
-        <FileBrowser />
+        <FileBrowser path={path} onChange={setPath} />
+        <div>
+          <Button className="w-full" onClick={() => {}}>
+            Select
+          </Button>
+        </div>
         <DrawerFooter className="pt-2">
           <DrawerClose asChild>
             <Button variant="outline">Cancel</Button>

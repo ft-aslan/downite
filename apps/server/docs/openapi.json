@@ -298,7 +298,7 @@
           "name": { "type": "string" },
           "path": { "type": "string" },
           "size": { "format": "int64", "type": "integer" },
-          "type": { "enum": ["dir", "file"], "type": "string" }
+          "type": { "enum": ["dir", "file", "parent"], "type": "string" }
         },
         "required": ["type", "size", "name", "path"],
         "type": "object"

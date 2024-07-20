@@ -470,7 +470,7 @@ export interface components {
             /** Format: int64 */
             size: number;
             /** @enum {string} */
-            type: "dir" | "file";
+            type: "dir" | "file" | "parent";
         };
         GetDownloadMetaReqBody: {
             /**

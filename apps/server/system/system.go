@@ -8,7 +8,7 @@ import (
 type SystemEngine struct {
 }
 type FileSystemNode struct {
-	Type string `json:"type" enum:"dir,file"`
+	Type string `json:"type" enum:"dir,file,parent"`
 	Size int64  `json:"size"`
 	Name string `json:"name"`
 	Path string `json:"path"`
@@ -16,29 +16,39 @@ type FileSystemNode struct {
 
 func (engine *SystemEngine) GetFileSystemNodes(targetPath string) ([]FileSystemNode, error) {
 	files := make([]FileSystemNode, 0)
-	err := filepath.Walk(targetPath, func(path string, info os.FileInfo, err error) error {
+	if targetPath != "/" {
+		files = append(files, FileSystemNode{
+			Type: "parent",
+			Size: 0,
+			Name: ".. [Back]",
+			Path: filepath.Dir(targetPath),
+		})
+	}
+	nodes, err := os.ReadDir(targetPath)
+
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range nodes {
+		nodeInfo, err := node.Info()
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if info.IsDir() {
+		if node.IsDir() {
 			files = append(files, FileSystemNode{
 				Type: "dir",
 				Size: 0,
-				Name: info.Name(),
-				Path: path,
+				Name: node.Name(),
+				Path: filepath.Join(targetPath, nodeInfo.Name()),
 			})
 		} else {
 			files = append(files, FileSystemNode{
 				Type: "file",
-				Size: info.Size(),
-				Name: info.Name(),
-				Path: path,
+				Size: nodeInfo.Size(),
+				Name: node.Name(),
+				Path: filepath.Join(targetPath, nodeInfo.Name()),
 			})
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	return files, nil
 }
