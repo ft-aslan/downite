@@ -5,6 +5,7 @@ import (
 	"downite/db"
 	"downite/download/protocol/direct"
 	"downite/types"
+	"sort"
 	"strconv"
 )
 
@@ -64,6 +65,9 @@ type GetDownloadsRes struct {
 func (handler *DownloadHandler) GetDownloads(ctx context.Context, input *struct{}) (*GetDownloadsRes, error) {
 	res := &GetDownloadsRes{}
 	downloads, err := handler.Engine.GetDownloads()
+	sort.Slice(downloads, func(i, j int) bool {
+		return downloads[i].QueueNumber < downloads[j].QueueNumber
+	})
 	if err != nil {
 		return nil, err
 	}

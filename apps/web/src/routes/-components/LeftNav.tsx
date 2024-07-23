@@ -12,7 +12,7 @@ import { Link } from "@tanstack/react-router"
 import { Settings2, LifeBuoy, SquareUser, Download } from "lucide-react"
 export default function LeftNav() {
   return (
-    <aside className="inset-y fixed left-0 z-20 flex h-full flex-col border-r">
+    <aside className="inset-y fixed left-0 z-20 hidden h-full flex-col border-r md:flex">
       <div className="border-b p-2">
         <Button asChild variant="outline" size="icon" aria-label="Home">
           <Link to="/" activeProps={{ className: "bg-muted" }}>

@@ -24,7 +24,7 @@ export default function RootComponent() {
   const res = Route.useLoaderData()
   return (
     <>
-      <div className="grid h-screen w-full pl-[56px]">
+      <div className="grid h-screen w-full md:pl-[56px]">
         <LeftNav />
         <div className="flex flex-col">
           {!res && (

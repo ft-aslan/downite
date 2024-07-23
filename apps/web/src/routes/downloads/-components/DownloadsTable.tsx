@@ -80,202 +80,208 @@ function toggleDownloadState(id: number, status: string) {
   }
 }
 
-const columns: ColumnDef<components["schemas"]["Download"]>[] = [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: "queueNumber",
-    header: ({ column }) => {
-      return (
+const columns = (
+  view: "table" | "grid"
+): ColumnDef<components["schemas"]["Download"]>[] => {
+  return [
+    {
+      id: "select",
+      header: ({ table }) => {
+        return (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        )
+      },
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "queueNumber",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            #
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: ({ row }) => <div>{row.getValue("queueNumber")}</div>,
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() =>
+            toggleDownloadState(row.getValue("id"), row.getValue("status"))
+          }
         >
-          #
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <DownloadStatusIcon status={row.getValue("status")} />
         </Button>
-      )
+      ),
     },
-    cell: ({ row }) => <div>{row.getValue("queueNumber")}</div>,
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => (
-      <Button
-        variant="ghost"
-        onClick={() =>
-          toggleDownloadState(row.getValue("id"), row.getValue("status"))
-        }
-      >
-        <DownloadStatusIcon status={row.getValue("status")} />
-      </Button>
-    ),
-  },
-  {
-    accessorKey: "name",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Name
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => (
-      <div>
+    {
+      accessorKey: "name",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Name
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: ({ row }) => (
         <Link to={`/download/$id`} params={{ id: row.original.id }}>
           {row.getValue("name")}
         </Link>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "progress",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Progress
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
+      ),
     },
-    cell: ({ row }) => (
-      <div className="flex flex-col items-center gap-2">
-        <span>{(row.getValue("progress") as number).toFixed(2)}%</span>
-        <Progress value={row.getValue("progress")} className="w-full" />
-      </div>
-    ),
-  },
-  {
-    accessorKey: "downloadSpeed",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Download Speed
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
+    {
+      accessorKey: "progress",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Progress
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: ({ row }) => (
+        <div className="flex flex-col items-center gap-2">
+          <span>{(row.getValue("progress") as number).toFixed(2)}%</span>
+          <Progress value={row.getValue("progress")} className="w-full" />
+        </div>
+      ),
     },
-    cell: ({ row }) => <div>{row.getValue("downloadSpeed")} KB/s</div>,
-  },
-  {
-    accessorKey: "id",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          ID
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
+    {
+      accessorKey: "downloadSpeed",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Download Speed
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: ({ row }) => <div>{row.getValue("downloadSpeed")} KB/s</div>,
     },
-    cell: ({ row }) => <div>{row.getValue("id")}</div>,
-  },
-  {
-    id: "actions",
-    enableHiding: false,
-    cell: ({ row }) => {
-      const download = row.original
+    {
+      accessorKey: "id",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            ID
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: ({ row }) => <div>{row.getValue("id")}</div>,
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      cell: ({ row }) => {
+        const download = row.original
 
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => {
-                client.POST("/download/pause", {
-                  body: {
-                    ids: [download.id],
-                  },
-                })
-              }}
-            >
-              <Pause className="ml-2 h-4 w-4" />
-              <span className="ml-1 sm:whitespace-nowrap">Pause</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                client.POST("/download/resume", {
-                  body: {
-                    ids: [download.id],
-                  },
-                })
-              }}
-            >
-              <Play className="ml-2 h-4 w-4" />
-              <span className="ml-1 sm:whitespace-nowrap">Resume</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {
-                client.POST("/download/remove", {
-                  body: {
-                    ids: [download.id],
-                  },
-                })
-              }}
-            >
-              <Trash2 className="ml-2 h-4 w-4" />
-              <span className="ml-1 sm:whitespace-nowrap">Remove</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                client.POST("/download/delete", {
-                  body: {
-                    ids: [download.id],
-                  },
-                })
-              }}
-            >
-              <Trash2 className="ml-2 h-4 w-4" />
-              <span className="ml-1 sm:whitespace-nowrap">
-                Delete With Files
-              </span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => {
+                  client.POST("/download/pause", {
+                    body: {
+                      ids: [download.id],
+                    },
+                  })
+                }}
+              >
+                <Pause className="ml-2 h-4 w-4" />
+                <span className="ml-1 sm:whitespace-nowrap">Pause</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  client.POST("/download/resume", {
+                    body: {
+                      ids: [download.id],
+                    },
+                  })
+                }}
+              >
+                <Play className="ml-2 h-4 w-4" />
+                <span className="ml-1 sm:whitespace-nowrap">Resume</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  client.POST("/download/remove", {
+                    body: {
+                      ids: [download.id],
+                    },
+                  })
+                }}
+              >
+                <Trash2 className="ml-2 h-4 w-4" />
+                <span className="ml-1 sm:whitespace-nowrap">Remove</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  client.POST("/download/delete", {
+                    body: {
+                      ids: [download.id],
+                    },
+                  })
+                }}
+              >
+                <Trash2 className="ml-2 h-4 w-4" />
+                <span className="ml-1 sm:whitespace-nowrap">
+                  Delete With Files
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
     },
-  },
-]
+  ]
+}
 
 export function DownloadsTable({
   downloads,
@@ -295,7 +301,7 @@ export function DownloadsTable({
 
   const table = useReactTable({
     data: downloads,
-    columns: columns,
+    columns: columns(view),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -311,7 +317,120 @@ export function DownloadsTable({
       rowSelection,
     },
   })
-
+  const TableView = () => (
+    <Table>
+      <TableHeader>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map((header) => {
+              return (
+                <TableHead key={header.id}>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              )
+            })}
+          </TableRow>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => (
+            <TableRow
+              key={row.id}
+              data-state={row.getIsSelected() && "selected"}
+            >
+              {row.getVisibleCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        ) : (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="h-24 text-center">
+              No results.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  )
+  const ListView = () => (
+    <div className="grid grid-cols-1 gap-4">
+      {table.getRowModel().rows?.map((row) => {
+        const nameCell = row
+          .getVisibleCells()
+          .find((cell) => cell.column.id === "name")
+        const statusCell = row
+          .getVisibleCells()
+          .find((cell) => cell.column.id === "status")
+        return (
+          <div key={row.id} className="relative rounded-md border px-2">
+            <div
+              className={cn(
+                "absolute left-0 right-0 h-full w-1 rounded-l-sm",
+                row.getValue("status") === "downloading"
+                  ? "bg-primary"
+                  : row.getValue("status") === "error"
+                    ? "bg-red-500"
+                    : "bg-gray-700"
+              )}
+            ></div>
+            <div className="flex place-items-center">
+              <div className="p-2">
+                {statusCell != undefined
+                  ? flexRender(
+                      statusCell.column.columnDef.cell,
+                      statusCell.getContext()
+                    )
+                  : null}
+              </div>
+              <div className="grid p-2">
+                <div className="w-full text-ellipsis">
+                  {nameCell != undefined
+                    ? flexRender(
+                        nameCell.column.columnDef.cell,
+                        nameCell.getContext()
+                      )
+                    : null}
+                </div>
+                <div className="flex gap-2">
+                  {row
+                    .getVisibleCells()
+                    .filter(
+                      (cell) =>
+                        cell.column.id === "progress" ||
+                        cell.column.id === "downloadSpeed" ||
+                        cell.column.id === "eta" ||
+                        cell.column.id === "queueNumber"
+                    )
+                    .map((cell) => (
+                      <div key={cell.id} className="flex-1">
+                        <span className="text-muted-foreground">
+                          {cell.column.id}
+                        </span>
+                        <span>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
   return (
     <div className="w-full">
       <div className="flex items-center py-4">
@@ -364,83 +483,8 @@ export function DownloadsTable({
           </DropdownMenu>
         </div>
       </div>
-      <div className="rounded-md border">
-        {view === "table" ? (
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <TableHead key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
-                    )
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    No results.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        ) : (
-          <div>
-            {table.getRowModel().rows?.map((row) => (
-              <div key={row.id} className="relative flex rounded-sm px-2">
-                <div
-                  className={cn(
-                    "absolute left-0 right-0 h-full w-1 rounded-l-sm",
-                    row.getValue("state") === "downloading"
-                      ? "bg-green-500"
-                      : "bg-red-500"
-                  )}
-                ></div>
-                {row.getVisibleCells().map((cell) => (
-                  <div key={cell.id}>
-                    <span className="text-muted-foreground"></span>
-                    <span>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="rounded-md">
+        {view === "table" ? <TableView /> : <ListView />}
       </div>
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="text-muted-foreground flex-1 text-sm">
