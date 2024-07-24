@@ -1,4 +1,5 @@
 import * as React from "react"
+import { atom, useAtom } from "jotai"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -81,32 +82,39 @@ function toggleDownloadState(id: number, status: string) {
 }
 
 const columns = (
-  view: "table" | "grid"
+  view: "table" | "list",
+  isCheckboxVisible: boolean
 ): ColumnDef<components["schemas"]["Download"]>[] => {
   return [
     {
       id: "select",
       header: ({ table }) => {
         return (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
+          isCheckboxVisible && (
+            <Checkbox
+              checked={
+                table.getIsAllPageRowsSelected() ||
+                (table.getIsSomePageRowsSelected() && "indeterminate")
+              }
+              onCheckedChange={(value) =>
+                table.toggleAllPageRowsSelected(!!value)
+              }
+              aria-label="Select all"
+            />
+          )
         )
       },
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
+      cell: ({ row }) => {
+        return (
+          isCheckboxVisible && (
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={(value) => row.toggleSelected(!!value)}
+              aria-label="Select row"
+            />
+          )
+        )
+      },
       enableSorting: false,
       enableHiding: false,
     },
@@ -123,7 +131,17 @@ const columns = (
           </Button>
         )
       },
-      cell: ({ row }) => <div>{row.getValue("queueNumber")}</div>,
+      cell: ({ row }) => {
+        if (view === "list") {
+          return (
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">#</span>
+              <span>{row.getValue("queueNumber")}</span>
+            </div>
+          )
+        }
+        return <div>{row.getValue("queueNumber")}</div>
+      },
     },
     {
       accessorKey: "status",
@@ -152,11 +170,13 @@ const columns = (
           </Button>
         )
       },
-      cell: ({ row }) => (
-        <Link to={`/download/$id`} params={{ id: row.original.id }}>
-          {row.getValue("name")}
-        </Link>
-      ),
+      cell: ({ row }) => {
+        return (
+          <Link to={`/download/$id`} params={{ id: row.original.id }}>
+            {row.getValue("name")}
+          </Link>
+        )
+      },
     },
     {
       accessorKey: "progress",
@@ -171,12 +191,22 @@ const columns = (
           </Button>
         )
       },
-      cell: ({ row }) => (
-        <div className="flex flex-col items-center gap-2">
-          <span>{(row.getValue("progress") as number).toFixed(2)}%</span>
-          <Progress value={row.getValue("progress")} className="w-full" />
-        </div>
-      ),
+      cell: ({ row }) => {
+        return (
+          <div
+            className={cn(
+              "flex",
+              "flex-col",
+              "items-center",
+              "gap-2",
+              view === "list" ? "w-1/4" : ""
+            )}
+          >
+            <span>{(row.getValue("progress") as number).toFixed(2)}%</span>
+            <Progress value={row.getValue("progress")} className="w-full" />
+          </div>
+        )
+      },
     },
     {
       accessorKey: "downloadSpeed",
@@ -191,7 +221,93 @@ const columns = (
           </Button>
         )
       },
-      cell: ({ row }) => <div>{row.getValue("downloadSpeed")} KB/s</div>,
+      cell: ({ row }) => {
+        if (view === "list") {
+          return (
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Download Speed</span>
+              <span>{row.getValue("downloadSpeed")} KB/s</span>
+            </div>
+          )
+        }
+        return <div>{row.getValue("downloadSpeed")} KB/s</div>
+      },
+    },
+    {
+      accessorKey: "downloadedBytes",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Downloaded
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: ({ row }) => {
+        if (view === "list") {
+          return (
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Downloaded</span>
+              <span>
+                {(
+                  (row.getValue("downloadedBytes") as number) /
+                  1024 /
+                  1024
+                ).toFixed(2)}{" "}
+                MB
+              </span>
+            </div>
+          )
+        }
+        return (
+          <div>
+            {(
+              (row.getValue("downloadedBytes") as number) /
+              1024 /
+              1024
+            ).toFixed(2)}{" "}
+            MB
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "totalSize",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Total Size
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        )
+      },
+      cell: ({ row }) => {
+        if (view === "list") {
+          return (
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Total Size</span>
+              <span>
+                {((row.getValue("totalSize") as number) / 1024 / 1024).toFixed(
+                  2
+                )}{" "}
+                MB
+              </span>
+            </div>
+          )
+        }
+        return (
+          <div>
+            {((row.getValue("totalSize") as number) / 1024 / 1024).toFixed(2)}{" "}
+            MB
+          </div>
+        )
+      },
     },
     {
       accessorKey: "id",
@@ -215,80 +331,86 @@ const columns = (
         const download = row.original
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => {
-                  client.POST("/download/pause", {
-                    body: {
-                      ids: [download.id],
-                    },
-                  })
-                }}
-              >
-                <Pause className="ml-2 h-4 w-4" />
-                <span className="ml-1 sm:whitespace-nowrap">Pause</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  client.POST("/download/resume", {
-                    body: {
-                      ids: [download.id],
-                    },
-                  })
-                }}
-              >
-                <Play className="ml-2 h-4 w-4" />
-                <span className="ml-1 sm:whitespace-nowrap">Resume</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  client.POST("/download/remove", {
-                    body: {
-                      ids: [download.id],
-                    },
-                  })
-                }}
-              >
-                <Trash2 className="ml-2 h-4 w-4" />
-                <span className="ml-1 sm:whitespace-nowrap">Remove</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  client.POST("/download/delete", {
-                    body: {
-                      ids: [download.id],
-                    },
-                  })
-                }}
-              >
-                <Trash2 className="ml-2 h-4 w-4" />
-                <span className="ml-1 sm:whitespace-nowrap">
-                  Delete With Files
-                </span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div
+            className={cn(["flex justify-end", view === "list" && "flex-1"])}
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => {
+                    client.POST("/download/pause", {
+                      body: {
+                        ids: [download.id],
+                      },
+                    })
+                  }}
+                >
+                  <Pause className="ml-2 h-4 w-4" />
+                  <span className="ml-1 sm:whitespace-nowrap">Pause</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    client.POST("/download/resume", {
+                      body: {
+                        ids: [download.id],
+                      },
+                    })
+                  }}
+                >
+                  <Play className="ml-2 h-4 w-4" />
+                  <span className="ml-1 sm:whitespace-nowrap">Resume</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    client.POST("/download/remove", {
+                      body: {
+                        ids: [download.id],
+                      },
+                    })
+                  }}
+                >
+                  <Trash2 className="ml-2 h-4 w-4" />
+                  <span className="ml-1 sm:whitespace-nowrap">Remove</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    client.POST("/download/delete", {
+                      body: {
+                        ids: [download.id],
+                      },
+                    })
+                  }}
+                >
+                  <Trash2 className="ml-2 h-4 w-4" />
+                  <span className="ml-1 sm:whitespace-nowrap">
+                    Delete With Files
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )
       },
     },
   ]
 }
-
 export function DownloadsTable({
   downloads,
 }: {
   downloads: components["schemas"]["Download"][]
 }) {
-  const [view, setView] = React.useState<"table" | "grid">("table")
+  const [view, setView] = React.useState<"table" | "list">(
+    (localStorage.getItem("view") as "table" | "list") ?? "table"
+  )
+  const [isCheckboxVisible, setIsCheckboxVisible] = React.useState(false)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -301,7 +423,7 @@ export function DownloadsTable({
 
   const table = useReactTable({
     data: downloads,
-    columns: columns(view),
+    columns: columns(view, isCheckboxVisible),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -391,7 +513,7 @@ export function DownloadsTable({
                     )
                   : null}
               </div>
-              <div className="grid p-2">
+              <div className="grid w-full p-2">
                 <div className="w-full text-ellipsis">
                   {nameCell != undefined
                     ? flexRender(
@@ -400,28 +522,20 @@ export function DownloadsTable({
                       )
                     : null}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-4">
                   {row
                     .getVisibleCells()
                     .filter(
                       (cell) =>
-                        cell.column.id === "progress" ||
-                        cell.column.id === "downloadSpeed" ||
-                        cell.column.id === "eta" ||
-                        cell.column.id === "queueNumber"
+                        cell.column.id !== "name" && cell.column.id !== "status"
                     )
                     .map((cell) => (
-                      <div key={cell.id} className="flex-1">
-                        <span className="text-muted-foreground">
-                          {cell.column.id}
-                        </span>
-                        <span>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </span>
-                      </div>
+                      <React.Fragment key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </React.Fragment>
                     ))}
                 </div>
               </div>
@@ -446,12 +560,15 @@ export function DownloadsTable({
           <ToggleGroup
             type="single"
             value={view}
-            onValueChange={(value: "table" | "grid") => setView(value)}
+            onValueChange={(value: "table" | "list") => {
+              setView(value)
+              localStorage.setItem("view", value)
+            }}
           >
             <ToggleGroupItem value="table" aria-label="Toggle table view">
               <TableIcon className="h-5 w-5" />
             </ToggleGroupItem>
-            <ToggleGroupItem value="grid" aria-label="Toggle grid view">
+            <ToggleGroupItem value="list" aria-label="Toggle grid view">
               <Rows3 className="h-5 w-5" />
             </ToggleGroupItem>
           </ToggleGroup>
