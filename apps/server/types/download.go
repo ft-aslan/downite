@@ -25,7 +25,7 @@ func (d DownloadStatus) String() string {
 }
 
 type Download struct {
-	Id                  string          `json:"id"`
+	Id                  int             `json:"id"`
 	CreatedAt           time.Time       `json:"createdAt" db:"created_at"`
 	StartedAt           time.Time       `json:"startedAt" db:"started_at"`
 	TimeActive          time.Duration   `json:"timeActive" db:"time_active"`
@@ -53,7 +53,7 @@ func (download *Download) Write(bytes []byte) (int, error) {
 }
 
 type DownloadPart struct {
-	Id              string        `db:"id" json:"-"`
+	Id              int           `db:"id" json:"-"`
 	CreatedAt       time.Time     `db:"created_at" json:"createdAt"`
 	StartedAt       time.Time     `db:"started_at" json:"startedAt"`
 	TimeActive      time.Duration `db:"time_active" json:"timeActive"`

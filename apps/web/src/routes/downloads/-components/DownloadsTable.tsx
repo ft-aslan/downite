@@ -3,6 +3,7 @@ import { atom, useAtom } from "jotai"
 import {
   ColumnDef,
   ColumnFiltersState,
+  RowSelectionState,
   SortingState,
   VisibilityState,
   flexRender,
@@ -51,6 +52,12 @@ import { Progress } from "@/components/ui/progress"
 import { Link } from "@tanstack/react-router"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 function DownloadStatusIcon(props: { status: string }) {
   switch (props.status) {
     case "metadata":
@@ -89,30 +96,32 @@ const columns = (
     {
       id: "select",
       header: ({ table }) => {
+        if (view === "list" && !isCheckboxVisible) {
+          return null
+        }
         return (
-          isCheckboxVisible && (
-            <Checkbox
-              checked={
-                table.getIsAllPageRowsSelected() ||
-                (table.getIsSomePageRowsSelected() && "indeterminate")
-              }
-              onCheckedChange={(value) =>
-                table.toggleAllPageRowsSelected(!!value)
-              }
-              aria-label="Select all"
-            />
-          )
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
         )
       },
       cell: ({ row }) => {
+        if (view === "list" && !isCheckboxVisible) {
+          return null
+        }
         return (
-          isCheckboxVisible && (
-            <Checkbox
-              checked={row.getIsSelected()}
-              onCheckedChange={(value) => row.toggleSelected(!!value)}
-              aria-label="Select row"
-            />
-          )
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
         )
       },
       enableSorting: false,
@@ -328,79 +337,89 @@ const columns = (
       id: "actions",
       enableHiding: false,
       cell: ({ row }) => {
+        if (isCheckboxVisible) {
+          return null
+        }
         const download = row.original
 
         return (
-          <div
-            className={cn(["flex justify-end", view === "list" && "flex-1"])}
-          >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => {
-                    client.POST("/download/pause", {
-                      body: {
-                        ids: [download.id],
-                      },
-                    })
-                  }}
-                >
-                  <Pause className="ml-2 h-4 w-4" />
-                  <span className="ml-1 sm:whitespace-nowrap">Pause</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    client.POST("/download/resume", {
-                      body: {
-                        ids: [download.id],
-                      },
-                    })
-                  }}
-                >
-                  <Play className="ml-2 h-4 w-4" />
-                  <span className="ml-1 sm:whitespace-nowrap">Resume</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    client.POST("/download/remove", {
-                      body: {
-                        ids: [download.id],
-                      },
-                    })
-                  }}
-                >
-                  <Trash2 className="ml-2 h-4 w-4" />
-                  <span className="ml-1 sm:whitespace-nowrap">Remove</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    client.POST("/download/delete", {
-                      body: {
-                        ids: [download.id],
-                      },
-                    })
-                  }}
-                >
-                  <Trash2 className="ml-2 h-4 w-4" />
-                  <span className="ml-1 sm:whitespace-nowrap">
-                    Delete With Files
-                  </span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DownloadActionsDropdown downloadIds={[download.id]} view={view} />
         )
       },
     },
   ]
+}
+function DownloadActionsDropdown({
+  downloadIds,
+  view,
+}: {
+  downloadIds: number[]
+  view: "table" | "list"
+}) {
+  return (
+    <div className={cn(["flex justify-end", view === "list" && "flex-1"])}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuItem
+            onClick={() => {
+              client.POST("/download/pause", {
+                body: {
+                  ids: downloadIds,
+                },
+              })
+            }}
+          >
+            <Pause className="ml-2 h-4 w-4" />
+            <span className="ml-1 sm:whitespace-nowrap">Pause</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              client.POST("/download/resume", {
+                body: {
+                  ids: downloadIds,
+                },
+              })
+            }}
+          >
+            <Play className="ml-2 h-4 w-4" />
+            <span className="ml-1 sm:whitespace-nowrap">Resume</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              client.POST("/download/remove", {
+                body: {
+                  ids: downloadIds,
+                },
+              })
+            }}
+          >
+            <Trash2 className="ml-2 h-4 w-4" />
+            <span className="ml-1 sm:whitespace-nowrap">Remove</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              client.POST("/download/delete", {
+                body: {
+                  ids: downloadIds,
+                },
+              })
+            }}
+          >
+            <Trash2 className="ml-2 h-4 w-4" />
+            <span className="ml-1 sm:whitespace-nowrap">Delete With Files</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
 }
 export function DownloadsTable({
   downloads,
@@ -410,7 +429,7 @@ export function DownloadsTable({
   const [view, setView] = React.useState<"table" | "list">(
     (localStorage.getItem("view") as "table" | "list") ?? "table"
   )
-  const [isCheckboxVisible, setIsCheckboxVisible] = React.useState(false)
+  const [isSelectModeEnabled, setIsSelectModeEnabled] = React.useState(false)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -419,11 +438,11 @@ export function DownloadsTable({
     React.useState<VisibilityState>({
       id: false,
     })
-  const [rowSelection, setRowSelection] = React.useState({})
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
 
   const table = useReactTable({
     data: downloads,
-    columns: columns(view, isCheckboxVisible),
+    columns: columns(view, isSelectModeEnabled),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -547,58 +566,106 @@ export function DownloadsTable({
   )
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
-        <Input
-          placeholder="Find Download..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
-        <div className="ml-auto flex gap-2">
-          <ToggleGroup
-            type="single"
-            value={view}
-            onValueChange={(value: "table" | "list") => {
-              setView(value)
-              localStorage.setItem("view", value)
-            }}
-          >
-            <ToggleGroupItem value="table" aria-label="Toggle table view">
-              <TableIcon className="h-5 w-5" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="list" aria-label="Toggle grid view">
-              <Rows3 className="h-5 w-5" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                Columns <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+      <div className="space-y-2 py-2">
+        <div>
+          <Input
+            placeholder="Find Download..."
+            value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+            onChange={(event) =>
+              table.getColumn("name")?.setFilterValue(event.target.value)
+            }
+            className="max-w-sm"
+          />
         </div>
+        <div className="flex items-center">
+          {view === "list" ? (
+            <div className="flex gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Checkbox
+                      checked={isSelectModeEnabled}
+                      onCheckedChange={(value) => setIsSelectModeEnabled(value)}
+                      className="mr-2"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Toggle Select Mode</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          ) : (
+            <></>
+          )}
+          <div className="ml-auto flex gap-2">
+            <ToggleGroup
+              type="single"
+              value={view}
+              onValueChange={(value: "table" | "list") => {
+                setView(value)
+                localStorage.setItem("view", value)
+              }}
+            >
+              <ToggleGroupItem value="table" aria-label="Toggle table view">
+                <TableIcon className="h-5 w-5" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="Toggle grid view">
+                <Rows3 className="h-5 w-5" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                      >
+                        {column.id}
+                      </DropdownMenuCheckboxItem>
+                    )
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        {view === "list" && isSelectModeEnabled ? (
+          <div className="flex">
+            <Checkbox
+              checked={
+                table.getIsAllPageRowsSelected() ||
+                (table.getIsSomePageRowsSelected() && "indeterminate")
+              }
+              onCheckedChange={(value) =>
+                table.toggleAllPageRowsSelected(!!value)
+              }
+              aria-label="Select all"
+            />
+            <DownloadActionsDropdown
+              view={view}
+              downloadIds={Object.keys(rowSelection).flatMap((key) => {
+                if (rowSelection[key]) {
+                  return downloads[key].id
+                }
+              })}
+            />
+          </div>
+        ) : (
+          <></>
+        )}
       </div>
       <div className="rounded-md">
         {view === "table" ? <TableView /> : <ListView />}
