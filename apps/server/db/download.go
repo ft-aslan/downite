@@ -16,9 +16,9 @@ func (db *Database) InsertDownload(download *types.Download, addTopOfQueue bool)
 		}
 	}
 	result, err := db.x.NamedExec(`INSERT INTO downloads
-	(created_at, status, name, save_path, part_count, part_length, total_size, downloaded_bytes, url, queue_number, error)
+	(created_at, status, name, save_path, part_count, part_length, total_size, downloaded_bytes, url, queue_number)
 	VALUES
-	(:created_at, :status, :name, :save_path, :part_count, :part_length, :total_size, :downloaded_bytes, :url, :queue_number, :error)
+	(:created_at, :status, :name, :save_path, :part_count, :part_length, :total_size, :downloaded_bytes, :url, :queue_number)
 	`, download)
 	if err != nil {
 		return 0, err
@@ -51,7 +51,21 @@ func (db *Database) GetDownloads() ([]types.Download, error) {
 }
 
 func (db *Database) DeleteDownload(id int) error {
-	_, err := db.x.Exec(`DELETE FROM downloads WHERE id = ?`, id)
+	var queueNumber int
+	err := db.x.Get(&queueNumber, "SELECT queue_number FROM downloads WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	transaction := db.x.MustBegin()
+	_, err = db.x.Exec(`DELETE FROM downloads WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	_, err = transaction.Exec(`UPDATE downloads SET queue_number = queue_number - 1 WHERE queue_number > ?`, queueNumber)
+	if err != nil {
+		return err
+	}
+	err = transaction.Commit()
 	return err
 }
 

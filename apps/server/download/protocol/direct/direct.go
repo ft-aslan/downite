@@ -116,7 +116,12 @@ func (client *Client) updateDownloadSpeeds() {
 	}
 }
 func (client *Client) PauseDownload(id int) error {
-
+	if client.CheckDownloadStatus(id, types.DownloadStatusPaused) {
+		return fmt.Errorf("download is already paused")
+	}
+	if client.CheckDownloadStatus(id, types.DownloadStatusCompleted) {
+		return fmt.Errorf("download is already completed")
+	}
 	//cancel all part downloads
 	client.mutexForPartContexts.Lock()
 	partContexts, ok := client.partContextMap[id]
@@ -134,7 +139,11 @@ func (client *Client) PauseDownload(id int) error {
 	if err != nil {
 		return err
 	}
+
+	client.mutexForDownloads.Lock()
 	download.Status = types.DownloadStatusPaused.String()
+	download.DownloadSpeed = 0
+	client.mutexForDownloads.Unlock()
 	err = client.db.UpdateDownload(download)
 	if err != nil {
 		return err
@@ -150,8 +159,24 @@ func (client *Client) PauseDownload(id int) error {
 
 	return nil
 }
+func (client *Client) CheckDownloadStatus(id int, state types.DownloadStatus) bool {
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+	download, ok := client.downloads[id]
+	if !ok {
+		return false
+	}
+	return download.Status == state.String()
+}
 
 func (client *Client) ResumeDownload(id int) error {
+	if client.CheckDownloadStatus(id, types.DownloadStatusDownloading) {
+		return fmt.Errorf("download is already running")
+	}
+	if client.CheckDownloadStatus(id, types.DownloadStatusCompleted) {
+		return fmt.Errorf("download is already completed")
+	}
+
 	err := client.StartDownload(id)
 	if err != nil {
 		return fmt.Errorf("could not start download : %s\n", err)
@@ -364,6 +389,21 @@ func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath str
 	return download, nil
 }
 func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue bool) error {
+	if addTopOfQueue {
+		download.QueueNumber = 1
+	} else {
+		if len(client.downloads) == 0 {
+			download.QueueNumber = 1
+		} else {
+			lastQueueNumber, err := client.db.GetLastQueueNumberOfDownloads()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("last queue number : %d \n", lastQueueNumber)
+			download.QueueNumber = lastQueueNumber + 1
+		}
+	}
+
 	id, err := client.db.InsertDownload(download, addTopOfQueue)
 	if err != nil {
 		return err
@@ -395,20 +435,6 @@ func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue b
 		}
 	}
 
-	if addTopOfQueue {
-		download.QueueNumber = 1
-	} else {
-		if len(client.downloads) == 0 {
-			download.QueueNumber = 1
-		} else {
-			lastQueueNumber, err := client.db.GetLastQueueNumberOfDownloads()
-			if err != nil {
-				return err
-			}
-			download.QueueNumber = lastQueueNumber + 1
-		}
-	}
-
 	err = client.db.InsertDownloadParts(download.Parts)
 	if err != nil {
 		return err
@@ -424,10 +450,12 @@ func (client *Client) AddDownload(download *types.Download) {
 	client.downloadsPrevSizeMap[download.Id] = 0
 }
 func (client *Client) RemoveDownload(id int) error {
-
 	err := client.PauseDownload(id)
 	if err != nil {
-		return err
+		// TODO: improve error handling . we don't have error types
+		if err.Error() != "download is already completed" && err.Error() != "download is already paused" {
+			return err
+		}
 	}
 
 	err = client.db.DeleteDownload(id)
@@ -478,7 +506,9 @@ func (client *Client) DeleteDownload(id int) error {
 	}
 	err = os.RemoveAll(filepath.Join(savePath, fileName))
 	if err != nil {
-		return err
+		if err != os.ErrNotExist {
+			return err
+		}
 	}
 	return nil
 }
@@ -533,8 +563,8 @@ func (client *Client) StartDownload(id int) error {
 			filePartBuffer, err := os.OpenFile(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				part.Status = types.DownloadStatusError.String()
+				part.Error = err.Error()
 				errorChan <- err
-				cancel()
 				return
 			}
 			defer filePartBuffer.Close()
@@ -546,8 +576,8 @@ func (client *Client) StartDownload(id int) error {
 					return
 				}
 				part.Status = types.DownloadStatusError.String()
+				part.Error = err.Error()
 				errorChan <- err
-				cancel()
 				return
 			}
 			if part.DownloadedBytes == part.PartLength {
@@ -556,8 +586,9 @@ func (client *Client) StartDownload(id int) error {
 			}
 
 			part.Status = types.DownloadStatusError.String()
-			cancel()
-			errorChan <- fmt.Errorf("downloaded bytes %d is not equal to end byte index %d", part.DownloadedBytes, part.EndByteIndex)
+			err = fmt.Errorf("downloaded bytes %d is not equal to end byte index %d", part.DownloadedBytes, part.EndByteIndex)
+			part.Error = err.Error()
+			errorChan <- err
 		}()
 
 	}
@@ -672,6 +703,9 @@ func (client *Client) deleteDownloadParts(id int) error {
 		fmt.Printf("removing part : %s_part%d \n", download.Name, part.PartIndex)
 		err := os.Remove(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
 		if err != nil {
+			if err == os.ErrNotExist {
+				continue
+			}
 			return fmt.Errorf("while deleting part file : %s \n", err)
 		}
 	}

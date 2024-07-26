@@ -387,23 +387,12 @@ func (handler *TorrentHandler) GetMetaWithMagnet(ctx context.Context, input *Get
 	// TODO(fatih): In the future, we should support multiple torrents
 	res := &GetMetaWithMagnetRes{}
 
-	var info metainfo.Info
-	var infohash string
-
-	magnet := input.Body.Magnet
-	if _, err := metainfo.ParseMagnetUri(magnet); err != nil {
-		ctx.Err()
-		return nil, huma.Error400BadRequest("invalid magnet")
+	torrentMeta, err := handler.Engine.GetTorrentMetaWithMagnet(input.Body.Magnet)
+	if err != nil {
+		return nil, err
 	}
-	fileTree := handler.Engine.CreateFileTreeFromMeta(info)
 
-	res.Body = types.TorrentMeta{
-		TotalSize: info.TotalLength(),
-		Files:     fileTree,
-		Name:      info.Name,
-		Infohash:  infohash,
-		Magnet:    magnet,
-	}
+	res.Body = *torrentMeta
 
 	return res, nil
 }

@@ -66,17 +66,19 @@ type DownloadPart struct {
 	DownloadedBytes uint64        `db:"downloaded_bytes" json:"downloadedBytes"`
 	Progress        float64       `db:"-" json:"progress"`
 	DownloadId      int           `json:"-" db:"download_id"`
-}
-type DownloadMeta struct {
-	TotalSize      uint64 `json:"totalSize"`
-	Url            string `json:"url"`
-	FileName       string `json:"fileName"`
-	FileType       string `json:"fileType"`
-	IsRangeAllowed bool   `json:"isRangeAllowed"`
+	Error           string        `db:"error" json:"error"`
 }
 
 func (part *DownloadPart) Write(bytes []byte) (int, error) {
 	part.DownloadedBytes += uint64(len(bytes))
 	part.Progress = float64(part.DownloadedBytes) / float64(part.PartLength) * 100
 	return len(bytes), nil
+}
+
+type DownloadMeta struct {
+	TotalSize      uint64 `json:"totalSize"`
+	Url            string `json:"url"`
+	FileName       string `json:"fileName"`
+	FileType       string `json:"fileType"`
+	IsRangeAllowed bool   `json:"isRangeAllowed"`
 }

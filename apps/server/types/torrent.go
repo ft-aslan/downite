@@ -95,6 +95,7 @@ type Torrent struct {
 	DownloadSpeed float32                `json:"downloadSpeed"`
 	UploadSpeed   float32                `json:"uploadSpeed"`
 	Comment       string                 `json:"comment"`
+	Error         string                 `json:"error"`
 }
 type Tracker struct {
 	Interval uint64 `json:"interval"`

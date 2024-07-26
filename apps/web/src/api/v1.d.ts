@@ -373,6 +373,7 @@ export interface components {
             downloadedBytes: number;
             /** Format: int64 */
             endByteIndex: number;
+            error: string;
             /** Format: date-time */
             finishedAt: string;
             /** Format: int64 */
@@ -541,6 +542,7 @@ export interface components {
             downloadSpeed: number;
             /** Format: int64 */
             downloaded: number;
+            error: string;
             /** Format: int64 */
             eta: number;
             files: components["schemas"]["TorrentFileTreeNode"][];

@@ -126,6 +126,7 @@
           "createdAt": { "format": "date-time", "type": "string" },
           "downloadedBytes": { "format": "int64", "type": "integer" },
           "endByteIndex": { "format": "int64", "type": "integer" },
+          "error": { "type": "string" },
           "finishedAt": { "format": "date-time", "type": "string" },
           "partIndex": { "format": "int64", "type": "integer" },
           "partLength": { "format": "int64", "type": "integer" },
@@ -146,7 +147,8 @@
           "endByteIndex",
           "partLength",
           "downloadedBytes",
-          "progress"
+          "progress",
+          "error"
         ],
         "type": "object"
       },
@@ -427,6 +429,7 @@
           "createdAt": { "format": "int64", "type": "integer" },
           "downloadSpeed": { "format": "float", "type": "number" },
           "downloaded": { "format": "int64", "type": "integer" },
+          "error": { "type": "string" },
           "eta": { "format": "int64", "type": "integer" },
           "files": {
             "items": { "$ref": "#/components/schemas/TorrentFileTreeNode" },
@@ -500,7 +503,8 @@
           "seeds",
           "downloadSpeed",
           "uploadSpeed",
-          "comment"
+          "comment",
+          "error"
         ],
         "type": "object"
       },

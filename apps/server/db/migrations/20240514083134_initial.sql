@@ -21,6 +21,7 @@ create table if not exists torrents (
     size_of_wanted int,
     comment text,
     category_id int,
+    error text default '',
     foreign key (category_id) references categories (id)
 );
 

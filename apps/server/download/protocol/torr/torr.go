@@ -113,7 +113,10 @@ func (torrentEngine *TorrentEngine) checkCompletedTorrents() {
 		torrents := torrentEngine.client.Torrents()
 		torrentEngine.mutexForTorrents.Lock()
 		for _, torrent := range torrents {
-			dbTorrent := torrentEngine.torrents[torrent.InfoHash().String()]
+			dbTorrent, ok := torrentEngine.torrents[torrent.InfoHash().String()]
+			if !ok {
+				continue
+			}
 			if dbTorrent.Status != types.TorrentStatusDownloading.String() {
 				continue
 			}
@@ -142,7 +145,10 @@ func (torrentEngine *TorrentEngine) updateTorrentInfo() {
 		torrents := torrentEngine.client.Torrents()
 		torrentEngine.mutexForTorrents.Lock()
 		for _, torrent := range torrents {
-			dbTorrent := torrentEngine.torrents[torrent.InfoHash().String()]
+			dbTorrent, ok := torrentEngine.torrents[torrent.InfoHash().String()]
+			if !ok {
+				continue
+			}
 
 			//Update peers
 			torrentPeers := torrent.PeerConns()
@@ -172,20 +178,24 @@ func (torrentEngine *TorrentEngine) updateTorrentSpeeds() {
 		torrents := torrentEngine.client.Torrents()
 		for _, torrent := range torrents {
 			// calculate torrent speed based on written bytes per sec
-			prevDownloadedTotalLength := torrentEngine.torrentPrevSizeMap[torrent.InfoHash().HexString()].DownloadedBytes
+			torrentPrevSize, ok := torrentEngine.torrentPrevSizeMap[torrent.InfoHash().HexString()]
+			if !ok {
+				continue
+			}
+			prevDownloadedTotalLength := torrentPrevSize.DownloadedBytes
 			newDownloadedTotalLength := torrent.BytesCompleted()
 			downloadedByteCount := newDownloadedTotalLength - prevDownloadedTotalLength
 			downloadSpeed := float32(downloadedByteCount) / 1024
 
-			prevUploadedTotalLength := torrentEngine.torrentPrevSizeMap[torrent.InfoHash().HexString()].UploadedBytes
+			prevUploadedTotalLength := torrentPrevSize.UploadedBytes
 			stats := torrent.Stats()
 			uploadedByteCount := stats.BytesWrittenData.Int64() - prevUploadedTotalLength
 			uploadSpeed := float32(uploadedByteCount) / 1024
 
-			prevSize := torrentEngine.torrentPrevSizeMap[torrent.InfoHash().HexString()]
+			prevSize := torrentPrevSize
 			prevSize.DownloadedBytes = newDownloadedTotalLength
 			prevSize.UploadedBytes = stats.BytesWrittenData.Int64()
-			torrentEngine.torrentPrevSizeMap[torrent.InfoHash().HexString()] = prevSize
+			torrentPrevSize = prevSize
 
 			// set torrent speed info
 			torrentEngine.mutexForTorrents.Lock()
@@ -619,18 +629,30 @@ func (torrentEngine *TorrentEngine) GetTotalUploadSpeed() float32 {
 	}
 	return totalUploadSpeed
 }
-func (torrentEngine *TorrentEngine) GetTorrentMetaWithMagnet(magnet string) (metainfo *metainfo.Info, infohash string, err error) {
-	// Get metainfo from a magnet link
+func (torrentEngine *TorrentEngine) GetTorrentMetaWithMagnet(magnet string) (*types.TorrentMeta, error) {
+	if _, err := metainfo.ParseMagnetUri(magnet); err != nil {
+		return nil, err
+	}
+	// Load from a magnet link
 	torrent, err := torrentEngine.client.AddMagnet(magnet)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	<-torrent.GotInfo()
 
-	metainfo = torrent.Info()
-	infohash = torrent.InfoHash().String()
+	info := *torrent.Info()
+	infohash := torrent.InfoHash().String()
+	fileTree := torrentEngine.CreateFileTreeFromMeta(info)
 
+	//we've got the info of the torrent. Now we can drop it
 	torrent.Drop()
-	return
+
+	return &types.TorrentMeta{
+		TotalSize: info.TotalLength(),
+		Files:     fileTree,
+		Name:      info.Name,
+		Infohash:  infohash,
+		Magnet:    magnet,
+	}, nil
 }

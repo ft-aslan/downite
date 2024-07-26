@@ -343,7 +343,14 @@ const columns = (
         const download = row.original
 
         return (
-          <DownloadActionsDropdown downloadIds={[download.id]} view={view} />
+          <div className="flex flex-1 justify-end">
+            <DownloadActionsDropdown downloadIds={[download.id]}>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DownloadActionsDropdown>
+          </div>
         )
       },
     },
@@ -351,74 +358,67 @@ const columns = (
 }
 function DownloadActionsDropdown({
   downloadIds,
-  view,
+  children,
 }: {
   downloadIds: number[]
-  view: "table" | "list"
+  children?: React.ReactNode
 }) {
   return (
-    <div className={cn(["flex justify-end", view === "list" && "flex-1"])}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <span className="sr-only">Open menu</span>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          <DropdownMenuItem
-            onClick={() => {
-              client.POST("/download/pause", {
-                body: {
-                  ids: downloadIds,
-                },
-              })
-            }}
-          >
-            <Pause className="ml-2 h-4 w-4" />
-            <span className="ml-1 sm:whitespace-nowrap">Pause</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              client.POST("/download/resume", {
-                body: {
-                  ids: downloadIds,
-                },
-              })
-            }}
-          >
-            <Play className="ml-2 h-4 w-4" />
-            <span className="ml-1 sm:whitespace-nowrap">Resume</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              client.POST("/download/remove", {
-                body: {
-                  ids: downloadIds,
-                },
-              })
-            }}
-          >
-            <Trash2 className="ml-2 h-4 w-4" />
-            <span className="ml-1 sm:whitespace-nowrap">Remove</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              client.POST("/download/delete", {
-                body: {
-                  ids: downloadIds,
-                },
-              })
-            }}
-          >
-            <Trash2 className="ml-2 h-4 w-4" />
-            <span className="ml-1 sm:whitespace-nowrap">Delete With Files</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuItem
+          onClick={() => {
+            client.POST("/download/pause", {
+              body: {
+                ids: downloadIds,
+              },
+            })
+          }}
+        >
+          <Pause className="ml-2 h-4 w-4" />
+          <span className="ml-1 sm:whitespace-nowrap">Pause</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            client.POST("/download/resume", {
+              body: {
+                ids: downloadIds,
+              },
+            })
+          }}
+        >
+          <Play className="ml-2 h-4 w-4" />
+          <span className="ml-1 sm:whitespace-nowrap">Resume</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => {
+            client.POST("/download/remove", {
+              body: {
+                ids: downloadIds,
+              },
+            })
+          }}
+        >
+          <Trash2 className="ml-2 h-4 w-4" />
+          <span className="ml-1 sm:whitespace-nowrap">Remove</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            client.POST("/download/delete", {
+              body: {
+                ids: downloadIds,
+              },
+            })
+          }}
+        >
+          <Trash2 className="ml-2 h-4 w-4" />
+          <span className="ml-1 sm:whitespace-nowrap">Delete With Files</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 export function DownloadsTable({
@@ -541,7 +541,7 @@ export function DownloadsTable({
                       )
                     : null}
                 </div>
-                <div className="flex flex-wrap gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   {row
                     .getVisibleCells()
                     .filter(
@@ -643,7 +643,7 @@ export function DownloadsTable({
           </div>
         </div>
         {view === "list" && isSelectModeEnabled ? (
-          <div className="flex">
+          <div className="flex items-center gap-2">
             <Checkbox
               checked={
                 table.getIsAllPageRowsSelected() ||
@@ -654,14 +654,20 @@ export function DownloadsTable({
               }
               aria-label="Select all"
             />
-            <DownloadActionsDropdown
-              view={view}
-              downloadIds={Object.keys(rowSelection).flatMap((key) => {
-                if (rowSelection[key]) {
-                  return downloads[key].id
-                }
-              })}
-            />
+            <div className="flex items-center">
+              <DownloadActionsDropdown
+                downloadIds={Object.keys(rowSelection).flatMap((key) => {
+                  if (rowSelection[key]) {
+                    return downloads[key].id
+                  }
+                })}
+              >
+                <Button variant="outline">
+                  <MoreHorizontal className="mr-2 h-4 w-4" />
+                  <span>Actions</span>
+                </Button>
+              </DownloadActionsDropdown>
+            </div>
           </div>
         ) : (
           <></>

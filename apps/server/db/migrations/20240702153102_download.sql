@@ -14,7 +14,7 @@ create table if not exists downloads (
     downloaded_bytes int not null,
     url text not null,
     queue_number int not null,
-    error text
+    error text default ''
 );
 
 create table if not exists download_parts (
@@ -29,6 +29,7 @@ create table if not exists download_parts (
     end_byte_index int not null,
     part_length int not null,
     downloaded_bytes int not null,
+    error text default '',
     download_id int not null,
     foreign key (download_id) references downloads (id)
 );
