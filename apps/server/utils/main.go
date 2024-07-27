@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"os"
+	"path/filepath"
 )
 
 func Contains(slice []string, item string) bool {
@@ -44,4 +45,23 @@ func CheckDirectoryExists(path string) error {
 	}
 
 	return nil
+}
+func FindProjectRoot() (string, error) {
+	// Start from the current directory and move upwards until we find a main.go file
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(currentDir, "main.go")); !os.IsNotExist(err) {
+			return currentDir, nil
+		}
+
+		parentDir := filepath.Dir(currentDir)
+		if parentDir == currentDir {
+			return "", os.ErrNotExist
+		}
+		currentDir = parentDir
+	}
 }

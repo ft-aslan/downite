@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"reflect"
 	"time"
 
@@ -86,58 +85,20 @@ func ApiInit(options *ApiOptions) *API {
 		}
 
 		//initilize torrent engine
-		pieceCompletionDir := "./tmp"
-		defaultTorrentsDir := "./tmp/torrents"
-		torrentEngineConfig := torr.TorrentEngineConfig{
-			PieceCompletionDbPath: pieceCompletionDir,
-			DownloadPath:          defaultTorrentsDir,
-		}
-		torrentEngine, err := torr.CreateTorrentEngine(torrentEngineConfig, db)
-		if err != nil {
-			fmt.Printf("Cannot create torrent engine : %s", err)
-		}
-		err = torrentEngine.InitTorrents()
-		if err != nil {
-			fmt.Printf("Cannot initilize torrents : %s", err)
-		}
+		torrentEngine, err := InitTorrentEngine(db)
+		//initilize download client
+		downloadEngine, err := InitDownloadEngine(db)
+		//register download routes
+		AddDownloadRoutes(handlers.DownloadHandler{
+			Db:     db,
+			Engine: downloadEngine,
+		}, api.humaApi)
 		//register torrent routes
-		api.AddTorrentRoutes(handlers.TorrentHandler{
+		AddTorrentRoutes(handlers.TorrentHandler{
 			Db:     db,
 			Engine: torrentEngine,
-		})
-
-		//initilize download client
-		executablePath, err := os.Executable()
-		if err != nil {
-			panic(fmt.Errorf("Cannot get executable path : %s", err))
-		}
-		defaultDownloadsDir := filepath.Join(filepath.Dir(executablePath), "/tmp/downloads")
-		// Check if the directory exists
-		if _, err := os.Stat(defaultDownloadsDir); os.IsNotExist(err) {
-			// Create the directory if it doesn't exist
-			if err := os.MkdirAll(defaultDownloadsDir, os.ModePerm); err != nil {
-				fmt.Println("Error creating directory:", err)
-				return
-			}
-		}
-		downloadClientConfig := direct.DownloadClientConfig{
-			DownloadPath: defaultDownloadsDir,
-			PartCount:    8,
-		}
-		downloadClient, err := direct.CreateDownloadClient(downloadClientConfig, db)
-		if err != nil {
-			fmt.Printf("Cannot torrent download client : %s", err)
-		}
-		err = downloadClient.InitDownloads()
-		if err != nil {
-			fmt.Printf("Cannot initilize downloads : %s", err)
-		}
-		//register download routes
-		api.AddDownloadRoutes(handlers.DownloadHandler{
-			Db:     db,
-			Engine: downloadClient,
-		})
-		api.AddSystemRoutes(handlers.SystemHandler{})
+		}, api.humaApi)
+		AddSystemRoutes(handlers.SystemHandler{}, api.humaApi)
 
 		api.ExportOpenApi()
 
@@ -155,7 +116,7 @@ func ApiInit(options *ApiOptions) *API {
 					fmt.Printf("Error while stopping torrent engine : %s", err)
 				}
 			}
-			errs = downloadClient.Stop()
+			errs = downloadEngine.Stop()
 			if len(errs) > 0 {
 				for _, err := range errs {
 					fmt.Printf("Error while stopping download client : %s", err)
@@ -177,6 +138,42 @@ func ApiInit(options *ApiOptions) *API {
 func (api *API) Run() {
 	api.Cli.Run()
 }
+func InitTorrentEngine(db *db.Database) (*torr.TorrentEngine, error) {
+	//initilize torrent engine
+	pieceCompletionDir := "./tmp"
+	defaultTorrentsDir := "./tmp/torrents"
+	torrentEngineConfig := torr.TorrentEngineConfig{
+		PieceCompletionDbPath: pieceCompletionDir,
+		DownloadPath:          defaultTorrentsDir,
+	}
+	torrentEngine, err := torr.CreateTorrentEngine(torrentEngineConfig, db)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create torrent engine : %s", err)
+	}
+	err = torrentEngine.InitTorrents()
+	if err != nil {
+		return nil, fmt.Errorf("cannot initilize torrents : %s", err)
+	}
+
+	return torrentEngine, nil
+}
+func InitDownloadEngine(db *db.Database) (*direct.Client, error) {
+	defaultClientConfig, err := direct.NewClientDefaultConfig()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot get default config : %s", err)
+	}
+	//initilize download client
+	downloadClient, err := direct.CreateDownloadClient(defaultClientConfig, db)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot torrent download client : %s", err)
+	}
+	err = downloadClient.InitDownloads()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot initilize downloads : %s", err)
+	}
+
+	return downloadClient, nil
+}
 func (api *API) ExportOpenApi() {
 	//write api json to file
 	apiJson, err := json.Marshal(api.humaApi.OpenAPI())
@@ -196,8 +193,7 @@ func (api *API) ExportOpenApi() {
 		return
 	}
 }
-func (api *API) AddSystemRoutes(handler handlers.SystemHandler) {
-	humaApi := api.humaApi
+func AddSystemRoutes(handler handlers.SystemHandler, humaApi huma.API) {
 	// huma.Register(humaApi, huma.Operation{
 	// 	OperationID: "get-system-info",
 	// 	Method:      http.MethodGet,
@@ -211,8 +207,7 @@ func (api *API) AddSystemRoutes(handler handlers.SystemHandler) {
 		Summary:     "Get file system nodes",
 	}, handler.GetFileSystemNodes)
 }
-func (api *API) AddTorrentRoutes(handler handlers.TorrentHandler) {
-	humaApi := api.humaApi
+func AddTorrentRoutes(handler handlers.TorrentHandler, humaApi huma.API) {
 	//register api routes
 	// registering the download torrent route manually because it's a multipart/form-data request
 	schema := humaApi.OpenAPI().Components.Schemas.Schema(reflect.TypeOf(handlers.DownloadTorrentReqBody{}), true, "DownloadTorrentReqBodyStruct")
@@ -290,8 +285,7 @@ func (api *API) AddTorrentRoutes(handler handlers.TorrentHandler) {
 	}, handler.GetTorrentsTotalSpeed)
 
 }
-func (api API) AddDownloadRoutes(handler handlers.DownloadHandler) {
-	humaApi := api.humaApi
+func AddDownloadRoutes(handler handlers.DownloadHandler, humaApi huma.API) {
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-download-meta",
 		Method:      http.MethodPost,

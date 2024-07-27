@@ -2,6 +2,7 @@ package db
 
 import (
 	"downite/cmd/migrations"
+	"downite/utils"
 	"path/filepath"
 
 	"github.com/jmoiron/sqlx"
@@ -14,7 +15,11 @@ type Database struct {
 
 func DbInit() (*Database, error) {
 	var err error
-	x, err := sqlx.Connect("sqlite", filepath.Join(".", "bin", "downite.db"))
+	projectRoot, err := utils.FindProjectRoot()
+	if err != nil {
+		return nil, err
+	}
+	x, err := sqlx.Connect("sqlite", filepath.Join(projectRoot, "bin", "downite.db"))
 	if err != nil {
 		panic(err)
 	}
@@ -23,7 +28,7 @@ func DbInit() (*Database, error) {
 	if err != nil {
 		panic(err)
 	}
-	migrationsDir := filepath.Join(".", "db", "migrations")
+	migrationsDir := filepath.Join(projectRoot, "db", "migrations")
 
 	err = migrations.Migrate(x, migrationsDir)
 	if err != nil {

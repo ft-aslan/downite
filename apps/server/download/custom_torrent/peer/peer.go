@@ -27,6 +27,23 @@ const (
 	StatusDisconnected                   // Connection has been terminated
 )
 
+var PeerStatusStringMap = map[PeerStatus]string{
+	StatusConnecting:   "Connecting",
+	StatusHandshake:    "Handshake",
+	StatusBitfield:     "Bitfield",
+	StatusChoked:       "Choked",
+	StatusInterested:   "Interested",
+	StatusUnchoked:     "Unchoked",
+	StatusRequesting:   "Requesting",
+	StatusDownloading:  "Downloading",
+	StatusSeeding:      "Seeding",
+	StatusDisconnected: "Disconnected",
+}
+
+func (status PeerStatus) String() string {
+	return PeerStatusStringMap[status]
+}
+
 type Peer struct {
 	Address     PeerAddress
 	FullAddress string

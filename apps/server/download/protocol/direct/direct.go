@@ -50,15 +50,39 @@ type contextWithCancel struct {
 	cancel context.CancelFunc
 }
 
-func CreateDownloadClient(config DownloadClientConfig, db *db.Database) (*Client, error) {
+func CreateDownloadClient(config *DownloadClientConfig, db *db.Database) (*Client, error) {
 	return &Client{
-		Config: &config,
+		Config: config,
 		httpClient: &http.Client{
 			Transport: http.DefaultTransport,
 		},
 		downloadsPrevSizeMap: make(map[int]uint64),
 		db:                   db,
 	}, nil
+}
+func NewClientDefaultConfig() (*DownloadClientConfig, error) {
+	executablePath, err := os.Executable()
+	if err != nil {
+		panic(fmt.Errorf("Cannot get executable path : %s", err))
+	}
+	defaultDownloadsDir := filepath.Join(filepath.Dir(executablePath), "/tmp/downloads")
+	// Check if the directory exists
+	_, err = os.Stat(defaultDownloadsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Create the directory if it doesn't exist
+			if err := os.MkdirAll(defaultDownloadsDir, os.ModePerm); err != nil {
+				return nil, fmt.Errorf("Error creating directory: %s", err)
+			}
+		} else {
+			return nil, fmt.Errorf("Error checking default downloads directory: %s", err)
+		}
+	}
+	defaultClientConfig := DownloadClientConfig{
+		DownloadPath: defaultDownloadsDir,
+		PartCount:    8,
+	}
+	return &defaultClientConfig, nil
 }
 func (client *Client) InitDownloads() error {
 	client.downloads = make(map[int]*types.Download, 0)

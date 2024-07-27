@@ -13,7 +13,9 @@
     "build:server": "cd apps/server && go build -o ./bin/downite",
     "start:server": "cd apps/server && ./bin/downite",
     "start:web": "bun --filter @downite/web start",
-    "test:server": "cd apps/server && go test -cover",
+    "testall:server": "cd apps/server && go test -v -cover ./...",
+    "test:server": "cd apps/server && go test -v -cover",
+    "test:web": "bun --filter @downite/web test",
     "db": "cd apps/server && goose -dir ./db/migrations sqlite3 ./bin/downite.db"
   },
   "devDependencies": {
