@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type DownloadStatus int
 
@@ -27,9 +30,9 @@ func (d DownloadStatus) String() string {
 type Download struct {
 	Id                  int             `json:"id"`
 	CreatedAt           time.Time       `json:"createdAt" db:"created_at"`
-	StartedAt           time.Time       `json:"startedAt" db:"started_at"`
+	StartedAt           sql.NullTime    `json:"startedAt" db:"started_at"`
 	TimeActive          time.Duration   `json:"timeActive" db:"time_active"`
-	FinishedAt          time.Time       `json:"finishedAt" db:"finished_at"`
+	FinishedAt          sql.NullTime    `json:"finishedAt" db:"finished_at"`
 	Status              string          `json:"status" enum:"paused,downloading,completed,error,metadata"`
 	Name                string          `json:"name"`
 	SavePath            string          `db:"save_path" json:"savePath"`
@@ -55,9 +58,9 @@ func (download *Download) Write(bytes []byte) (int, error) {
 type DownloadPart struct {
 	Id              int           `db:"id" json:"-"`
 	CreatedAt       time.Time     `db:"created_at" json:"createdAt"`
-	StartedAt       time.Time     `db:"started_at" json:"startedAt"`
+	StartedAt       sql.NullTime  `db:"started_at" json:"startedAt"`
 	TimeActive      time.Duration `db:"time_active" json:"timeActive"`
-	FinishedAt      time.Time     `db:"finished_at" json:"finishedAt"`
+	FinishedAt      sql.NullTime  `db:"finished_at" json:"finishedAt"`
 	Status          string        `json:"status"`
 	PartIndex       int           `db:"part_index" json:"partIndex"`
 	StartByteIndex  uint64        `db:"start_byte_index" json:"startByteIndex"`

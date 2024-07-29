@@ -2,6 +2,7 @@ package direct
 
 import (
 	"context"
+	"database/sql"
 	"downite/db"
 	"downite/types"
 	"errors"
@@ -146,23 +147,27 @@ func (client *Client) PauseDownload(id int) error {
 	if client.CheckDownloadStatus(id, types.DownloadStatusCompleted) {
 		return fmt.Errorf("download is already completed")
 	}
-	//cancel all part downloads
-	client.mutexForPartContexts.Lock()
-	partContexts, ok := client.partContextMap[id]
-	if ok {
-		for _, ctxWithCancel := range partContexts {
-			ctxWithCancel.cancel()
-		}
-
-		//delete part contexts from map
-		delete(client.partContextMap, id)
-	}
-	client.mutexForPartContexts.Unlock()
 
 	download, err := client.GetDownload(id)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Pausing download : %s \n", download.Name)
+
+	//cancel all part downloads
+	client.mutexForPartContexts.Lock()
+	partContexts, ok := client.partContextMap[id]
+	if !ok {
+		return fmt.Errorf("download not found")
+	}
+
+	for _, ctxWithCancel := range partContexts {
+		ctxWithCancel.cancel()
+	}
+
+	//delete part contexts from map
+	delete(client.partContextMap, id)
+	client.mutexForPartContexts.Unlock()
 
 	client.mutexForDownloads.Lock()
 	download.Status = types.DownloadStatusPaused.String()
@@ -622,7 +627,10 @@ func (client *Client) StartDownload(id int) error {
 	client.mutexForPartContexts.Unlock()
 
 	download.Status = types.DownloadStatusDownloading.String()
-	download.StartedAt = time.Now()
+	download.StartedAt = sql.NullTime{
+		Time:  time.Now(),
+		Valid: true,
+	}
 	err = client.db.UpdateDownload(download)
 	if err != nil {
 		return err
@@ -636,7 +644,10 @@ func (client *Client) StartDownload(id int) error {
 				completedPartCount += 1
 
 				partProcess.Status = types.DownloadStatusCompleted.String()
-				partProcess.FinishedAt = time.Now()
+				partProcess.FinishedAt = sql.NullTime{
+					Time:  time.Now(),
+					Valid: true,
+				}
 				err = client.db.UpdateDownloadPart(partProcess)
 				if err != nil {
 					fmt.Printf("Error while updating download part in db : %s", err)
@@ -648,7 +659,10 @@ func (client *Client) StartDownload(id int) error {
 				}
 
 				download.Status = types.DownloadStatusCompleted.String()
-				download.FinishedAt = time.Now()
+				download.FinishedAt = sql.NullTime{
+					Time:  time.Now(),
+					Valid: true,
+				}
 				err = client.db.UpdateDownload(download)
 				if err != nil {
 					fmt.Printf("Error while updating download in db : %s", err)
@@ -769,7 +783,6 @@ func (client *Client) downloadFilePart(download *types.Download, downloadPart *t
 		return fmt.Errorf("while creating request: %s", err)
 	}
 
-	fmt.Printf("requesting : start %d | end %d \n", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex)
 	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex))
 
 	res, err := client.httpClient.Do(req)
