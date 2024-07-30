@@ -15,7 +15,7 @@
           "downloadSpeed": { "format": "int64", "type": "integer" },
           "downloadedBytes": { "format": "int64", "type": "integer" },
           "error": { "type": "string" },
-          "finishedAt": { "format": "date-time", "type": "string" },
+          "finishedAt": { "$ref": "#/components/schemas/NullTime" },
           "id": { "format": "int64", "type": "integer" },
           "name": { "type": "string" },
           "partCount": { "format": "int64", "type": "integer" },
@@ -27,7 +27,7 @@
           "progress": { "format": "double", "type": "number" },
           "queueNumber": { "format": "int64", "type": "integer" },
           "savePath": { "type": "string" },
-          "startedAt": { "format": "date-time", "type": "string" },
+          "startedAt": { "$ref": "#/components/schemas/NullTime" },
           "status": {
             "enum": ["paused", "downloading", "completed", "error", "metadata"],
             "type": "string"
@@ -127,12 +127,12 @@
           "downloadedBytes": { "format": "int64", "type": "integer" },
           "endByteIndex": { "format": "int64", "type": "integer" },
           "error": { "type": "string" },
-          "finishedAt": { "format": "date-time", "type": "string" },
+          "finishedAt": { "$ref": "#/components/schemas/NullTime" },
           "partIndex": { "format": "int64", "type": "integer" },
           "partLength": { "format": "int64", "type": "integer" },
           "progress": { "format": "double", "type": "number" },
           "startByteIndex": { "format": "int64", "type": "integer" },
-          "startedAt": { "format": "date-time", "type": "string" },
+          "startedAt": { "$ref": "#/components/schemas/NullTime" },
           "status": { "type": "string" },
           "timeActive": { "format": "int64", "type": "integer" }
         },
@@ -394,6 +394,15 @@
           }
         },
         "required": ["torrents"],
+        "type": "object"
+      },
+      "NullTime": {
+        "additionalProperties": false,
+        "properties": {
+          "Time": { "format": "date-time", "type": "string" },
+          "Valid": { "type": "boolean" }
+        },
+        "required": ["Time", "Valid"],
         "type": "object"
       },
       "Peer": {

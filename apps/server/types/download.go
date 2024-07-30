@@ -52,6 +52,7 @@ type Download struct {
 func (download *Download) Write(bytes []byte) (int, error) {
 	download.DownloadedBytes += uint64(len(bytes))
 	download.Progress = float64(download.DownloadedBytes) / float64(download.TotalSize) * 100
+	// fmt.Printf("downloaded bytes : %d \n", download.DownloadedBytes)
 	return len(bytes), nil
 }
 
@@ -75,6 +76,7 @@ type DownloadPart struct {
 func (part *DownloadPart) Write(bytes []byte) (int, error) {
 	part.DownloadedBytes += uint64(len(bytes))
 	part.Progress = float64(part.DownloadedBytes) / float64(part.PartLength) * 100
+	// fmt.Printf("downloaded bytes for part number %d : | bytes : %d \n", part.PartIndex, part.DownloadedBytes)
 	return len(bytes), nil
 }
 

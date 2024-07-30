@@ -312,8 +312,7 @@ export interface components {
             /** Format: int64 */
             downloadedBytes: number;
             error: string;
-            /** Format: date-time */
-            finishedAt: string;
+            finishedAt: components["schemas"]["NullTime"];
             /** Format: int64 */
             id: number;
             name: string;
@@ -327,8 +326,7 @@ export interface components {
             /** Format: int64 */
             queueNumber: number;
             savePath: string;
-            /** Format: date-time */
-            startedAt: string;
+            startedAt: components["schemas"]["NullTime"];
             /** @enum {string} */
             status: "paused" | "downloading" | "completed" | "error" | "metadata";
             /** Format: int64 */
@@ -374,8 +372,7 @@ export interface components {
             /** Format: int64 */
             endByteIndex: number;
             error: string;
-            /** Format: date-time */
-            finishedAt: string;
+            finishedAt: components["schemas"]["NullTime"];
             /** Format: int64 */
             partIndex: number;
             /** Format: int64 */
@@ -384,8 +381,7 @@ export interface components {
             progress: number;
             /** Format: int64 */
             startByteIndex: number;
-            /** Format: date-time */
-            startedAt: string;
+            startedAt: components["schemas"]["NullTime"];
             status: string;
             /** Format: int64 */
             timeActive: number;
@@ -512,6 +508,11 @@ export interface components {
              */
             readonly $schema?: string;
             torrents: components["schemas"]["Torrent"][];
+        };
+        NullTime: {
+            /** Format: date-time */
+            Time: string;
+            Valid: boolean;
         };
         Peer: {
             url: string;

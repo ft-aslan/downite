@@ -487,6 +487,11 @@ func (client *Client) RemoveDownload(id int) error {
 		}
 	}
 
+	client.mutexForDownloads.Lock()
+	fileName := client.downloads[id].Name
+	client.mutexForDownloads.Unlock()
+	fmt.Printf("Removing download : %s \n", fileName)
+
 	err = client.db.DeleteDownload(id)
 	if err != nil {
 		return err
@@ -533,6 +538,8 @@ func (client *Client) DeleteDownload(id int) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("Deleting download : %s \n", fileName)
 	err = os.RemoveAll(filepath.Join(savePath, fileName))
 	if err != nil {
 		if err != os.ErrNotExist {
@@ -738,8 +745,17 @@ func (client *Client) deleteDownloadParts(id int) error {
 		return err
 	}
 	for _, part := range parts {
+		partPath := filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex))
+
+		_, err := os.Stat(partPath)
+		if err != nil {
+			if err == os.ErrNotExist {
+				continue
+			}
+			return fmt.Errorf("while checking part file : %s \n", err)
+		}
 		fmt.Printf("removing part : %s_part%d \n", download.Name, part.PartIndex)
-		err := os.Remove(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+		err = os.Remove(partPath)
 		if err != nil {
 			if err == os.ErrNotExist {
 				continue
@@ -783,6 +799,7 @@ func (client *Client) downloadFilePart(download *types.Download, downloadPart *t
 		return fmt.Errorf("while creating request: %s", err)
 	}
 
+	fmt.Printf("requesting range : %d-%d \n", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex)
 	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex))
 
 	res, err := client.httpClient.Do(req)

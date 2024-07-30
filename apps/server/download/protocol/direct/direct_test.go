@@ -36,40 +36,42 @@ func TestDownloadFromUrl(t *testing.T) {
 		t.Errorf("Cannot create download : %s", err)
 	}
 }
-func pauseScenarioInit(t *testing.T, status types.DownloadStatus) {
-	client := initDownloadTest(t)
-	var download *types.Download
-	var err error
+func addDownloadWithState(t *testing.T, client *direct.Client, status types.DownloadStatus) *types.Download {
+	var startDownload bool
+
 	if status == types.DownloadStatusDownloading {
-		download, err = client.DownloadFromUrl("https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso", 8, "", true, false)
-		if err != nil {
-			t.Errorf("Cannot create download : %s", err)
-		}
+		startDownload = true
 	} else if status == types.DownloadStatusPaused {
-		download, err = client.DownloadFromUrl("https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso", 8, "", false, false)
-		if err != nil {
-			t.Errorf("Cannot create download : %s", err)
-		}
+		startDownload = false
 	}
 
-	err = client.PauseDownload(download.Id)
+	download, err := client.DownloadFromUrl("https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso", 8, "", startDownload, false)
 	if err != nil {
-		if status == types.DownloadStatusPaused {
-			if err.Error() == "download is already paused" {
-				// its ok
-				return
-			}
-		}
-
-		t.Errorf("Cannot pause download : %s", err)
+		t.Errorf("Cannot create download : %s", err)
 	}
 
+	return download
 }
 
 func TestPauseDownloadIfStateDownloading(t *testing.T) {
-	pauseScenarioInit(t, types.DownloadStatusDownloading)
+	client := initDownloadTest(t)
+	download := addDownloadWithState(t, client, types.DownloadStatusDownloading)
+	err := client.PauseDownload(download.Id)
+	if err != nil {
+		t.Errorf("Cannot pause download : %s", err)
+	}
 }
 
 func TestPauseDownloadIfStatePaused(t *testing.T) {
-	pauseScenarioInit(t, types.DownloadStatusPaused)
+	client := initDownloadTest(t)
+	download := addDownloadWithState(t, client, types.DownloadStatusPaused)
+
+	err := client.PauseDownload(download.Id)
+	if err != nil {
+		if err.Error() == "download is already paused" {
+			// its ok
+			return
+		}
+		t.Errorf("Error when pausing already paused download : %s", err)
+	}
 }
