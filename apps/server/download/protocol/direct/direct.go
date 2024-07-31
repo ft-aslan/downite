@@ -125,7 +125,11 @@ func (client *Client) Stop() []error {
 }
 func (client *Client) updateDownloadSpeeds() {
 	for {
+		// we calculate time to take mutex. because we need to calculate exact download speed per second
+		start := time.Now()
 		client.mutexForDownloads.Lock()
+		timeToTakeMutex := time.Since(start)
+
 		for _, download := range client.downloads {
 			if download.Status == types.DownloadStatusDownloading.String() {
 				prevSize := client.downloadsPrevSizeMap[download.Id]
@@ -137,7 +141,7 @@ func (client *Client) updateDownloadSpeeds() {
 			}
 		}
 		client.mutexForDownloads.Unlock()
-		time.Sleep(time.Second)
+		time.Sleep(time.Second - timeToTakeMutex)
 	}
 }
 func (client *Client) PauseDownload(id int) error {
@@ -169,23 +173,15 @@ func (client *Client) PauseDownload(id int) error {
 	delete(client.partContextMap, id)
 	client.mutexForPartContexts.Unlock()
 
-	client.mutexForDownloads.Lock()
-	download.Status = types.DownloadStatusPaused.String()
-	download.DownloadSpeed = 0
-	client.mutexForDownloads.Unlock()
-	err = client.db.UpdateDownload(download)
+	err = client.resetDownloadSpeed(download.Id)
 	if err != nil {
 		return err
 	}
 
-	for _, downloadPart := range download.Parts {
-		downloadPart.Status = types.DownloadStatusPaused.String()
-		err = client.db.UpdateDownloadPart(downloadPart)
-		if err != nil {
-			return err
-		}
+	err = client.updateDownloadStatus(id, types.DownloadStatusPaused)
+	if err != nil {
+		return err
 	}
-
 	return nil
 }
 func (client *Client) CheckDownloadStatus(id int, state types.DownloadStatus) bool {
@@ -206,32 +202,43 @@ func (client *Client) ResumeDownload(id int) error {
 		return fmt.Errorf("download is already completed")
 	}
 
-	err := client.StartDownload(id)
-	if err != nil {
-		return fmt.Errorf("could not start download : %s\n", err)
-	}
-
 	download, err := client.GetDownload(id)
 	if err != nil {
 		return err
 	}
-	download.Status = types.DownloadStatusDownloading.String()
-	err = client.db.UpdateDownload(download)
-	if err != nil {
-		return err
-	}
 
-	for _, downloadPart := range download.Parts {
-		downloadPart.Status = types.DownloadStatusDownloading.String()
-		err = client.db.UpdateDownloadPart(downloadPart)
+	client.mutexForDownloads.Lock()
+	fmt.Printf("Resuming download : %s \n", download.Name)
+	isMultiPart := download.IsMultiPart
+	client.mutexForDownloads.Unlock()
+
+	if !isMultiPart {
+		fmt.Printf("Reinitializing download progress because it is not multi part : %s \n", download.Name)
+		err = client.ReinitilizeDownload(id)
 		if err != nil {
 			return err
 		}
 	}
+	err = client.StartDownload(id)
+	if err != nil {
+		return fmt.Errorf("could not start download : %s\n", err)
+	}
 
 	return nil
 }
-func (client *Client) updateDownloadState(id int, state types.DownloadStatus) error {
+
+func (client *Client) resetDownloadSpeed(id int) error {
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+	download, ok := client.downloads[id]
+	if !ok {
+		return fmt.Errorf("download not found")
+	}
+	download.DownloadSpeed = 0
+	return nil
+}
+
+func (client *Client) updateDownloadStatus(id int, status types.DownloadStatus) error {
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
 
@@ -239,7 +246,15 @@ func (client *Client) updateDownloadState(id int, state types.DownloadStatus) er
 	if !ok {
 		return fmt.Errorf("download not found")
 	}
-	download.Status = state.String()
+	download.Status = status.String()
+
+	for _, downloadPart := range download.Parts {
+		downloadPart.Status = status.String()
+		err := client.db.UpdateDownloadPart(downloadPart)
+		if err != nil {
+			return err
+		}
+	}
 
 	err := client.db.UpdateDownload(download)
 	if err != nil {
@@ -396,6 +411,7 @@ func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath str
 		TotalSize:       uint64(metaInfo.TotalSize),
 		DownloadedBytes: 0,
 		Progress:        0,
+		IsMultiPart:     metaInfo.IsRangeAllowed,
 		Status:          types.DownloadStatusPaused.String(),
 	}
 
@@ -439,6 +455,15 @@ func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue b
 	}
 
 	download.Id = id
+
+	err = client.RegisterDownloadParts(download)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+func (client *Client) RegisterDownloadParts(download *types.Download) error {
 	for i := 0; i < download.PartCount; i++ {
 
 		startByteIndex := uint64(i) * download.PartLength
@@ -464,7 +489,7 @@ func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue b
 		}
 	}
 
-	err = client.db.InsertDownloadParts(download.Parts)
+	err := client.db.InsertDownloadParts(download.Parts)
 	if err != nil {
 		return err
 	}
@@ -512,6 +537,41 @@ func (client *Client) RemoveDownload(id int) error {
 	}
 
 	return nil
+}
+func (client *Client) ReinitilizeDownload(id int) error {
+	download, err := client.GetDownload(id)
+	if err != nil {
+		return err
+	}
+
+	err = client.deleteDownloadParts(id)
+	if err != nil {
+		return err
+	}
+
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+
+	download.DownloadedBytes = 0
+	download.Progress = 0
+	download.StartedAt = sql.NullTime{
+		Time:  time.Time{},
+		Valid: false,
+	}
+	download.CurrentWrittenBytes = 0
+
+	err = client.db.UpdateDownload(download)
+	if err != nil {
+		return err
+	}
+
+	err = client.RegisterDownloadParts(download)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 func (client *Client) updateDownloadQueueNumbers() error {
@@ -605,7 +665,11 @@ func (client *Client) StartDownload(id int) error {
 			}
 			defer filePartBuffer.Close()
 
-			err = client.downloadFilePart(download, part, filePartBuffer, download.Url, ctx)
+			isRangeAllowed := true
+			if len(download.Parts) == 1 {
+				isRangeAllowed = false
+			}
+			err = client.downloadFilePart(download, part, filePartBuffer, download.Url, ctx, isRangeAllowed)
 			if err != nil {
 				// if download is canceled then return
 				if errors.Is(err, context.Canceled) {
@@ -633,7 +697,10 @@ func (client *Client) StartDownload(id int) error {
 	client.partContextMap[download.Id] = downloadPartContexts
 	client.mutexForPartContexts.Unlock()
 
-	download.Status = types.DownloadStatusDownloading.String()
+	err = client.updateDownloadStatus(id, types.DownloadStatusDownloading)
+	if err != nil {
+		return err
+	}
 	download.StartedAt = sql.NullTime{
 		Time:  time.Now(),
 		Valid: true,
@@ -665,7 +732,11 @@ func (client *Client) StartDownload(id int) error {
 					continue
 				}
 
-				download.Status = types.DownloadStatusCompleted.String()
+				err = client.updateDownloadStatus(id, types.DownloadStatusCompleted)
+				if err != nil {
+					fmt.Printf("Error while updating download status in db : %s", err)
+					return
+				}
 				download.FinishedAt = sql.NullTime{
 					Time:  time.Now(),
 					Valid: true,
@@ -727,18 +798,19 @@ func (client *Client) StartDownload(id int) error {
 	return nil
 }
 
-// delete download parts
+// delete download parts with files
 func (client *Client) deleteDownloadParts(id int) error {
 	client.mutexForPartContexts.Lock()
 	delete(client.partContextMap, id)
 	client.mutexForPartContexts.Unlock()
 
+	download, err := client.GetDownload(id)
+	if err != nil {
+		return err
+	}
+
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
-	download, ok := client.downloads[id]
-	if !ok {
-		return fmt.Errorf("download not found")
-	}
 
 	parts, err := client.db.GetDownloadParts(id)
 	if err != nil {
@@ -793,14 +865,16 @@ func getFileNameFromHeader(contentDisposition string) string {
 	return ""
 }
 
-func (client *Client) downloadFilePart(download *types.Download, downloadPart *types.DownloadPart, filePart *os.File, url string, ctx context.Context) error {
+func (client *Client) downloadFilePart(download *types.Download, downloadPart *types.DownloadPart, filePart *os.File, url string, ctx context.Context, isRangeAllowed bool) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("while creating request: %s", err)
 	}
 
-	fmt.Printf("requesting range : %d-%d \n", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex)
-	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex))
+	if isRangeAllowed {
+		fmt.Printf("requesting range : %d-%d \n", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex)
+		req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex))
+	}
 
 	res, err := client.httpClient.Do(req)
 	if err != nil {

@@ -315,6 +315,7 @@ export interface components {
             finishedAt: components["schemas"]["NullTime"];
             /** Format: int64 */
             id: number;
+            isMultiPart: boolean;
             name: string;
             /** Format: int64 */
             partCount: number;

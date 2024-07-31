@@ -12,6 +12,7 @@ create table if not exists downloads (
     part_length int not null,
     total_size int not null,
     downloaded_bytes int not null,
+    is_multi_part boolean not null,
     url text not null,
     queue_number int not null,
     error text default ''

@@ -58,6 +58,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { toast } from "sonner"
+import { DefaultAlertDialog } from "@/components/default-alert-dialog"
 function DownloadStatusIcon(props: { status: string }) {
   switch (props.status) {
     case "metadata":
@@ -319,6 +321,26 @@ const columns = (
       },
     },
     {
+      accessorKey: "isMultiPart",
+      header: "Resumable",
+      cell: ({ row }) => {
+        if (view === "list") {
+          return (
+            <div className="flex flex-col">
+              <span className="text-muted-foreground">Resumable</span>
+
+              {row.getValue("isMultiPart") ? (
+                <span>Yes</span>
+              ) : (
+                <span className="text-red-500">No</span>
+              )}
+            </div>
+          )
+        }
+        return row.getValue("isMultiPart") ? "Yes" : "No"
+      },
+    },
+    {
       accessorKey: "id",
       header: ({ column }) => {
         return (
@@ -363,6 +385,7 @@ function DownloadActionsDropdown({
   downloadIds: number[]
   children?: React.ReactNode
 }) {
+  const isSingleDownload = downloadIds.length === 1
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
@@ -370,6 +393,10 @@ function DownloadActionsDropdown({
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
         <DropdownMenuItem
           onClick={() => {
+            if (downloadIds.length === 0) {
+              toast.error("No downloads selected")
+              return
+            }
             client.POST("/download/pause", {
               body: {
                 ids: downloadIds,
@@ -382,6 +409,10 @@ function DownloadActionsDropdown({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
+            if (downloadIds.length === 0) {
+              toast.error("No downloads selected")
+              return
+            }
             client.POST("/download/resume", {
               body: {
                 ids: downloadIds,
@@ -395,6 +426,10 @@ function DownloadActionsDropdown({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
+            if (downloadIds.length === 0) {
+              toast.error("No downloads selected")
+              return
+            }
             client.POST("/download/remove", {
               body: {
                 ids: downloadIds,
@@ -405,8 +440,20 @@ function DownloadActionsDropdown({
           <Trash2 className="ml-2 h-4 w-4" />
           <span className="ml-1 sm:whitespace-nowrap">Remove</span>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
+        <DefaultAlertDialog
+          title="Delete With Files"
+          description={
+            isSingleDownload
+              ? "Are you sure you want to delete this download?"
+              : "Are you sure you want to delete these downloads?"
+          }
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={() => {
+            if (downloadIds.length === 0) {
+              toast.error("No downloads selected")
+              return
+            }
             client.POST("/download/delete", {
               body: {
                 ids: downloadIds,
@@ -414,9 +461,11 @@ function DownloadActionsDropdown({
             })
           }}
         >
-          <Trash2 className="ml-2 h-4 w-4" />
-          <span className="ml-1 sm:whitespace-nowrap">Delete With Files</span>
-        </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Trash2 className="ml-2 h-4 w-4" />
+            <span className="ml-1 sm:whitespace-nowrap">Delete With Files</span>
+          </DropdownMenuItem>
+        </DefaultAlertDialog>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -41,8 +41,9 @@ type Download struct {
 	TotalSize           uint64          `db:"total_size" json:"totalSize"`
 	DownloadedBytes     uint64          `db:"downloaded_bytes" json:"downloadedBytes"`
 	DownloadSpeed       uint64          `db:"-" json:"downloadSpeed"`
-	Progress            float64         `json:"progress"`
-	Parts               []*DownloadPart `json:"parts"`
+	Progress            float64         `json:"progress" db:"-"`
+	Parts               []*DownloadPart `json:"parts" db:"-"`
+	IsMultiPart         bool            `json:"isMultiPart" db:"is_multi_part"`
 	Url                 string          `json:"url"`
 	QueueNumber         int             `db:"queue_number" json:"queueNumber"`
 	CurrentWrittenBytes uint64          `db:"-" json:"-"`

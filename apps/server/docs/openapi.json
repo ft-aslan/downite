@@ -17,6 +17,7 @@
           "error": { "type": "string" },
           "finishedAt": { "$ref": "#/components/schemas/NullTime" },
           "id": { "format": "int64", "type": "integer" },
+          "isMultiPart": { "type": "boolean" },
           "name": { "type": "string" },
           "partCount": { "format": "int64", "type": "integer" },
           "partLength": { "format": "int64", "type": "integer" },
@@ -52,6 +53,7 @@
           "downloadSpeed",
           "progress",
           "parts",
+          "isMultiPart",
           "url",
           "queueNumber",
           "error"
