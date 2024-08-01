@@ -1,5 +1,4 @@
 import * as React from "react"
-import { atom, useAtom } from "jotai"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -14,16 +13,17 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import {
-  ArrowUpDown,
-  Check,
-  ChevronDown,
-  MoreHorizontal,
-  Pause,
-  Play,
-  RefreshCw,
-  Rows3,
-  Table as TableIcon,
-  Trash2,
+  ArrowUpDownIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  CrossIcon,
+  MoreHorizontalIcon,
+  PauseIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  Rows3Icon,
+  TableIcon,
+  Trash2Icon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -60,16 +60,21 @@ import {
 } from "@/components/ui/tooltip"
 import { toast } from "sonner"
 import { DefaultAlertDialog } from "@/components/default-alert-dialog"
-function DownloadStatusIcon(props: { status: string }) {
+import { CheckedState } from "@radix-ui/react-checkbox"
+function DownloadStatusIcon(props: {
+  status: components["schemas"]["Download"]["status"]
+}) {
   switch (props.status) {
     case "metadata":
-      return <RefreshCw className="h-4 w-4" />
+      return <RefreshCwIcon className="h-4 w-4" />
     case "paused":
-      return <Pause className="h-4 w-4" />
+      return <PauseIcon className="h-4 w-4" />
     case "downloading":
-      return <Play className="h-4 w-4" />
+      return <PlayIcon className="h-4 w-4" />
     case "completed":
-      return <Check className="h-4 w-4" />
+      return <CheckIcon className="h-4 w-4" />
+    case "error":
+      return <CrossIcon className="h-4 w-4 text-red-500" />
     default:
       return null
   }
@@ -92,7 +97,7 @@ function toggleDownloadState(id: number, status: string) {
 
 const columns = (
   view: "table" | "list",
-  isCheckboxVisible: boolean
+  isCheckboxVisible: CheckedState
 ): ColumnDef<components["schemas"]["Download"]>[] => {
   return [
     {
@@ -138,7 +143,7 @@ const columns = (
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
             #
-            <ArrowUpDown className="ml-2 h-4 w-4" />
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
           </Button>
         )
       },
@@ -177,7 +182,7 @@ const columns = (
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
             Name
-            <ArrowUpDown className="ml-2 h-4 w-4" />
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
           </Button>
         )
       },
@@ -198,7 +203,7 @@ const columns = (
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
             Progress
-            <ArrowUpDown className="ml-2 h-4 w-4" />
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
           </Button>
         )
       },
@@ -228,7 +233,7 @@ const columns = (
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
             Download Speed
-            <ArrowUpDown className="ml-2 h-4 w-4" />
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
           </Button>
         )
       },
@@ -253,7 +258,7 @@ const columns = (
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
             Downloaded
-            <ArrowUpDown className="ml-2 h-4 w-4" />
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
           </Button>
         )
       },
@@ -294,7 +299,7 @@ const columns = (
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
             Total Size
-            <ArrowUpDown className="ml-2 h-4 w-4" />
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
           </Button>
         )
       },
@@ -349,7 +354,7 @@ const columns = (
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
             ID
-            <ArrowUpDown className="ml-2 h-4 w-4" />
+            <ArrowUpDownIcon className="ml-2 h-4 w-4" />
           </Button>
         )
       },
@@ -369,7 +374,7 @@ const columns = (
             <DownloadActionsDropdown downloadIds={[download.id]}>
               <Button variant="ghost" className="h-8 w-8 p-0">
                 <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontalIcon className="h-4 w-4" />
               </Button>
             </DownloadActionsDropdown>
           </div>
@@ -386,6 +391,9 @@ function DownloadActionsDropdown({
   children?: React.ReactNode
 }) {
   const isSingleDownload = downloadIds.length === 1
+  const onDropdownItemClick = (e) => {
+    e.preventDefault()
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
@@ -404,7 +412,7 @@ function DownloadActionsDropdown({
             })
           }}
         >
-          <Pause className="ml-2 h-4 w-4" />
+          <PauseIcon className="ml-2 h-4 w-4" />
           <span className="ml-1 sm:whitespace-nowrap">Pause</span>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -420,12 +428,20 @@ function DownloadActionsDropdown({
             })
           }}
         >
-          <Play className="ml-2 h-4 w-4" />
+          <PlayIcon className="ml-2 h-4 w-4" />
           <span className="ml-1 sm:whitespace-nowrap">Resume</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => {
+        <DefaultAlertDialog
+          title="Remove Download"
+          description={
+            isSingleDownload
+              ? "Are you sure you want to remove this download?"
+              : "Are you sure you want to remove these downloads?"
+          }
+          confirmText="Remove"
+          cancelText="Cancel"
+          onConfirm={() => {
             if (downloadIds.length === 0) {
               toast.error("No downloads selected")
               return
@@ -437,11 +453,13 @@ function DownloadActionsDropdown({
             })
           }}
         >
-          <Trash2 className="ml-2 h-4 w-4" />
-          <span className="ml-1 sm:whitespace-nowrap">Remove</span>
-        </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onDropdownItemClick}>
+            <Trash2Icon className="ml-2 h-4 w-4" />
+            <span className="ml-1 sm:whitespace-nowrap">Remove</span>
+          </DropdownMenuItem>
+        </DefaultAlertDialog>
         <DefaultAlertDialog
-          title="Delete With Files"
+          title="Delete Download With Files"
           description={
             isSingleDownload
               ? "Are you sure you want to delete this download?"
@@ -461,8 +479,8 @@ function DownloadActionsDropdown({
             })
           }}
         >
-          <DropdownMenuItem>
-            <Trash2 className="ml-2 h-4 w-4" />
+          <DropdownMenuItem onSelect={onDropdownItemClick}>
+            <Trash2Icon className="ml-2 h-4 w-4" />
             <span className="ml-1 sm:whitespace-nowrap">Delete With Files</span>
           </DropdownMenuItem>
         </DefaultAlertDialog>
@@ -478,7 +496,8 @@ export function DownloadsTable({
   const [view, setView] = React.useState<"table" | "list">(
     (localStorage.getItem("view") as "table" | "list") ?? "table"
   )
-  const [isSelectModeEnabled, setIsSelectModeEnabled] = React.useState(false)
+  const [isSelectModeEnabled, setIsSelectModeEnabled] =
+    React.useState<CheckedState>(false)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -660,13 +679,13 @@ export function DownloadsTable({
                 <TableIcon className="h-5 w-5" />
               </ToggleGroupItem>
               <ToggleGroupItem value="list" aria-label="Toggle grid view">
-                <Rows3 className="h-5 w-5" />
+                <Rows3Icon className="h-5 w-5" />
               </ToggleGroupItem>
             </ToggleGroup>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
-                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                  Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -712,7 +731,7 @@ export function DownloadsTable({
                 })}
               >
                 <Button variant="outline">
-                  <MoreHorizontal className="mr-2 h-4 w-4" />
+                  <MoreHorizontalIcon className="mr-2 h-4 w-4" />
                   <span>Actions</span>
                 </Button>
               </DownloadActionsDropdown>

@@ -6,6 +6,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ThemeProvider } from "@/components/theme-provider"
+import { StrictMode } from "react"
 
 const queryClient = new QueryClient()
 
@@ -30,10 +31,12 @@ const rootElement = document.getElementById("app")!
 if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)
   root.render(
-    <ThemeProvider defaultTheme="dark" storageKey="downite-ui-theme">
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    </ThemeProvider>
+    <StrictMode>
+      <ThemeProvider defaultTheme="dark" storageKey="downite-ui-theme">
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </ThemeProvider>
+    </StrictMode>
   )
 }

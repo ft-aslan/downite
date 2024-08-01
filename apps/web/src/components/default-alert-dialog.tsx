@@ -28,9 +28,8 @@ export function DefaultAlertDialog({
   onConfirm?: () => void
   onCancel?: () => void
 }) {
-  const [open, setOpen] = React.useState(false)
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog>
       <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

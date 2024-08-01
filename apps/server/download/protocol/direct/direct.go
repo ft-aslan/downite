@@ -872,7 +872,6 @@ func (client *Client) downloadFilePart(download *types.Download, downloadPart *t
 	}
 
 	if isRangeAllowed {
-		fmt.Printf("requesting range : %d-%d \n", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex)
 		req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", downloadPart.StartByteIndex+downloadPart.DownloadedBytes, downloadPart.EndByteIndex))
 	}
 
