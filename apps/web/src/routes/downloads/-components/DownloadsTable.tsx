@@ -391,11 +391,12 @@ function DownloadActionsDropdown({
   children?: React.ReactNode
 }) {
   const isSingleDownload = downloadIds.length === 1
-  const onDropdownItemClick = (e) => {
+  const [open, setOpen] = React.useState(false)
+  const onDropdownItemClick = (e: Event) => {
     e.preventDefault()
   }
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={setOpen} open={open}>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
@@ -416,16 +417,17 @@ function DownloadActionsDropdown({
           <span className="ml-1 sm:whitespace-nowrap">Pause</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => {
+          onClick={async () => {
             if (downloadIds.length === 0) {
               toast.error("No downloads selected")
               return
             }
-            client.POST("/download/resume", {
+            await client.POST("/download/resume", {
               body: {
                 ids: downloadIds,
               },
             })
+            setOpen(false)
           }}
         >
           <PlayIcon className="ml-2 h-4 w-4" />
@@ -441,16 +443,18 @@ function DownloadActionsDropdown({
           }
           confirmText="Remove"
           cancelText="Cancel"
-          onConfirm={() => {
+          onConfirm={async () => {
             if (downloadIds.length === 0) {
               toast.error("No downloads selected")
               return
             }
-            client.POST("/download/remove", {
+            await client.POST("/download/remove", {
               body: {
                 ids: downloadIds,
               },
             })
+
+            setOpen(false)
           }}
         >
           <DropdownMenuItem onSelect={onDropdownItemClick}>
@@ -467,16 +471,18 @@ function DownloadActionsDropdown({
           }
           confirmText="Delete"
           cancelText="Cancel"
-          onConfirm={() => {
+          onConfirm={async () => {
             if (downloadIds.length === 0) {
               toast.error("No downloads selected")
               return
             }
-            client.POST("/download/delete", {
+            await client.POST("/download/delete", {
               body: {
                 ids: downloadIds,
               },
             })
+
+            setOpen(false)
           }}
         >
           <DropdownMenuItem onSelect={onDropdownItemClick}>
@@ -726,7 +732,7 @@ export function DownloadsTable({
               <DownloadActionsDropdown
                 downloadIds={Object.keys(rowSelection).flatMap((key) => {
                   if (rowSelection[key]) {
-                    return downloads[key].id
+                    return downloads[key]?.id
                   }
                 })}
               >

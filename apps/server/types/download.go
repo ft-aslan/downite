@@ -40,6 +40,7 @@ type Download struct {
 	PartLength          uint64          `db:"part_length" json:"partLength"`
 	TotalSize           uint64          `db:"total_size" json:"totalSize"`
 	DownloadedBytes     uint64          `db:"downloaded_bytes" json:"downloadedBytes"`
+	BytesWritten        uint64          `db:"-" json:"-"`
 	DownloadSpeed       uint64          `db:"-" json:"downloadSpeed"`
 	Progress            float64         `json:"progress" db:"-"`
 	Parts               []*DownloadPart `json:"parts" db:"-"`
@@ -52,6 +53,7 @@ type Download struct {
 
 func (download *Download) Write(bytes []byte) (int, error) {
 	download.DownloadedBytes += uint64(len(bytes))
+	download.BytesWritten += uint64(len(bytes))
 	download.Progress = float64(download.DownloadedBytes) / float64(download.TotalSize) * 100
 	// fmt.Printf("downloaded bytes : %d \n", download.DownloadedBytes)
 	return len(bytes), nil

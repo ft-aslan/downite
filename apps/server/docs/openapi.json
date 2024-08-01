@@ -237,6 +237,24 @@
         ],
         "type": "object"
       },
+      "DownloadsTotalSpeedData": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/DownloadsTotalSpeedData.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "downloadSpeed": { "format": "int64", "type": "integer" },
+          "time": { "type": "string" }
+        },
+        "required": ["downloadSpeed", "time"],
+        "type": "object"
+      },
       "ErrorDetail": {
         "additionalProperties": false,
         "properties": {
@@ -875,6 +893,32 @@
           }
         },
         "summary": "Resume download"
+      }
+    },
+    "/download/speed": {
+      "get": {
+        "operationId": "get-downloads-total-speed",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadsTotalSpeedData"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get downloads total speed"
       }
     },
     "/download/{id}": {

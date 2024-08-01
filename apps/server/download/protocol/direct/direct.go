@@ -36,12 +36,11 @@ type Client struct {
 	// defaultStorage *storage.Client
 	onClose []func()
 
-	mutexForDownloads    sync.Mutex
-	downloads            map[int]*types.Download
-	downloadsPrevSizeMap map[int]uint64
-	httpClient           *http.Client
-	Config               *DownloadClientConfig
-	db                   *db.Database
+	mutexForDownloads sync.Mutex
+	downloads         map[int]*types.Download
+	httpClient        *http.Client
+	Config            *DownloadClientConfig
+	db                *db.Database
 	// part contexts for each download. we need to cancel them if download is cancelled
 	mutexForPartContexts sync.Mutex
 	partContextMap       map[int][]*contextWithCancel
@@ -57,8 +56,7 @@ func CreateDownloadClient(config *DownloadClientConfig, db *db.Database) (*Clien
 		httpClient: &http.Client{
 			Transport: http.DefaultTransport,
 		},
-		downloadsPrevSizeMap: make(map[int]uint64),
-		db:                   db,
+		db: db,
 	}, nil
 }
 func NewClientDefaultConfig() (*DownloadClientConfig, error) {
@@ -131,14 +129,10 @@ func (client *Client) updateDownloadSpeeds() {
 		timeToTakeMutex := time.Since(start)
 
 		for _, download := range client.downloads {
-			if download.Status == types.DownloadStatusDownloading.String() {
-				prevSize := client.downloadsPrevSizeMap[download.Id]
-				downloadedByteCount := download.DownloadedBytes - prevSize
-				download.DownloadSpeed = downloadedByteCount / 1024
+			download.DownloadSpeed = download.BytesWritten / 1024
 
-				//set new totalsize as prevsize
-				client.downloadsPrevSizeMap[download.Id] = download.DownloadedBytes
-			}
+			//reset bytes written
+			download.BytesWritten = 0
 		}
 		client.mutexForDownloads.Unlock()
 		time.Sleep(time.Second - timeToTakeMutex)
@@ -172,11 +166,6 @@ func (client *Client) PauseDownload(id int) error {
 	//delete part contexts from map
 	delete(client.partContextMap, id)
 	client.mutexForPartContexts.Unlock()
-
-	err = client.resetDownloadSpeed(download.Id)
-	if err != nil {
-		return err
-	}
 
 	err = client.updateDownloadStatus(id, types.DownloadStatusPaused)
 	if err != nil {
@@ -501,7 +490,6 @@ func (client *Client) AddDownload(download *types.Download) {
 	defer client.mutexForDownloads.Unlock()
 
 	client.downloads[download.Id] = download
-	client.downloadsPrevSizeMap[download.Id] = 0
 }
 func (client *Client) RemoveDownload(id int) error {
 	err := client.PauseDownload(id)
@@ -728,10 +716,14 @@ func (client *Client) StartDownload(id int) error {
 					return
 				}
 
+				client.mutexForDownloads.Lock()
+				defer client.mutexForDownloads.Unlock()
+
 				if completedPartCount != download.PartCount {
 					continue
 				}
 
+				//the download is completed now
 				err = client.updateDownloadStatus(id, types.DownloadStatusCompleted)
 				if err != nil {
 					fmt.Printf("Error while updating download status in db : %s", err)
@@ -893,4 +885,14 @@ func (client *Client) downloadFilePart(download *types.Download, downloadPart *t
 	}
 
 	return nil
+}
+
+func (client *Client) GetTotalDownloadSpeed() uint64 {
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+	var totalDownloadSpeed uint64
+	for _, download := range client.downloads {
+		totalDownloadSpeed += download.DownloadSpeed
+	}
+	return totalDownloadSpeed
 }

@@ -77,7 +77,7 @@ func (db *Database) InsertTorrent(torrent *types.Torrent, addTopOfQueue bool) er
 		}
 	}
 	_, err := db.x.NamedExec(`INSERT INTO torrents
-	(craeted_at, infohash, name, queue_number, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
+	(created_at, infohash, name, queue_number, save_path, status, time_active, downloaded, uploaded, total_size, size_of_wanted, comment, category_id, created_at, started_at)
 	VALUES
 	(:created_at, :infohash, :name, :queue_number, :save_path, :status, :time_active, :downloaded, :uploaded, :total_size, :size_of_wanted, :comment, :category_id, :created_at, :started_at)
 	`, torrent)

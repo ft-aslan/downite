@@ -10,24 +10,49 @@ import React from "react"
 import { AreaChart } from "@/components/ui/area-chart"
 // import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts"
 export default function HomePage() {
-  const [chartData, setChartData] = React.useState<
+  const [torrentSpeedsChartData, setTorrentSpeedsChartData] = React.useState<
     components["schemas"]["TorrentsTotalSpeedData"][]
   >([])
 
-  const fetchSpeed = async () => {
-    const { data, error } = await client.GET("/torrent/speed")
-    if (error) return
-    if (!data) return
+  const [downloadSpeedsChartData, setDownloadSpeedsChartData] = React.useState<
+    components["schemas"]["DownloadsTotalSpeedData"][]
+  >([])
 
-    if (chartData.length > 100) {
-      setChartData([data])
+  const fetchTorrentSpeeds = async () => {
+    const { data: torrentSpeeds, error } = await client.GET("/torrent/speed")
+    if (error) return
+    if (!torrentSpeeds) return
+
+    if (torrentSpeedsChartData.length > 100) {
+      setTorrentSpeedsChartData([torrentSpeeds])
     } else {
-      setChartData((prevChartData) => [...prevChartData, data])
+      setTorrentSpeedsChartData((prevChartData) => [
+        ...prevChartData,
+        torrentSpeeds,
+      ])
     }
   }
+  const fetchDownloadSpeeds = async () => {
+    const { data: downloadSpeeds, error } = await client.GET("/download/speed")
+    if (error) return
+    if (!downloadSpeeds) return
+
+    if (torrentSpeedsChartData.length > 100) {
+      setDownloadSpeedsChartData([downloadSpeeds])
+    } else {
+      setDownloadSpeedsChartData((prevChartData) => [
+        ...prevChartData,
+        downloadSpeeds,
+      ])
+    }
+  }
+  const fetchSpeeds = async () => {
+    await fetchDownloadSpeeds()
+    await fetchTorrentSpeeds()
+  }
   React.useEffect(() => {
-    fetchSpeed()
-    const tableUpdateInterval = setInterval(() => fetchSpeed(), 1000)
+    fetchSpeeds()
+    const tableUpdateInterval = setInterval(() => fetchSpeeds(), 1000)
     return () => clearInterval(tableUpdateInterval)
   }, [])
 
@@ -41,7 +66,7 @@ export default function HomePage() {
           </header>
           <AreaChart
             className="h-80"
-            data={chartData}
+            data={torrentSpeedsChartData}
             index="time"
             categories={["downloadSpeed", "uploadSpeed"]}
           />
@@ -87,7 +112,7 @@ export default function HomePage() {
           </header>
           <AreaChart
             className="h-80"
-            data={[{ downloadSpeed: 0, time: "" }]}
+            data={downloadSpeedsChartData}
             index="time"
             categories={["downloadSpeed"]}
           />

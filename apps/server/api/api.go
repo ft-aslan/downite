@@ -334,6 +334,12 @@ func AddDownloadRoutes(handler handlers.DownloadHandler, humaApi huma.API) {
 		Path:        "/download/delete",
 		Summary:     "Delete download with files",
 	}, handler.DeleteDownload)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-downloads-total-speed",
+		Method:      http.MethodGet,
+		Path:        "/download/speed",
+		Summary:     "Get downloads total speed",
+	}, handler.GetDownloadsTotalSpeed)
 }
 
 // Create a custom middleware handler to disable CORS

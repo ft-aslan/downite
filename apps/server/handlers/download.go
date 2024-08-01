@@ -7,11 +7,27 @@ import (
 	"downite/types"
 	"sort"
 	"strconv"
+	"time"
 )
 
 type DownloadHandler struct {
 	Db     *db.Database
 	Engine *direct.Client
+}
+
+type DownloadsTotalSpeedData struct {
+	DownloadSpeed uint64 `json:"downloadSpeed"`
+	Time          string `json:"time"`
+}
+type GetDownloadsTotalSpeedRes struct {
+	Body DownloadsTotalSpeedData
+}
+
+func (handler *DownloadHandler) GetDownloadsTotalSpeed(ctx context.Context, input *struct{}) (*GetDownloadsTotalSpeedRes, error) {
+	res := &GetDownloadsTotalSpeedRes{}
+	res.Body.DownloadSpeed = handler.Engine.GetTotalDownloadSpeed()
+	res.Body.Time = time.Now().Format("15:04:05")
+	return res, nil
 }
 
 type GetDownloadMetaReq struct {
