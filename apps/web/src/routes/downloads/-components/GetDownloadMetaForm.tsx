@@ -18,9 +18,11 @@ import { toast } from "sonner"
 
 interface GetDownloadMetaFormProps {
   onDownloadMetaChange: (meta: components["schemas"]["DownloadMeta"]) => void
+  setShowDownloadForm: (showDownloadForm: boolean) => void
 }
 export default function GetDownloadMetaForm({
   onDownloadMetaChange,
+  setShowDownloadForm,
 }: GetDownloadMetaFormProps) {
   const form = useForm<components["schemas"]["GetDownloadMetaReqBody"]>({
     defaultValues: {
@@ -43,6 +45,9 @@ export default function GetDownloadMetaForm({
         )
         form.reset()
         onDownloadMetaChange(result.data)
+        if (!result.data.isExist) {
+          setShowDownloadForm(true)
+        }
       }
     },
   })

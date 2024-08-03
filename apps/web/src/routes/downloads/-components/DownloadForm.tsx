@@ -31,9 +31,10 @@ import {
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { FileBrowserDialog } from "@/components/file-browser-dialog"
-import { Folder } from "lucide-react"
+import { Dice1, Folder } from "lucide-react"
+import { log } from "console"
 
-interface GetDownloadMetaFormProps {
+interface DownloadFormProps {
   className?: string
   downloadMeta: components["schemas"]["DownloadMeta"]
   setOpen: (open: boolean) => void
@@ -42,7 +43,7 @@ export default function DownloadForm({
   className,
   downloadMeta,
   setOpen,
-}: GetDownloadMetaFormProps) {
+}: DownloadFormProps) {
   //TODO(fatih): dont use any as type. fegure out how we can type form for multipart form
   const form = useForm<components["schemas"]["DownloadReqBody"]>({
     defaultValues: {
@@ -54,6 +55,7 @@ export default function DownloadForm({
       contentLayout: "Original",
       addTopOfQueue: false,
       category: "",
+      name: downloadMeta.fileName,
       tags: [],
     },
   })
@@ -89,9 +91,9 @@ export default function DownloadForm({
         onSubmit={onSubmit}
         className={cn("grid items-start gap-4", className)}
       >
-        <div className="flex w-full flex-col space-y-2 rounded-md border p-4">
-          <div className="flex-1 space-y-2">
-            <p className="text-sm font-medium leading-none">Name: </p>
+        <div className="flex w-full flex-col gap-4 rounded-md border p-4">
+          <div className="flex-1">
+            <p className="mb-2 text-sm font-medium leading-none">Name: </p>
             <Input
               type="text"
               placeholder="Address"
@@ -100,8 +102,8 @@ export default function DownloadForm({
               readOnly
             />
           </div>
-          <div className="flex-1 space-y-2">
-            <p className="text-sm font-medium leading-none">Address: </p>
+          <div className="flex-1">
+            <p className="mb-2 text-sm font-medium leading-none">Address: </p>
             <Input
               type="text"
               placeholder="Address"
@@ -110,8 +112,8 @@ export default function DownloadForm({
               readOnly
             />
           </div>
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium leading-none">Size: </p>
+          <div className="flex-1">
+            <p className="mb-2 text-sm font-medium leading-none">Size: </p>
             <p className="text-muted-foreground text-sm">
               {(downloadMeta.totalSize / 1024 / 1024).toFixed(2) + " MB"}
             </p>

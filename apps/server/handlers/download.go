@@ -52,6 +52,7 @@ func (handler *DownloadHandler) GetDownloadMeta(ctx context.Context, input *GetD
 
 type DownloadReq struct {
 	Body struct {
+		Name                        string   `json:"name"`
 		Url                         string   `json:"url" minLength:"1" uri:"true"`
 		Category                    string   `json:"category"`
 		SavePath                    string   `json:"savePath"`
@@ -69,7 +70,7 @@ type DownloadRes struct {
 
 func (handler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
 	res := &DownloadRes{}
-	download, err := handler.Engine.DownloadFromUrl(input.Body.Url, handler.Engine.Config.PartCount, input.Body.SavePath, input.Body.StartDownload, input.Body.AddTopOfQueue)
+	download, err := handler.Engine.DownloadFromUrl(input.Body.Name, input.Body.Url, handler.Engine.Config.PartCount, input.Body.SavePath, input.Body.StartDownload, input.Body.AddTopOfQueue)
 	res.Body = download
 	return res, err
 }
@@ -117,7 +118,6 @@ type DownloadActionReq struct {
 }
 type DownloadActionRes struct {
 	Body struct {
-		Success bool `json:"success"`
 	}
 }
 

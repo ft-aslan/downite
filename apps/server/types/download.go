@@ -84,9 +84,11 @@ func (part *DownloadPart) Write(bytes []byte) (int, error) {
 }
 
 type DownloadMeta struct {
-	TotalSize      uint64 `json:"totalSize"`
-	Url            string `json:"url"`
-	FileName       string `json:"fileName"`
-	FileType       string `json:"fileType"`
-	IsRangeAllowed bool   `json:"isRangeAllowed"`
+	TotalSize          uint64 `json:"totalSize"`
+	Url                string `json:"url"`
+	FileName           string `json:"fileName"`
+	FileType           string `json:"fileType"`
+	IsRangeAllowed     bool   `json:"isRangeAllowed"`
+	IsExist            bool   `json:"isExist"`
+	ExistingDownloadId int    `json:"existingDownloadId"`
 }

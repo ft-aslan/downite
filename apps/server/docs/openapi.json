@@ -91,10 +91,8 @@
             "format": "uri",
             "readOnly": true,
             "type": "string"
-          },
-          "success": { "type": "boolean" }
+          }
         },
-        "required": ["success"],
         "type": "object"
       },
       "DownloadMeta": {
@@ -107,8 +105,10 @@
             "readOnly": true,
             "type": "string"
           },
+          "existingDownloadId": { "format": "int64", "type": "integer" },
           "fileName": { "type": "string" },
           "fileType": { "type": "string" },
+          "isExist": { "type": "boolean" },
           "isRangeAllowed": { "type": "boolean" },
           "totalSize": { "format": "int64", "type": "integer" },
           "url": { "type": "string" }
@@ -118,7 +118,9 @@
           "url",
           "fileName",
           "fileType",
-          "isRangeAllowed"
+          "isRangeAllowed",
+          "isExist",
+          "existingDownloadId"
         ],
         "type": "object"
       },
@@ -174,12 +176,14 @@
           },
           "incompleteSavePath": { "type": "string" },
           "isIncompleteSavePathEnabled": { "type": "boolean" },
+          "name": { "type": "string" },
           "savePath": { "type": "string" },
           "startDownload": { "type": "boolean" },
           "tags": { "items": { "type": "string" }, "type": "array" },
           "url": { "minLength": 1, "type": "string" }
         },
         "required": [
+          "name",
           "url",
           "category",
           "savePath",

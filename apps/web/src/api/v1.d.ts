@@ -367,7 +367,6 @@ export interface components {
              * @description A URL to the JSON Schema for this object.
              */
             readonly $schema?: string;
-            success: boolean;
         };
         DownloadMeta: {
             /**
@@ -375,8 +374,11 @@ export interface components {
              * @description A URL to the JSON Schema for this object.
              */
             readonly $schema?: string;
+            /** Format: int64 */
+            existingDownloadId: number;
             fileName: string;
             fileType: string;
+            isExist: boolean;
             isRangeAllowed: boolean;
             /** Format: int64 */
             totalSize: number;
@@ -416,6 +418,7 @@ export interface components {
             contentLayout: "Original" | "Create subfolder" | "Don't create subfolder";
             incompleteSavePath: string;
             isIncompleteSavePathEnabled: boolean;
+            name: string;
             savePath: string;
             startDownload: boolean;
             tags: string[];

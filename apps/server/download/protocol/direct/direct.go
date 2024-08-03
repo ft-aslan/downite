@@ -150,7 +150,10 @@ func (client *Client) PauseDownload(id int) error {
 	if err != nil {
 		return err
 	}
+
+	client.mutexForDownloads.Lock()
 	fmt.Printf("Pausing download : %s \n", download.Name)
+	client.mutexForDownloads.Unlock()
 
 	//cancel all part downloads
 	client.mutexForPartContexts.Lock()
@@ -252,7 +255,45 @@ func (client *Client) updateDownloadStatus(id int, status types.DownloadStatus) 
 
 	return nil
 }
+func (client *Client) CheckDownload(rawUrl string, fileName string, fileSize uint64) (bool, int) {
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+	for _, download := range client.downloads {
+		if download.Url == rawUrl && download.Name == fileName && download.TotalSize == fileSize {
+			return true, download.Id
+		}
+	}
+	return false, 0
+}
 func (client *Client) GetDownloadMeta(rawUrl string) (*types.DownloadMeta, error) {
+	parsedUrl, err := url.Parse(rawUrl)
+	if err != nil {
+		return nil, err
+	}
+	// modify url for youtube links
+	if parsedUrl.Host == "youtube" || parsedUrl.Host == "youtu.be" || parsedUrl.Host == "www.youtube.com" {
+		youtubeClient := &youtube.Client{}
+		video, err := youtubeClient.GetVideo(rawUrl)
+		if err != nil {
+			return nil, err
+		}
+
+		format := GetBestHighFormat(FilterFormats(video.Formats, "video"))
+		fmt.Printf("format : %+v \n", format)
+		videoUrl, err := youtubeClient.GetStreamURL(video, &format)
+		if err != nil {
+			return nil, err
+		}
+
+		rawUrl = videoUrl
+		parsedUrl, err = url.Parse(rawUrl)
+		if err != nil {
+			return nil, err
+		}
+		// destroy youtube client
+		youtubeClient = nil
+	}
+
 	req, err := http.NewRequest("HEAD", rawUrl, nil)
 
 	if err != nil {
@@ -318,17 +359,45 @@ func (client *Client) GetDownloadMeta(rawUrl string) (*types.DownloadMeta, error
 		return nil, fmt.Errorf("cannot convert content length header to int : %s", err)
 	}
 
+	ok, id := client.CheckDownload(rawUrl, fileName, contentLength)
+	if ok {
+		// return nil, fmt.Errorf("download with url %s already exists", rawUrl)
+	}
+
 	return &types.DownloadMeta{
-		FileName:       fileName,
-		TotalSize:      contentLength,
-		Url:            rawUrl,
-		FileType:       fileType,
-		IsRangeAllowed: rangesHeader == "bytes",
+		FileName:           fileName,
+		TotalSize:          contentLength,
+		Url:                rawUrl,
+		FileType:           fileType,
+		IsRangeAllowed:     rangesHeader == "bytes",
+		IsExist:            ok,
+		ExistingDownloadId: id,
 	}, nil
 
 }
 
-func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath string, startDownload bool, addTopOfQueue bool) (*types.Download, error) {
+// FilterFormats filters a list of YouTube formats based on a specific kind (e.g. "video/mp4")
+func FilterFormats(formats youtube.FormatList, kind string) []youtube.Format {
+	var filteredFormats []youtube.Format
+	for _, format := range formats {
+		if strings.Contains(format.MimeType, kind) {
+			filteredFormats = append(filteredFormats, format)
+		}
+	}
+	return filteredFormats
+}
+
+// GetBestHighFormat returns the format with the highest bitrate from a list of formats
+func GetBestHighFormat(formats []youtube.Format) youtube.Format {
+	var bestFormat youtube.Format
+	for _, format := range formats {
+		if format.Bitrate > bestFormat.Bitrate {
+			bestFormat = format
+		}
+	}
+	return bestFormat
+}
+func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int, savePath string, startDownload bool, addTopOfQueue bool) (*types.Download, error) {
 	parsedUrl, err := url.Parse(rawUrl)
 	if err != nil {
 		return nil, err
@@ -336,27 +405,14 @@ func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath str
 	// modify url for youtube links
 	if parsedUrl.Host == "youtube" || parsedUrl.Host == "youtu.be" || parsedUrl.Host == "www.youtube.com" {
 		youtubeClient := &youtube.Client{}
-		video, err := youtubeClient.GetVideo(rawUrl)
+		video, err := youtubeClient.GetVideo("https://www.youtube.com/embed/u9lj-c29dxI")
 		if err != nil {
 			return nil, err
 		}
-		formats := video.Formats.Quality("1080p")
-		if len(formats) == 0 {
-			return nil, fmt.Errorf("no audio formats found")
-		}
-		var targetFormat *youtube.Format
-		for _, format := range formats {
-			if format.AudioChannels > 0 {
-				targetFormat = &format
-				break
-			}
-		}
 
-		if targetFormat == nil {
-			targetFormat = &formats[0]
-		}
-
-		videoUrl, err := youtubeClient.GetStreamURL(video, targetFormat)
+		format := GetBestHighFormat(FilterFormats(video.Formats, "video"))
+		fmt.Printf("format : %+v \n", format)
+		videoUrl, err := youtubeClient.GetStreamURL(video, &format)
 		if err != nil {
 			return nil, err
 		}
@@ -389,10 +445,14 @@ func (client *Client) DownloadFromUrl(rawUrl string, partCount int, savePath str
 		savePath = client.Config.DownloadPath
 	}
 
+	if name == "" {
+		name = metaInfo.FileName
+	}
+
 	download := &types.Download{
 		CreatedAt:       time.Now(),
 		Parts:           make([]*types.DownloadPart, partCount),
-		Name:            metaInfo.FileName,
+		Name:            name,
 		SavePath:        savePath,
 		PartCount:       partCount,
 		PartLength:      partLength,
@@ -484,6 +544,22 @@ func (client *Client) RegisterDownloadParts(download *types.Download) error {
 	}
 
 	return nil
+}
+func (client *Client) CreateNewNumberForDuplicate(downloadId int) int {
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+
+	download, ok := client.downloads[downloadId]
+	if !ok {
+		return 0
+	}
+	downloadName := download.Name
+	for _, download := range client.downloads {
+		if strings.HasPrefix(download.Name, downloadName) {
+		}
+	}
+
+	return 0
 }
 func (client *Client) AddDownload(download *types.Download) {
 	client.mutexForDownloads.Lock()
@@ -661,6 +737,8 @@ func (client *Client) StartDownload(id int) error {
 			if err != nil {
 				// if download is canceled then return
 				if errors.Is(err, context.Canceled) {
+					part.Error = err.Error()
+					errorChan <- err
 					return
 				}
 				part.Status = types.DownloadStatusError.String()
@@ -698,10 +776,12 @@ func (client *Client) StartDownload(id int) error {
 		return err
 	}
 	go func() {
+		// TODO:(ft-aslan) we need to use mutex for this. but we need more compact way
 		for completedPartCount != download.PartCount {
 			select {
 			case err := <-errorChan:
 				fmt.Printf("Error while downloading file parts for %s : %s", download.Name, err)
+				return
 			case partProcess := <-partProcessChan:
 				completedPartCount += 1
 
@@ -716,75 +796,73 @@ func (client *Client) StartDownload(id int) error {
 					return
 				}
 
-				client.mutexForDownloads.Lock()
-				defer client.mutexForDownloads.Unlock()
-
-				if completedPartCount != download.PartCount {
+				if completedPartCount == download.PartCount {
+					break
+				} else {
 					continue
 				}
-
-				//the download is completed now
-				err = client.updateDownloadStatus(id, types.DownloadStatusCompleted)
-				if err != nil {
-					fmt.Printf("Error while updating download status in db : %s", err)
-					return
-				}
-				download.FinishedAt = sql.NullTime{
-					Time:  time.Now(),
-					Valid: true,
-				}
-				err = client.db.UpdateDownload(download)
-				if err != nil {
-					fmt.Printf("Error while updating download in db : %s", err)
-					return
-				}
-
-				fmt.Printf("download completed : %s \n", filepath.Join(download.SavePath, download.Name))
-
-				_, err := os.Stat(filepath.Join(download.SavePath, download.Name))
-				if err == nil {
-					fmt.Printf("deleting existing file : %s \n", filepath.Join(download.SavePath, download.Name))
-					err := os.Remove(filepath.Join(download.SavePath, download.Name))
-					if err != nil {
-						fmt.Printf("Error while deleting existing download file : %s \n", err)
-						return
-					}
-				}
-				downloadedFile, err := os.OpenFile(filepath.Join(download.SavePath, download.Name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-				if err != nil {
-					fmt.Printf("Error while creating new download file : %s \n", err)
-					return
-				}
-				defer downloadedFile.Close()
-				for _, part := range download.Parts {
-					if part.Status != types.DownloadStatusCompleted.String() {
-						fmt.Printf("error download incomplete : %s \n", filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
-						return
-					}
-					partBuffer, err := os.ReadFile(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
-					if err != nil {
-						fmt.Printf("Error while reading part file : %s \n", err)
-						return
-					}
-					_, err = downloadedFile.Write(partBuffer)
-					if err != nil {
-						fmt.Printf("Error while writing part file : %s \n", err)
-						return
-					}
-				}
-
-				downloadedFileStats, err := downloadedFile.Stat()
-				if downloadedFileStats.Size() != int64(download.TotalSize) {
-					fmt.Printf("Error downloaded bytes %d is not equal to total size %d", downloadedFileStats.Size(), download.TotalSize)
-					return
-				}
-				err = client.deleteDownloadParts(download.Id)
-				if err != nil {
-					fmt.Printf("Error %s \n", err)
-					return
-				}
-				break
 			}
+		}
+
+		//the download is completed now
+		err = client.updateDownloadStatus(id, types.DownloadStatusCompleted)
+		if err != nil {
+			fmt.Printf("Error while updating download status in db : %s", err)
+			return
+		}
+		download.FinishedAt = sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		}
+		err = client.db.UpdateDownload(download)
+		if err != nil {
+			fmt.Printf("Error while updating download in db : %s", err)
+			return
+		}
+
+		fmt.Printf("download completed : %s \n", filepath.Join(download.SavePath, download.Name))
+
+		_, err := os.Stat(filepath.Join(download.SavePath, download.Name))
+		if err == nil {
+			fmt.Printf("deleting existing file : %s \n", filepath.Join(download.SavePath, download.Name))
+			err := os.Remove(filepath.Join(download.SavePath, download.Name))
+			if err != nil {
+				fmt.Printf("Error while deleting existing download file : %s \n", err)
+				return
+			}
+		}
+		downloadedFile, err := os.OpenFile(filepath.Join(download.SavePath, download.Name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Printf("Error while creating new download file : %s \n", err)
+			return
+		}
+		defer downloadedFile.Close()
+		for _, part := range download.Parts {
+			if part.Status != types.DownloadStatusCompleted.String() {
+				fmt.Printf("error download incomplete : %s \n", filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+				return
+			}
+			partBuffer, err := os.ReadFile(filepath.Join(download.SavePath, fmt.Sprintf("%s_part%d", download.Name, part.PartIndex)))
+			if err != nil {
+				fmt.Printf("Error while reading part file : %s \n", err)
+				return
+			}
+			_, err = downloadedFile.Write(partBuffer)
+			if err != nil {
+				fmt.Printf("Error while writing part file : %s \n", err)
+				return
+			}
+		}
+
+		downloadedFileStats, err := downloadedFile.Stat()
+		if downloadedFileStats.Size() != int64(download.TotalSize) {
+			fmt.Printf("Error downloaded bytes %d is not equal to total size %d", downloadedFileStats.Size(), download.TotalSize)
+			return
+		}
+		err = client.deleteDownloadParts(download.Id)
+		if err != nil {
+			fmt.Printf("Error %s \n", err)
+			return
 		}
 	}()
 	return nil
