@@ -62,6 +62,7 @@ type DownloadReq struct {
 		Tags                        []string `json:"tags"`
 		StartDownload               bool     `json:"startDownload"`
 		AddTopOfQueue               bool     `json:"addTopOfQueue"`
+		Overwrite                   bool     `json:"overwrite"`
 	}
 }
 type DownloadRes struct {
@@ -70,7 +71,10 @@ type DownloadRes struct {
 
 func (handler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
 	res := &DownloadRes{}
-	download, err := handler.Engine.DownloadFromUrl(input.Body.Name, input.Body.Url, handler.Engine.Config.PartCount, input.Body.SavePath, input.Body.StartDownload, input.Body.AddTopOfQueue)
+	download, err := handler.Engine.DownloadFromUrl(input.Body.Name, input.Body.Url, handler.Engine.Config.PartCount, input.Body.SavePath, input.Body.StartDownload, input.Body.AddTopOfQueue, input.Body.Overwrite)
+	if err != nil {
+		return nil, err
+	}
 	res.Body = download
 	return res, err
 }
@@ -108,6 +112,26 @@ func (handler *DownloadHandler) GetDownload(ctx context.Context, input *GetDownl
 	}
 	res.Body = download
 
+	return res, nil
+}
+
+type GetNewDuplicateFileNameReq struct {
+	Body struct {
+		SavePath string `json:"savePath"`
+		FileName string `json:"fileName"`
+	}
+}
+type GetNewDuplicateFileNameRes struct {
+	Body string
+}
+
+func (handler *DownloadHandler) GetNewDuplicateName(ctx context.Context, input *GetNewDuplicateFileNameReq) (*GetNewDuplicateFileNameRes, error) {
+	res := &GetNewDuplicateFileNameRes{}
+	newFileName, err := handler.Engine.CreateNewDuplicateFileName(input.Body.SavePath, input.Body.FileName)
+	if err != nil {
+		return nil, err
+	}
+	res.Body = newFileName
 	return res, nil
 }
 

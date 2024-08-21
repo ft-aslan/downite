@@ -62,7 +62,6 @@ export function AddDownloadDialog({ children }: { children: React.ReactNode }) {
 
             <ExistingDownloadForm
               downloadMeta={downloadMeta}
-              setDownloadMeta={setDownloadMeta}
               setOpen={setOpen}
               setShowDownloadForm={setShowDownloadForm}
             />
@@ -113,7 +112,10 @@ export function AddDownloadDialog({ children }: { children: React.ReactNode }) {
             You can add download with address.
           </DrawerDescription>
         </DrawerHeader>
-        <GetDownloadMetaForm onDownloadMetaChange={setDownloadMeta} />
+        <GetDownloadMetaForm
+          onDownloadMetaChange={setDownloadMeta}
+          setShowDownloadForm={setShowDownloadForm}
+        />
         <DrawerFooter className="pt-2">
           <DrawerClose asChild>
             <Button variant="outline">Cancel</Button>

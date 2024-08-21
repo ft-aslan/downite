@@ -39,6 +39,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/download/duplicate-name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Get new duplicate name */
+        post: operations["get-new-duplicate-name"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/download/meta": {
         parameters: {
             query?: never;
@@ -419,6 +436,7 @@ export interface components {
             incompleteSavePath: string;
             isIncompleteSavePathEnabled: boolean;
             name: string;
+            overwrite: boolean;
             savePath: string;
             startDownload: boolean;
             tags: string[];
@@ -531,6 +549,15 @@ export interface components {
              */
             readonly $schema?: string;
             magnet: string;
+        };
+        GetNewDuplicateFileNameReqBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             */
+            readonly $schema?: string;
+            fileName: string;
+            savePath: string;
         };
         GetTorrentsResBody: {
             /**
@@ -767,6 +794,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DownloadActionResBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-new-duplicate-name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GetNewDuplicateFileNameReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
                 };
             };
             /** @description Error */

@@ -20,18 +20,16 @@ import { useNavigate } from "@tanstack/react-router"
 interface ExistingDownloadFormProps {
   className?: string
   downloadMeta: components["schemas"]["DownloadMeta"]
-  setDownloadMeta: (meta: components["schemas"]["DownloadMeta"]) => void
   setOpen: (open: boolean) => void
   setShowDownloadForm: (showDownloadForm: boolean) => void
 }
 export default function ExistingDownloadForm({
   className,
   downloadMeta,
-  setDownloadMeta,
   setOpen,
   setShowDownloadForm,
 }: ExistingDownloadFormProps) {
-  const [selectedOption, setSelectedOption] = React.useState("numbered")
+  const [selectedOption, setSelectedOption] = React.useState("show")
   const navigate = useNavigate()
 
   const onRadioChange = (value: string) => {
@@ -39,31 +37,14 @@ export default function ExistingDownloadForm({
   }
   const onSubmit = async () => {
     switch (selectedOption) {
-      case "numbered":
-        {
-          let { data, error } = await client.POST("/download/new-duplicate-id")
-
-          if (data) {
-            setDownloadMeta({
-              ...downloadMeta,
-              fileName: data.fileName,
-            })
-            setShowDownloadForm(true)
-          } else {
-            toast.error(
-              `Cannot get new file name for download with name ${downloadMeta.fileName}${error ? `, error detail: ${error.detail}` : ``}`
-            )
-          }
-        }
-        break
-      case "overwrite":
+      case "create":
         {
           setShowDownloadForm(true)
         }
         break
       case "resume":
         {
-          let { data, error } = await client.POST("/download/resume", {
+          let { error } = await client.POST("/download/resume", {
             body: { ids: [downloadMeta.existingDownloadId] },
           })
           if (error) {
@@ -122,27 +103,21 @@ export default function ExistingDownloadForm({
         <CardContent className="grid gap-4">
           <RadioGroup value={selectedOption} onValueChange={onRadioChange}>
             <div className="flex items-center gap-2">
-              <RadioGroupItem className="w-auto" value="numbered" id="r1" />
-              <Label className="text-md" htmlFor="r1">
-                Add duplicate with numbered file name
+              <RadioGroupItem className="w-auto" value="show" id="r4" />
+              <Label className="text-md" htmlFor="r4">
+                Show existing download
               </Label>
             </div>
             <div className="flex items-center gap-2">
-              <RadioGroupItem className="w-auto" value="overwrite" id="r2" />
+              <RadioGroupItem className="w-auto" value="create" id="r2" />
               <Label className="text-md" htmlFor="r2">
-                Overwrite the existing file
+                Create new download
               </Label>
             </div>
             <div className="flex items-center gap-2">
               <RadioGroupItem className="w-auto" value="resume" id="r3" />
               <Label className="text-md text-wrap" htmlFor="r3">
                 If existing one is incomplete and paused then resume download
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem className="w-auto" value="show" id="r4" />
-              <Label className="text-md" htmlFor="r4">
-                Show existing download
               </Label>
             </div>
           </RadioGroup>

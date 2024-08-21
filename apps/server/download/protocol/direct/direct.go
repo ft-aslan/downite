@@ -138,6 +138,17 @@ func (client *Client) updateDownloadSpeeds() {
 		time.Sleep(time.Second - timeToTakeMutex)
 	}
 }
+
+func (client *Client) CheckDownloadStatus(id int, state types.DownloadStatus) bool {
+	download, err := client.GetDownload(id)
+	if err != nil {
+		return false
+	}
+	client.mutexForDownloads.Lock()
+	defer client.mutexForDownloads.Unlock()
+
+	return download.Status == state.String()
+}
 func (client *Client) PauseDownload(id int) error {
 	if client.CheckDownloadStatus(id, types.DownloadStatusPaused) {
 		return fmt.Errorf("download is already paused")
@@ -176,15 +187,6 @@ func (client *Client) PauseDownload(id int) error {
 	}
 	return nil
 }
-func (client *Client) CheckDownloadStatus(id int, state types.DownloadStatus) bool {
-	client.mutexForDownloads.Lock()
-	defer client.mutexForDownloads.Unlock()
-	download, ok := client.downloads[id]
-	if !ok {
-		return false
-	}
-	return download.Status == state.String()
-}
 
 func (client *Client) ResumeDownload(id int) error {
 	if client.CheckDownloadStatus(id, types.DownloadStatusDownloading) {
@@ -220,24 +222,26 @@ func (client *Client) ResumeDownload(id int) error {
 }
 
 func (client *Client) resetDownloadSpeed(id int) error {
+	download, err := client.GetDownload(id)
+	if err != nil {
+		return err
+	}
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
-	download, ok := client.downloads[id]
-	if !ok {
-		return fmt.Errorf("download not found")
-	}
+
 	download.DownloadSpeed = 0
 	return nil
 }
 
 func (client *Client) updateDownloadStatus(id int, status types.DownloadStatus) error {
+	download, err := client.GetDownload(id)
+	if err != nil {
+		return err
+	}
+
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
 
-	download, ok := client.downloads[id]
-	if !ok {
-		return fmt.Errorf("download not found")
-	}
 	download.Status = status.String()
 
 	for _, downloadPart := range download.Parts {
@@ -248,7 +252,7 @@ func (client *Client) updateDownloadStatus(id int, status types.DownloadStatus) 
 		}
 	}
 
-	err := client.db.UpdateDownload(download)
+	err = client.db.UpdateDownload(download)
 	if err != nil {
 		return err
 	}
@@ -397,7 +401,7 @@ func GetBestHighFormat(formats []youtube.Format) youtube.Format {
 	}
 	return bestFormat
 }
-func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int, savePath string, startDownload bool, addTopOfQueue bool) (*types.Download, error) {
+func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int, savePath string, startDownload bool, addTopOfQueue bool, overwrite bool) (*types.Download, error) {
 	parsedUrl, err := url.Parse(rawUrl)
 	if err != nil {
 		return nil, err
@@ -447,6 +451,13 @@ func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int,
 
 	if name == "" {
 		name = metaInfo.FileName
+	}
+
+	if !overwrite {
+		//CHECK IF FILE EXISTS
+		if _, err := os.Stat(filepath.Join(savePath, name)); err == nil {
+			return nil, fmt.Errorf("file already exists")
+		}
 	}
 
 	download := &types.Download{
@@ -545,21 +556,32 @@ func (client *Client) RegisterDownloadParts(download *types.Download) error {
 
 	return nil
 }
-func (client *Client) CreateNewNumberForDuplicate(downloadId int) int {
-	client.mutexForDownloads.Lock()
-	defer client.mutexForDownloads.Unlock()
-
-	download, ok := client.downloads[downloadId]
-	if !ok {
-		return 0
+func (client *Client) CreateNewDuplicateFileName(path string, fileName string) (string, error) {
+	fileExt := filepath.Ext(fileName)
+	fileNameWithoutExt := strings.TrimSuffix(fileName, fileExt)
+	newNumber := 0
+	_, err := os.Stat(filepath.Join(path, fileName))
+	if err != nil {
+		if os.IsNotExist(err) {
+			newNumber = 2
+			return fmt.Sprintf("%s_%d%s", fileNameWithoutExt, newNumber, fileExt), nil
+		} else {
+			return fileName, err
+		}
 	}
-	downloadName := download.Name
-	for _, download := range client.downloads {
-		if strings.HasPrefix(download.Name, downloadName) {
+	for i := 3; ; i++ {
+		_, err := os.Stat(filepath.Join(path, fmt.Sprintf("%s_%d%s", fileNameWithoutExt, i, fileExt)))
+		if err != nil {
+			if os.IsNotExist(err) {
+				newNumber = i
+				break
+			} else {
+				return fileName, err
+			}
 		}
 	}
 
-	return 0
+	return fmt.Sprintf("%s_%d%s", fileNameWithoutExt, newNumber, fileExt), nil
 }
 func (client *Client) AddDownload(download *types.Download) {
 	client.mutexForDownloads.Lock()

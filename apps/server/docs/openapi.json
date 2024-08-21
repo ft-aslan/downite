@@ -177,6 +177,7 @@
           "incompleteSavePath": { "type": "string" },
           "isIncompleteSavePathEnabled": { "type": "boolean" },
           "name": { "type": "string" },
+          "overwrite": { "type": "boolean" },
           "savePath": { "type": "string" },
           "startDownload": { "type": "boolean" },
           "tags": { "items": { "type": "string" }, "type": "array" },
@@ -192,7 +193,8 @@
           "contentLayout",
           "tags",
           "startDownload",
-          "addTopOfQueue"
+          "addTopOfQueue",
+          "overwrite"
         ],
         "type": "object"
       },
@@ -398,6 +400,24 @@
           "magnet": { "minLength": 1, "type": "string" }
         },
         "required": ["magnet"],
+        "type": "object"
+      },
+      "GetNewDuplicateFileNameReqBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "http://localhost:9999/api/schemas/GetNewDuplicateFileNameReqBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "fileName": { "type": "string" },
+          "savePath": { "type": "string" }
+        },
+        "required": ["savePath", "fileName"],
         "type": "object"
       },
       "GetTorrentsResBody": {
@@ -761,6 +781,38 @@
           }
         },
         "summary": "Delete download with files"
+      }
+    },
+    "/download/duplicate-name": {
+      "post": {
+        "operationId": "get-new-duplicate-name",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetNewDuplicateFileNameReqBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": { "schema": { "type": "string" } }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get new duplicate name"
       }
     },
     "/download/meta": {

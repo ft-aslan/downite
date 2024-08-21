@@ -32,7 +32,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { FileBrowserDialog } from "@/components/file-browser-dialog"
 import { Dice1, Folder } from "lucide-react"
-import { log } from "console"
 
 interface DownloadFormProps {
   className?: string
@@ -55,6 +54,7 @@ export default function DownloadForm({
       contentLayout: "Original",
       addTopOfQueue: false,
       category: "",
+      overwrite: false,
       name: downloadMeta.fileName,
       tags: [],
     },
@@ -82,6 +82,9 @@ export default function DownloadForm({
         form.reset()
         setOpen(false)
       }
+    },
+    onError(error) {
+      toast.error(error.message)
     },
   })
 
