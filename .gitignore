@@ -56,3 +56,4 @@ tmp
 
 # output folder
 bin
+__debug_bin*
