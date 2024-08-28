@@ -1,0 +1,24 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Package",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "cwd": "${workspaceFolder}/apps/server",
+      "program": "${workspaceFolder}/apps/server/main.go"
+    },
+    {
+      "name": "Attach to Air",
+      "type": "go",
+      "mode": "remote",
+      "request": "attach",
+      "host": "127.0.0.1",
+      "port": 2345
+    }
+  ]
+}
