@@ -559,7 +559,7 @@ export interface components {
             fileName: string;
             savePath: string;
         };
-        GetTorrentsResBody: {
+        GetTorrentsData: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -1146,7 +1146,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GetTorrentsResBody"];
+                    "application/json": components["schemas"]["GetTorrentsData"];
                 };
             };
             /** @description Error */

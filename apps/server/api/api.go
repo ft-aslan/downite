@@ -97,7 +97,7 @@ func ApiInit(options *ApiOptions) *API {
 		AddTorrentRoutes(handlers.TorrentHandler{
 			Db:     db,
 			Engine: torrentEngine,
-		}, api.humaApi)
+		}, api.humaApi, mux)
 		AddSystemRoutes(handlers.SystemHandler{}, api.humaApi)
 
 		api.ExportOpenApi()
@@ -207,7 +207,7 @@ func AddSystemRoutes(handler handlers.SystemHandler, humaApi huma.API) {
 		Summary:     "Get file system nodes",
 	}, handler.GetFileSystemNodes)
 }
-func AddTorrentRoutes(handler handlers.TorrentHandler, humaApi huma.API) {
+func AddTorrentRoutes(handler handlers.TorrentHandler, humaApi huma.API, mux *http.ServeMux) {
 	//register api routes
 	// registering the download torrent route manually because it's a multipart/form-data request
 	schema := humaApi.OpenAPI().Components.Schemas.Schema(reflect.TypeOf(handlers.DownloadTorrentReqBody{}), true, "DownloadTorrentReqBodyStruct")
@@ -235,6 +235,9 @@ func AddTorrentRoutes(handler handlers.TorrentHandler, humaApi huma.API) {
 		Path:        "/torrent",
 		Summary:     "Get all torrents",
 	}, handler.GetTorrents)
+
+	mux.HandleFunc("/api/torrent-ws", handler.GetTorrentsSocket)
+
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-torrent",
 		Method:      http.MethodGet,

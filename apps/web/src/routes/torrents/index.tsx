@@ -1,32 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router"
+
 export const Route = createFileRoute("/torrents/")({
   component: () => TorrentsPage(),
-  loader: ({ context: { queryClient } }) => {
-    queryClient.ensureQueryData(getTorrentsQueryOptions())
-  },
+  // loader: ({ context: { queryClient } }) => {
+  //   // queryClient.ensureQueryData(getTorrentsQueryOptions())
+  // },
 })
 
 import { Button } from "@/components/ui/button"
 import { AddTorrentDialog } from "./-components/AddTorrentDialog"
 import { PlusCircle } from "lucide-react"
 import { TorrentsTable } from "./-components/TorrentsTable"
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query"
-import { client } from "@/api"
-import React from "react"
-const getTorrentsQueryOptions = () =>
-  queryOptions({
-    queryKey: ["torrents"],
-    queryFn: async () => {
-      try {
-        const { data } = await client.GET("/torrent")
-        return data
-      } catch (error) {
-        return { torrents: [] }
-      }
-    },
-  })
+import { useSocketClient } from "@/api"
+import React, { useCallback, useMemo } from "react"
+import { components } from "@/api/v1"
+
 function TorrentsPage() {
-  const { data, refetch } = useSuspenseQuery(getTorrentsQueryOptions())
+  const { sendJsonMessage, lastJsonMessage } = useSocketClient<{torrents: components["schemas"]["Torrent"][]}>("/torrent-ws");
+
+  const data = useMemo(() => {
+    return { ...lastJsonMessage };
+  }, [lastJsonMessage])
+
+  const refetch = useCallback(() => {
+    sendJsonMessage({
+      method: "GET"
+    })
+  }, [sendJsonMessage])
+
   React.useEffect(() => {
     const tableUpdateInterval = setInterval(() => refetch(), 1000)
     return () => clearInterval(tableUpdateInterval)

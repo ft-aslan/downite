@@ -8,12 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
+	"net/http"
 	"sort"
 	"time"
 
 	gotorrent "github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/gorilla/websocket"
 )
 
 type TorrentHandler struct {
@@ -30,6 +32,12 @@ type GetTorrentsTotalSpeedRes struct {
 	Body TorrentsTotalSpeedData
 }
 
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
 func (handler *TorrentHandler) GetTorrentsTotalSpeed(ctx context.Context, input *struct{}) (*GetTorrentsTotalSpeedRes, error) {
 	res := &GetTorrentsTotalSpeedRes{}
 	res.Body.DownloadSpeed = handler.Engine.GetTotalDownloadSpeed()
@@ -38,10 +46,11 @@ func (handler *TorrentHandler) GetTorrentsTotalSpeed(ctx context.Context, input 
 	return res, nil
 }
 
+type GetTorrentsData struct {
+	Torrents []*types.Torrent `json:"torrents"`
+}
 type GetTorrentsRes struct {
-	Body struct {
-		Torrents []*types.Torrent `json:"torrents"`
-	}
+	Body GetTorrentsData
 }
 
 func (handler *TorrentHandler) GetTorrents(ctx context.Context, input *struct{}) (*GetTorrentsRes, error) {
@@ -54,6 +63,53 @@ func (handler *TorrentHandler) GetTorrents(ctx context.Context, input *struct{})
 	})
 	res.Body.Torrents = torrents
 	return res, nil
+}
+
+func (handler *TorrentHandler) GetTorrentsSocket(writer http.ResponseWriter, request *http.Request) {
+	ws, err := upgrader.Upgrade(writer, request, nil)
+	if err != nil {
+		//TODO add logging
+		// if _, ok := err.(websocket.HandshakeError); !ok {
+		// 	log.Fatal("websocket handshake error")
+		// }
+		return
+	}
+	done := make(chan struct{})
+	ticker := time.NewTicker(time.Second)
+
+	defer ws.Close()
+	defer ticker.Stop()
+
+	go func(done chan struct{}) {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				torrents := handler.Engine.GetTorrents()
+
+				sort.Slice(torrents, func(i, j int) bool {
+					return torrents[i].QueueNumber < torrents[j].QueueNumber
+				})
+				var data = GetTorrentsData{
+					Torrents: torrents,
+				}
+				err = ws.WriteJSON(data)
+				if err != nil {
+					close(done)
+				}
+			}
+		}
+	}(done)
+
+	for {
+		mType, _, err := ws.ReadMessage()
+
+		if err != nil || mType == websocket.CloseMessage {
+			close(done)
+			break
+		}
+	}
 }
 
 type GetTorrentReq struct {
