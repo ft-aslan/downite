@@ -113,6 +113,7 @@ func (torrentEngine *TorrentEngine) checkCompletedTorrents() {
 		torrents := torrentEngine.client.Torrents()
 		torrentEngine.mutexForTorrents.Lock()
 		for _, torrent := range torrents {
+			<-torrent.GotInfo()
 			dbTorrent, ok := torrentEngine.torrents[torrent.InfoHash().String()]
 			if !ok {
 				continue
