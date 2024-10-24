@@ -12,7 +12,7 @@ import (
 
 type DownloadHandler struct {
 	Db     *db.Database
-	Engine *direct.Client
+	Engine *direct.DirectDownloadEngine
 }
 
 type DownloadsTotalSpeedData struct {
@@ -71,7 +71,7 @@ type DownloadRes struct {
 
 func (handler *DownloadHandler) Download(ctx context.Context, input *DownloadReq) (*DownloadRes, error) {
 	res := &DownloadRes{}
-	download, err := handler.Engine.DownloadFromUrl(input.Body.Name, input.Body.Url, handler.Engine.Config.PartCount, input.Body.SavePath, input.Body.StartDownload, input.Body.AddTopOfQueue, input.Body.Overwrite)
+	download, err := handler.Engine.DownloadFromUrl(input.Body.Name, input.Body.Url, handler.Engine.DownloadClientConfig.PartCount, input.Body.SavePath, input.Body.StartDownload, input.Body.AddTopOfQueue, input.Body.Overwrite)
 	if err != nil {
 		return nil, err
 	}
@@ -115,19 +115,19 @@ func (handler *DownloadHandler) GetDownload(ctx context.Context, input *GetDownl
 	return res, nil
 }
 
-type GetNewDuplicateFileNameReq struct {
+type GetNewFileNameForPathReq struct {
 	Body struct {
 		SavePath string `json:"savePath"`
 		FileName string `json:"fileName"`
 	}
 }
-type GetNewDuplicateFileNameRes struct {
+type GetNewFileNameForPathRes struct {
 	Body string
 }
 
-func (handler *DownloadHandler) GetNewDuplicateName(ctx context.Context, input *GetNewDuplicateFileNameReq) (*GetNewDuplicateFileNameRes, error) {
-	res := &GetNewDuplicateFileNameRes{}
-	newFileName, err := handler.Engine.CreateNewDuplicateFileName(input.Body.SavePath, input.Body.FileName)
+func (handler *DownloadHandler) GetNewFileNameForPath(ctx context.Context, input *GetNewFileNameForPathReq) (*GetNewFileNameForPathRes, error) {
+	res := &GetNewFileNameForPathRes{}
+	newFileName, err := handler.Engine.CreateNewFileNameForPath(input.Body.SavePath, input.Body.FileName)
 	if err != nil {
 		return nil, err
 	}
@@ -141,8 +141,7 @@ type DownloadActionReq struct {
 	}
 }
 type DownloadActionRes struct {
-	Body struct {
-	}
+	Body struct{}
 }
 
 func (handler *DownloadHandler) PauseDownload(ctx context.Context, input *DownloadActionReq) (*DownloadActionRes, error) {
@@ -155,6 +154,7 @@ func (handler *DownloadHandler) PauseDownload(ctx context.Context, input *Downlo
 	}
 	return res, nil
 }
+
 func (handler *DownloadHandler) ResumeDownload(ctx context.Context, input *DownloadActionReq) (*DownloadActionRes, error) {
 	res := &DownloadActionRes{}
 	for _, id := range input.Body.Ids {
@@ -165,6 +165,7 @@ func (handler *DownloadHandler) ResumeDownload(ctx context.Context, input *Downl
 	}
 	return res, nil
 }
+
 func (handler *DownloadHandler) DeleteDownload(ctx context.Context, input *DownloadActionReq) (*DownloadActionRes, error) {
 	res := &DownloadActionRes{}
 	for _, id := range input.Body.Ids {
@@ -175,6 +176,7 @@ func (handler *DownloadHandler) DeleteDownload(ctx context.Context, input *Downl
 	}
 	return res, nil
 }
+
 func (handler *DownloadHandler) RemoveDownload(ctx context.Context, input *DownloadActionReq) (*DownloadActionRes, error) {
 	res := &DownloadActionRes{}
 	for _, id := range input.Body.Ids {

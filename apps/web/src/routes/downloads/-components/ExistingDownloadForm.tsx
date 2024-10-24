@@ -16,10 +16,12 @@ import React from "react"
 import { client } from "@/api"
 import { toast } from "sonner"
 import { useNavigate } from "@tanstack/react-router"
+import { useMutation } from "@tanstack/react-query"
 
 interface ExistingDownloadFormProps {
   className?: string
   downloadMeta: components["schemas"]["DownloadMeta"]
+  setDownloadMeta: (value: components["schemas"]["DownloadMeta"]) => void
   setOpen: (open: boolean) => void
   setShowDownloadForm: (showDownloadForm: boolean) => void
 }
@@ -35,6 +37,7 @@ export default function ExistingDownloadForm({
   const onRadioChange = (value: string) => {
     setSelectedOption(value)
   }
+
   const onSubmit = async () => {
     switch (selectedOption) {
       case "create":
@@ -111,7 +114,7 @@ export default function ExistingDownloadForm({
             <div className="flex items-center gap-2">
               <RadioGroupItem className="w-auto" value="create" id="r2" />
               <Label className="text-md" htmlFor="r2">
-                Create new download
+                Create new duplicate with numbered file name
               </Label>
             </div>
             <div className="flex items-center gap-2">

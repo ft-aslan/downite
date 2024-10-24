@@ -402,13 +402,13 @@
         "required": ["magnet"],
         "type": "object"
       },
-      "GetNewDuplicateFileNameReqBody": {
+      "GetNewFileNameForPathReqBody": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "http://localhost:9999/api/schemas/GetNewDuplicateFileNameReqBody.json"
+              "http://localhost:9999/api/schemas/GetNewFileNameForPathReqBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -783,38 +783,6 @@
         "summary": "Delete download with files"
       }
     },
-    "/download/duplicate-name": {
-      "post": {
-        "operationId": "get-new-duplicate-name",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetNewDuplicateFileNameReqBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": { "schema": { "type": "string" } }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ErrorModel" }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Get new duplicate name"
-      }
-    },
     "/download/meta": {
       "post": {
         "operationId": "get-download-meta",
@@ -847,6 +815,38 @@
           }
         },
         "summary": "Get meta data of download"
+      }
+    },
+    "/download/new-file-name": {
+      "post": {
+        "operationId": "get-new-file-name-for-path",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetNewFileNameForPathReqBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": { "schema": { "type": "string" } }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get new duplicate name"
       }
     },
     "/download/pause": {
@@ -1111,6 +1111,56 @@
           }
         },
         "summary": "Get file system nodes"
+      }
+    },
+    "/settings/add-save-path": {
+      "post": {
+        "operationId": "add-save-path",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "string" } } },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": { "schema": { "type": "boolean" } }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add Save Path"
+      }
+    },
+    "/settings/save-paths": {
+      "get": {
+        "operationId": "get-save-paths",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "items": { "type": "string" }, "type": "array" }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ErrorModel" }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get save paths"
       }
     },
     "/torrent": {

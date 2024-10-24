@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func initDownloadTest(t *testing.T) *direct.Client {
-	//initilize db
+func initDownloadTest(t *testing.T) *direct.DirectDownloadEngine {
+	// initilize db
 	db, err := db.DbInit()
 	if err != nil {
 		t.Errorf("Cannot connect to db : %s", err)
@@ -17,7 +17,7 @@ func initDownloadTest(t *testing.T) *direct.Client {
 	if err != nil {
 		t.Errorf("Cannot get default config : %s", err)
 	}
-	//initilize download client
+	// initilize download client
 	client, err := direct.CreateDownloadClient(defaultClientConfig, db)
 	if err != nil {
 		t.Errorf("Cannot create download client : %s", err)
@@ -29,6 +29,7 @@ func initDownloadTest(t *testing.T) *direct.Client {
 
 	return client
 }
+
 func TestDownloadFromUrl(t *testing.T) {
 	client := initDownloadTest(t)
 	_, err := client.DownloadFromUrl("https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso", 8, "", true, false)
@@ -36,7 +37,8 @@ func TestDownloadFromUrl(t *testing.T) {
 		t.Errorf("Cannot create download : %s", err)
 	}
 }
-func addDownloadWithState(t *testing.T, client *direct.Client, status types.DownloadStatus) *types.Download {
+
+func addDownloadWithState(t *testing.T, client *direct.DirectDownloadEngine, status types.DownloadStatus) *types.Download {
 	var startDownload bool
 
 	if status == types.DownloadStatusDownloading {

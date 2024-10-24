@@ -32,6 +32,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { FileBrowserDialog } from "@/components/file-browser-dialog"
 import { Dice1, Folder } from "lucide-react"
+import React from "react"
 
 interface DownloadFormProps {
   className?: string
@@ -43,6 +44,7 @@ export default function DownloadForm({
   downloadMeta,
   setOpen,
 }: DownloadFormProps) {
+  const [fileName, setFileName] = React.useState(downloadMeta.fileName)
   //TODO(fatih): dont use any as type. fegure out how we can type form for multipart form
   const form = useForm<components["schemas"]["DownloadReqBody"]>({
     defaultValues: {
@@ -87,6 +89,37 @@ export default function DownloadForm({
       toast.error(error.message)
     },
   })
+
+  const getNewFileNameMutation = useMutation({
+    mutationFn: async (
+      data: components["schemas"]["GetNewFileNameForPathReqBody"]
+    ) => {
+      const res = await client.POST("/download/new-file-name", {
+        body: data,
+      })
+      return res
+    },
+    onSuccess(result) {
+      if (result.data) {
+        setFileName(result.data)
+      }
+    },
+    onError(error) {
+      toast.error(error.message)
+      setOpen(false)
+    },
+  })
+
+  React.useEffect(() => {
+    getNewFileNameMutation.mutate({
+      fileName: downloadMeta.fileName,
+      savePath: form.getValues("savePath"),
+    })
+  }, [])
+
+  if (getNewFileNameMutation.isPending) {
+    return null
+  }
 
   return (
     <Form {...form}>
@@ -138,7 +171,13 @@ export default function DownloadForm({
                       <Input type="text" placeholder="Save Path" {...field} />
 
                       <FileBrowserDialog
-                        onSelect={(path) => field.onChange(path)}
+                        onSelect={(path) => {
+                          field.onChange(path)
+                          getNewFileNameMutation.mutate({
+                            fileName: downloadMeta.fileName,
+                            savePath: path,
+                          })
+                        }}
                       >
                         <Button variant="default" className="gap-1">
                           <Folder className="h-3.5 w-3.5" />

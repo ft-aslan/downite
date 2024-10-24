@@ -29,40 +29,35 @@ type DownloadClientConfig struct {
 }
 
 // HTTP DOWNLOAD CLIENT
-type Client struct {
-	// config *ClientConfig
-	// logger log.Logger
-
-	// defaultStorage *storage.Client
-	onClose []func()
-
-	mutexForDownloads sync.Mutex
-	downloads         map[int]*types.Download
-	httpClient        *http.Client
-	Config            *DownloadClientConfig
-	db                *db.Database
-	// part contexts for each download. we need to cancel them if download is cancelled
-	mutexForPartContexts sync.Mutex
+type DirectDownloadEngine struct {
+	downloads            map[int]*types.Download
+	httpClient           *http.Client
+	DownloadClientConfig *DownloadClientConfig
+	db                   *db.Database
 	partContextMap       map[int][]*contextWithCancel
+	onClose              []func()
+	mutexForDownloads    sync.Mutex
+	mutexForPartContexts sync.Mutex
 }
 type contextWithCancel struct {
 	ctx    *context.Context
 	cancel context.CancelFunc
 }
 
-func CreateDownloadClient(config *DownloadClientConfig, db *db.Database) (*Client, error) {
-	return &Client{
-		Config: config,
+func CreateDownloadClient(config *DownloadClientConfig, db *db.Database) (*DirectDownloadEngine, error) {
+	return &DirectDownloadEngine{
+		DownloadClientConfig: config,
 		httpClient: &http.Client{
 			Transport: http.DefaultTransport,
 		},
 		db: db,
 	}, nil
 }
+
 func NewClientDefaultConfig() (*DownloadClientConfig, error) {
 	executablePath, err := os.Executable()
 	if err != nil {
-		panic(fmt.Errorf("Cannot get executable path : %s", err))
+		panic(fmt.Errorf("cannot get executable path : %s", err))
 	}
 	defaultDownloadsDir := filepath.Join(filepath.Dir(executablePath), "/tmp/downloads")
 	// Check if the directory exists
@@ -71,10 +66,10 @@ func NewClientDefaultConfig() (*DownloadClientConfig, error) {
 		if os.IsNotExist(err) {
 			// Create the directory if it doesn't exist
 			if err := os.MkdirAll(defaultDownloadsDir, os.ModePerm); err != nil {
-				return nil, fmt.Errorf("Error creating directory: %s", err)
+				return nil, fmt.Errorf("creating directory: %s", err)
 			}
 		} else {
-			return nil, fmt.Errorf("Error checking default downloads directory: %s", err)
+			return nil, fmt.Errorf("checking default downloads directory: %s", err)
 		}
 	}
 	defaultClientConfig := DownloadClientConfig{
@@ -83,7 +78,8 @@ func NewClientDefaultConfig() (*DownloadClientConfig, error) {
 	}
 	return &defaultClientConfig, nil
 }
-func (client *Client) InitDownloads() error {
+
+func (client *DirectDownloadEngine) InitDownloads() error {
 	client.downloads = make(map[int]*types.Download, 0)
 	client.partContextMap = make(map[int][]*contextWithCancel)
 
@@ -114,14 +110,16 @@ func (client *Client) InitDownloads() error {
 
 	return nil
 }
-func (client *Client) Stop() []error {
+
+func (client *DirectDownloadEngine) Stop() []error {
 	errs := make([]error, 0)
 	for _, download := range client.downloads {
 		errs = append(errs, client.PauseDownload(download.Id))
 	}
 	return errs
 }
-func (client *Client) updateDownloadSpeeds() {
+
+func (client *DirectDownloadEngine) updateDownloadSpeeds() {
 	for {
 		// we calculate time to take mutex. because we need to calculate exact download speed per second
 		start := time.Now()
@@ -131,7 +129,7 @@ func (client *Client) updateDownloadSpeeds() {
 		for _, download := range client.downloads {
 			download.DownloadSpeed = download.BytesWritten / 1024
 
-			//reset bytes written
+			// reset bytes written
 			download.BytesWritten = 0
 		}
 		client.mutexForDownloads.Unlock()
@@ -139,7 +137,7 @@ func (client *Client) updateDownloadSpeeds() {
 	}
 }
 
-func (client *Client) CheckDownloadStatus(id int, state types.DownloadStatus) bool {
+func (client *DirectDownloadEngine) CheckDownloadStatus(id int, state types.DownloadStatus) bool {
 	download, err := client.GetDownload(id)
 	if err != nil {
 		return false
@@ -149,7 +147,8 @@ func (client *Client) CheckDownloadStatus(id int, state types.DownloadStatus) bo
 
 	return download.Status == state.String()
 }
-func (client *Client) PauseDownload(id int) error {
+
+func (client *DirectDownloadEngine) PauseDownload(id int) error {
 	if client.CheckDownloadStatus(id, types.DownloadStatusPaused) {
 		return fmt.Errorf("download is already paused")
 	}
@@ -166,7 +165,7 @@ func (client *Client) PauseDownload(id int) error {
 	fmt.Printf("Pausing download : %s \n", download.Name)
 	client.mutexForDownloads.Unlock()
 
-	//cancel all part downloads
+	// cancel all part downloads
 	client.mutexForPartContexts.Lock()
 	partContexts, ok := client.partContextMap[id]
 	if !ok {
@@ -177,7 +176,7 @@ func (client *Client) PauseDownload(id int) error {
 		ctxWithCancel.cancel()
 	}
 
-	//delete part contexts from map
+	// delete part contexts from map
 	delete(client.partContextMap, id)
 	client.mutexForPartContexts.Unlock()
 
@@ -188,7 +187,7 @@ func (client *Client) PauseDownload(id int) error {
 	return nil
 }
 
-func (client *Client) ResumeDownload(id int) error {
+func (client *DirectDownloadEngine) ResumeDownload(id int) error {
 	if client.CheckDownloadStatus(id, types.DownloadStatusDownloading) {
 		return fmt.Errorf("download is already running")
 	}
@@ -215,13 +214,13 @@ func (client *Client) ResumeDownload(id int) error {
 	}
 	err = client.StartDownload(id)
 	if err != nil {
-		return fmt.Errorf("could not start download : %s\n", err)
+		return fmt.Errorf("could not start download : %s", err)
 	}
 
 	return nil
 }
 
-func (client *Client) resetDownloadSpeed(id int) error {
+func (client *DirectDownloadEngine) resetDownloadSpeed(id int) error {
 	download, err := client.GetDownload(id)
 	if err != nil {
 		return err
@@ -233,7 +232,7 @@ func (client *Client) resetDownloadSpeed(id int) error {
 	return nil
 }
 
-func (client *Client) updateDownloadStatus(id int, status types.DownloadStatus) error {
+func (client *DirectDownloadEngine) updateDownloadStatus(id int, status types.DownloadStatus) error {
 	download, err := client.GetDownload(id)
 	if err != nil {
 		return err
@@ -259,7 +258,8 @@ func (client *Client) updateDownloadStatus(id int, status types.DownloadStatus) 
 
 	return nil
 }
-func (client *Client) CheckDownload(rawUrl string, fileName string, fileSize uint64) (bool, int) {
+
+func (client *DirectDownloadEngine) CheckDownload(rawUrl string, fileName string, fileSize uint64) (bool, int) {
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
 	for _, download := range client.downloads {
@@ -269,7 +269,8 @@ func (client *Client) CheckDownload(rawUrl string, fileName string, fileSize uin
 	}
 	return false, 0
 }
-func (client *Client) GetDownloadMeta(rawUrl string) (*types.DownloadMeta, error) {
+
+func (client *DirectDownloadEngine) GetDownloadMeta(rawUrl string) (*types.DownloadMeta, error) {
 	parsedUrl, err := url.Parse(rawUrl)
 	if err != nil {
 		return nil, err
@@ -299,21 +300,19 @@ func (client *Client) GetDownloadMeta(rawUrl string) (*types.DownloadMeta, error
 	}
 
 	req, err := http.NewRequest("HEAD", rawUrl, nil)
-
 	if err != nil {
 		return nil, fmt.Errorf("while creating request: %s", err)
 	}
 
 	res, err := client.httpClient.Do(req)
-
 	if err != nil {
 		return nil, fmt.Errorf("while head request: %s", err)
 	}
-	//check if server accepts split downloads
+	// check if server accepts split downloads
 	rangesHeader := res.Header.Get("Accept-Ranges")
-	//total file size
+	// total file size
 	contentLengthHeader := res.Header.Get("Content-Length")
-	//EXAMPLE HEADER = "attachment; filename=\"test.txt\""
+	// EXAMPLE HEADER = "attachment; filename=\"test.txt\""
 	contentDispositionHeader := res.Header.Get("Content-Disposition")
 	fileTypeHeader := res.Header.Get("Content-Type")
 
@@ -335,7 +334,7 @@ func (client *Client) GetDownloadMeta(rawUrl string) (*types.DownloadMeta, error
 		}
 		fileName = filename
 	} else {
-		//if it has filename in its string
+		// if it has filename in its string
 		fileName = getFileNameFromHeader(contentDispositionHeader)
 	}
 
@@ -377,7 +376,6 @@ func (client *Client) GetDownloadMeta(rawUrl string) (*types.DownloadMeta, error
 		IsExist:            ok,
 		ExistingDownloadId: id,
 	}, nil
-
 }
 
 // FilterFormats filters a list of YouTube formats based on a specific kind (e.g. "video/mp4")
@@ -401,7 +399,8 @@ func GetBestHighFormat(formats []youtube.Format) youtube.Format {
 	}
 	return bestFormat
 }
-func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int, savePath string, startDownload bool, addTopOfQueue bool, overwrite bool) (*types.Download, error) {
+
+func (client *DirectDownloadEngine) DownloadFromUrl(name string, rawUrl string, partCount int, savePath string, startDownload bool, addTopOfQueue bool, overwrite bool) (*types.Download, error) {
 	parsedUrl, err := url.Parse(rawUrl)
 	if err != nil {
 		return nil, err
@@ -429,7 +428,7 @@ func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int,
 		// destroy youtube client
 		youtubeClient = nil
 	}
-	//GET METAINFO
+	// GET METAINFO
 	metaInfo, err := client.GetDownloadMeta(rawUrl)
 	if err != nil {
 		return nil, err
@@ -446,7 +445,7 @@ func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int,
 
 	// if save path empty use default path
 	if savePath == "" {
-		savePath = client.Config.DownloadPath
+		savePath = client.DownloadClientConfig.DownloadPath
 	}
 
 	if name == "" {
@@ -454,7 +453,7 @@ func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int,
 	}
 
 	if !overwrite {
-		//CHECK IF FILE EXISTS
+		// CHECK IF FILE EXISTS
 		if _, err := os.Stat(filepath.Join(savePath, name)); err == nil {
 			return nil, fmt.Errorf("file already exists")
 		}
@@ -475,15 +474,15 @@ func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int,
 		Status:          types.DownloadStatusPaused.String(),
 	}
 
-	//REGISTER DOWNLOAD to DB
-	//from now on download has id from db
+	// REGISTER DOWNLOAD to DB
+	// from now on download has id from db
 	err = client.RegisterDownload(download, addTopOfQueue)
 	if err != nil {
 		return nil, err
 	}
-	//ADD DOWNLOAD TO client
+	// ADD DOWNLOAD TO client
 	client.AddDownload(download)
-	//START SPLIT DOWNLOAD
+	// START SPLIT DOWNLOAD
 	if startDownload {
 		err := client.StartDownload(download.Id)
 		if err != nil {
@@ -493,7 +492,8 @@ func (client *Client) DownloadFromUrl(name string, rawUrl string, partCount int,
 
 	return download, nil
 }
-func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue bool) error {
+
+func (client *DirectDownloadEngine) RegisterDownload(download *types.Download, addTopOfQueue bool) error {
 	if addTopOfQueue {
 		download.QueueNumber = 1
 	} else {
@@ -523,7 +523,8 @@ func (client *Client) RegisterDownload(download *types.Download, addTopOfQueue b
 
 	return nil
 }
-func (client *Client) RegisterDownloadParts(download *types.Download) error {
+
+func (client *DirectDownloadEngine) RegisterDownloadParts(download *types.Download) error {
 	for i := 0; i < download.PartCount; i++ {
 
 		startByteIndex := uint64(i) * download.PartLength
@@ -531,7 +532,7 @@ func (client *Client) RegisterDownloadParts(download *types.Download) error {
 		partLength := download.PartLength
 
 		if i == download.PartCount-1 {
-			//this is last part
+			// this is last part
 			endByteIndex = download.TotalSize
 			partLength = download.TotalSize - startByteIndex
 		}
@@ -556,7 +557,8 @@ func (client *Client) RegisterDownloadParts(download *types.Download) error {
 
 	return nil
 }
-func (client *Client) CreateNewDuplicateFileName(path string, fileName string) (string, error) {
+
+func (client *DirectDownloadEngine) CreateNewFileNameForPath(path string, fileName string) (string, error) {
 	fileExt := filepath.Ext(fileName)
 	fileNameWithoutExt := strings.TrimSuffix(fileName, fileExt)
 	newNumber := 0
@@ -583,13 +585,15 @@ func (client *Client) CreateNewDuplicateFileName(path string, fileName string) (
 
 	return fmt.Sprintf("%s_%d%s", fileNameWithoutExt, newNumber, fileExt), nil
 }
-func (client *Client) AddDownload(download *types.Download) {
+
+func (client *DirectDownloadEngine) AddDownload(download *types.Download) {
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
 
 	client.downloads[download.Id] = download
 }
-func (client *Client) RemoveDownload(id int) error {
+
+func (client *DirectDownloadEngine) RemoveDownload(id int) error {
 	err := client.PauseDownload(id)
 	if err != nil {
 		// TODO: improve error handling . we don't have error types
@@ -624,7 +628,8 @@ func (client *Client) RemoveDownload(id int) error {
 
 	return nil
 }
-func (client *Client) ReinitilizeDownload(id int) error {
+
+func (client *DirectDownloadEngine) ReinitilizeDownload(id int) error {
 	download, err := client.GetDownload(id)
 	if err != nil {
 		return err
@@ -657,10 +662,9 @@ func (client *Client) ReinitilizeDownload(id int) error {
 	}
 
 	return nil
-
 }
 
-func (client *Client) updateDownloadQueueNumbers() error {
+func (client *DirectDownloadEngine) updateDownloadQueueNumbers() error {
 	dbDownloads, err := client.db.GetDownloads()
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
@@ -673,8 +677,7 @@ func (client *Client) updateDownloadQueueNumbers() error {
 	return nil
 }
 
-func (client *Client) DeleteDownload(id int) error {
-
+func (client *DirectDownloadEngine) DeleteDownload(id int) error {
 	client.mutexForDownloads.Lock()
 	savePath := client.downloads[id].SavePath
 	fileName := client.downloads[id].Name
@@ -694,7 +697,8 @@ func (client *Client) DeleteDownload(id int) error {
 	}
 	return nil
 }
-func (client *Client) GetDownload(id int) (*types.Download, error) {
+
+func (client *DirectDownloadEngine) GetDownload(id int) (*types.Download, error) {
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
 
@@ -704,7 +708,8 @@ func (client *Client) GetDownload(id int) (*types.Download, error) {
 	}
 	return download, nil
 }
-func (client *Client) GetDownloads() ([]*types.Download, error) {
+
+func (client *DirectDownloadEngine) GetDownloads() ([]*types.Download, error) {
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
 
@@ -717,7 +722,8 @@ func (client *Client) GetDownloads() ([]*types.Download, error) {
 	}
 	return downloads, nil
 }
-func (client *Client) StartDownload(id int) error {
+
+func (client *DirectDownloadEngine) StartDownload(id int) error {
 	download, err := client.GetDownload(id)
 	if err != nil {
 		return err
@@ -725,9 +731,9 @@ func (client *Client) StartDownload(id int) error {
 	fmt.Printf("starting download : %s \n", filepath.Join(download.SavePath, download.Name))
 
 	partProcessChan := make(chan *types.DownloadPart, download.PartCount)
-	errorChan := make(chan error)
+errorChhttps: // www.reddit.com/r/Damnthatsinteresting/comments/1fz41kc/using_the_crispr_technique_to_genetically_modify/an := make(chan error)
 
-	var completedPartCount int = 0
+	completedPartCount := 0
 
 	downloadPartContexts := make([]*contextWithCancel, 0, download.PartCount)
 
@@ -751,10 +757,8 @@ func (client *Client) StartDownload(id int) error {
 			}
 			defer filePartBuffer.Close()
 
-			isRangeAllowed := true
-			if len(download.Parts) == 1 {
-				isRangeAllowed = false
-			}
+			isRangeAllowed := len(download.Parts) != 1
+
 			err = client.downloadFilePart(download, part, filePartBuffer, download.Url, ctx, isRangeAllowed)
 			if err != nil {
 				// if download is canceled then return
@@ -826,7 +830,7 @@ func (client *Client) StartDownload(id int) error {
 			}
 		}
 
-		//the download is completed now
+		// the download is completed now
 		err = client.updateDownloadStatus(id, types.DownloadStatusCompleted)
 		if err != nil {
 			fmt.Printf("Error while updating download status in db : %s", err)
@@ -891,7 +895,7 @@ func (client *Client) StartDownload(id int) error {
 }
 
 // delete download parts with files
-func (client *Client) deleteDownloadParts(id int) error {
+func (client *DirectDownloadEngine) deleteDownloadParts(id int) error {
 	client.mutexForPartContexts.Lock()
 	delete(client.partContextMap, id)
 	client.mutexForPartContexts.Unlock()
@@ -957,7 +961,7 @@ func getFileNameFromHeader(contentDisposition string) string {
 	return ""
 }
 
-func (client *Client) downloadFilePart(download *types.Download, downloadPart *types.DownloadPart, filePart *os.File, url string, ctx context.Context, isRangeAllowed bool) error {
+func (client *DirectDownloadEngine) downloadFilePart(download *types.Download, downloadPart *types.DownloadPart, filePart *os.File, url string, ctx context.Context, isRangeAllowed bool) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("while creating request: %s", err)
@@ -987,7 +991,7 @@ func (client *Client) downloadFilePart(download *types.Download, downloadPart *t
 	return nil
 }
 
-func (client *Client) GetTotalDownloadSpeed() uint64 {
+func (client *DirectDownloadEngine) GetTotalDownloadSpeed() uint64 {
 	client.mutexForDownloads.Lock()
 	defer client.mutexForDownloads.Unlock()
 	var totalDownloadSpeed uint64

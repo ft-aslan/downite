@@ -62,6 +62,7 @@ export function AddDownloadDialog({ children }: { children: React.ReactNode }) {
 
             <ExistingDownloadForm
               downloadMeta={downloadMeta}
+              setDownloadMeta={setDownloadMeta}
               setOpen={setOpen}
               setShowDownloadForm={setShowDownloadForm}
             />

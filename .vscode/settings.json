@@ -1,0 +1,11 @@
+{
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "driver": "SQLite",
+      "name": "downite",
+      "database": "${workspaceFolder:downite}/apps/server/bin/downite.db"
+    }
+  ],
+  "sqltools.useNodeRuntime": true
+}

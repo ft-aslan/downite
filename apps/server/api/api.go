@@ -6,6 +6,7 @@ import (
 	"downite/download/protocol/direct"
 	"downite/download/protocol/torr"
 	"downite/handlers"
+	"downite/settings"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -33,7 +34,7 @@ func ApiInit(options *ApiOptions) *API {
 	api := &API{}
 	cli := humacli.New(func(hooks humacli.Hooks, options *ApiOptions) {
 		mux := http.NewServeMux()
-		//initilize docs
+		// initilize docs
 		mux.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
 			w.Write([]byte(`
@@ -55,7 +56,7 @@ func ApiInit(options *ApiOptions) *API {
 			</html>
 			`))
 		})
-		//initilize huma
+		// initilize huma
 		config := huma.DefaultConfig("Downite API", "0.0.1")
 		config.Servers = []*huma.Server{{URL: "http://localhost:9999/api"}}
 
@@ -66,7 +67,7 @@ func ApiInit(options *ApiOptions) *API {
 		api.humaApi = humaApi
 		// api.UseMiddleware(CorsMiddleware)
 
-		//disabled cors
+		// disabled cors
 		cors := cors.New(cors.Options{
 			AllowedOrigins: []string{"*"},
 			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -78,27 +79,32 @@ func ApiInit(options *ApiOptions) *API {
 			Handler: corsMux,
 		}
 
-		//initilize db
+		// initilize db
 		db, err := db.DbInit()
 		if err != nil {
 			fmt.Printf("Cannot connect to db : %s", err)
 		}
 
-		//initilize torrent engine
+		// initilize torrent engine
+		settingsSystem, err := settings.InitilizeSettingsSystem(db, nil)
+		// initilize torrent engine
 		torrentEngine, err := InitTorrentEngine(db)
-		//initilize download client
+		// initilize download client
 		downloadEngine, err := InitDownloadEngine(db)
-		//register download routes
+		// register download routes
 		AddDownloadRoutes(handlers.DownloadHandler{
 			Db:     db,
 			Engine: downloadEngine,
 		}, api.humaApi)
-		//register torrent routes
+		// register torrent routes
 		AddTorrentRoutes(handlers.TorrentHandler{
 			Db:     db,
 			Engine: torrentEngine,
 		}, api.humaApi)
 		AddSystemRoutes(handlers.SystemHandler{}, api.humaApi)
+		AddSettingsRoutes(handlers.SettingsHandler{
+			SettingsSystem: settingsSystem,
+		}, api.humaApi)
 
 		api.ExportOpenApi()
 
@@ -135,11 +141,13 @@ func ApiInit(options *ApiOptions) *API {
 
 	return api
 }
+
 func (api *API) Run() {
 	api.Cli.Run()
 }
+
 func InitTorrentEngine(db *db.Database) (*torr.TorrentEngine, error) {
-	//initilize torrent engine
+	// initilize torrent engine
 	pieceCompletionDir := "./tmp"
 	defaultTorrentsDir := "./tmp/torrents"
 	torrentEngineConfig := torr.TorrentEngineConfig{
@@ -157,12 +165,13 @@ func InitTorrentEngine(db *db.Database) (*torr.TorrentEngine, error) {
 
 	return torrentEngine, nil
 }
-func InitDownloadEngine(db *db.Database) (*direct.Client, error) {
+
+func InitDownloadEngine(db *db.Database) (*direct.DirectDownloadEngine, error) {
 	defaultClientConfig, err := direct.NewClientDefaultConfig()
 	if err != nil {
 		return nil, fmt.Errorf("Cannot get default config : %s", err)
 	}
-	//initilize download client
+	// initilize download client
 	downloadClient, err := direct.CreateDownloadClient(defaultClientConfig, db)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot torrent download client : %s", err)
@@ -174,8 +183,9 @@ func InitDownloadEngine(db *db.Database) (*direct.Client, error) {
 
 	return downloadClient, nil
 }
+
 func (api *API) ExportOpenApi() {
-	//write api json to file
+	// write api json to file
 	apiJson, err := json.Marshal(api.humaApi.OpenAPI())
 	if err != nil {
 		panic(err)
@@ -186,13 +196,14 @@ func (api *API) ExportOpenApi() {
 		return
 	}
 
-	//run prettier for openapi.json
+	// run prettier for openapi.json
 	err = exec.Command("bunx", "prettier", "docs/openapi.json", "--write", "--parser", "json").Run()
 	if err != nil {
 		fmt.Println("Error running prettier for openapi.json:", err)
 		return
 	}
 }
+
 func AddSystemRoutes(handler handlers.SystemHandler, humaApi huma.API) {
 	// huma.Register(humaApi, huma.Operation{
 	// 	OperationID: "get-system-info",
@@ -207,8 +218,9 @@ func AddSystemRoutes(handler handlers.SystemHandler, humaApi huma.API) {
 		Summary:     "Get file system nodes",
 	}, handler.GetFileSystemNodes)
 }
+
 func AddTorrentRoutes(handler handlers.TorrentHandler, humaApi huma.API) {
-	//register api routes
+	// register api routes
 	// registering the download torrent route manually because it's a multipart/form-data request
 	schema := humaApi.OpenAPI().Components.Schemas.Schema(reflect.TypeOf(handlers.DownloadTorrentReqBody{}), true, "DownloadTorrentReqBodyStruct")
 	huma.Register(humaApi, huma.Operation{
@@ -283,8 +295,8 @@ func AddTorrentRoutes(handler handlers.TorrentHandler, humaApi huma.API) {
 		Path:        "/torrent/speed",
 		Summary:     "Get torrents total speed",
 	}, handler.GetTorrentsTotalSpeed)
-
 }
+
 func AddDownloadRoutes(handler handlers.DownloadHandler, humaApi huma.API) {
 	huma.Register(humaApi, huma.Operation{
 		OperationID: "get-download-meta",
@@ -341,11 +353,26 @@ func AddDownloadRoutes(handler handlers.DownloadHandler, humaApi huma.API) {
 		Summary:     "Get downloads total speed",
 	}, handler.GetDownloadsTotalSpeed)
 	huma.Register(humaApi, huma.Operation{
-		OperationID: "get-new-duplicate-name",
+		OperationID: "get-new-file-name-for-path",
 		Method:      http.MethodPost,
-		Path:        "/download/duplicate-name",
+		Path:        "/download/new-file-name",
 		Summary:     "Get new duplicate name",
-	}, handler.GetNewDuplicateName)
+	}, handler.GetNewFileNameForPath)
+}
+
+func AddSettingsRoutes(handler handlers.SettingsHandler, humaApi huma.API) {
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "get-save-paths",
+		Method:      http.MethodGet,
+		Path:        "/settings/save-paths",
+		Summary:     "Get save paths",
+	}, handler.GetSavePaths)
+	huma.Register(humaApi, huma.Operation{
+		OperationID: "add-save-path",
+		Method:      http.MethodPost,
+		Path:        "/settings/add-save-path",
+		Summary:     "Add Save Path",
+	}, handler.AddSavePath)
 }
 
 // Create a custom middleware handler to disable CORS
